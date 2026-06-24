@@ -445,7 +445,7 @@ Expected: `7 passed, 6 deselected` (covers pattern_hash, model_digest, prompt_ha
 .venv/bin/pytest -q tests/test_ollama_trust.py -k "owner_mismatch or mode_0644 or world_writable"
 ```
 
-Expected: all pass (UDS with wrong owner/mode raises, never silently accepted).
+Expected: `3 passed, 7 deselected` (UDS with wrong owner/mode raises, never silently accepted).
 
 ### 2.11 Canary corpus has positive and negative fixtures
 
