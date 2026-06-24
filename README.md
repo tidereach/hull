@@ -152,6 +152,24 @@ Compliance documentation maps each gate component to its OWASP ASI Top 10 risk. 
 
 ---
 
+## Troubleshooting
+
+### Classifier times out (`classifier_unavailable: timed out`)
+
+`spektralia check-ollama` only pings `/api/version` — it does not run inference. The model may not yet be loaded into memory, causing the first classify call to exceed the default 10-second timeout. Fix:
+
+```bash
+# Warm up the model before running spektralia
+ollama run llama3.2:3b "ping" --nowordwrap
+
+# Or raise the timeout for a single invocation
+SPEKTRALIA_CLASSIFIER_TIMEOUT_SECONDS=60 spektralia scan
+```
+
+The gate still blocks on a rule hit even when the classifier is unavailable — `classifier_unavailable` in the block reason is a secondary signal, not the primary cause of the block.
+
+---
+
 ## Reference
 
 - `PLAN.md` — consolidated phased plan with current status, bugs, and carry-overs
