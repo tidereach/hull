@@ -554,7 +554,7 @@ model_digest:
 spektralia stats
 ```
 
-Expected: JSON or text output with `frozen: False` (or `True` if frozen). Exit 0.
+Expected: `frozen: False`. Exit 0.
 
 ### 3.7 `spektralia freeze` / `unfreeze`
 
