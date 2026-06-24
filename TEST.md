@@ -133,14 +133,15 @@ Expected: at least one `SECRET_HIGH_ENTROPY` detection on the high-entropy token
 ```bash
 python -c "
 import base64
-from spektralia.decode import scan_decoded
-secret = base64.b64encode(b'alice@example.com').decode()
-dets = scan_decoded(secret)
+from spektralia.decode import decode_and_rescan
+# payload must be >=40 base64 chars to trigger the pattern
+secret = base64.b64encode(b'contact alice@example.com for billing info').decode()
+dets = decode_and_rescan(secret)
 print([d.label for d in dets])
 "
 ```
 
-Expected: `['EMAIL_ENCODED']` or similar encoded-label detection.
+Expected: `['EMAIL_ENCODED']`.
 
 ### 1.8 Secret value never in exceptions
 
