@@ -59,3 +59,19 @@ def test_homoglyph_fold_cyrillic_api_key():
     text = "аpi_key=secret123"  # starts with Cyrillic а
     result = normalize(text)
     assert result.normalized.startswith("api_key=secret123")
+
+
+def test_nfkc_expanding_span_round_trip():
+    """Offset map must be correct for NFKC-expanding codepoints."""
+    from spektralia.normalize import normalize
+
+    # ﬃ (U+FB03) expands to "ffi" under NFKC (1 char → 3 chars)
+    # Place a secret after it: "ﬃ:secret" where "secret" starts at original index 2
+    original = "ﬃ:secret"
+    # After NFKC: "ffi:secret" (10 chars), original "secret" starts at norm index 4
+    result = normalize(original)
+    assert result.normalized == "ffi:secret"
+    # The 's' of 'secret' is at normalized index 4; original index must be 2
+    assert result.offset_map[4] == 2
+    # The 'e' is at normalized index 5; original index must be 3
+    assert result.offset_map[5] == 3
