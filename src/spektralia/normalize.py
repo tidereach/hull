@@ -56,12 +56,17 @@ def normalize(text: str) -> NormalizeResult:
     """Apply NFKC + obfuscation strip + homoglyph fold.
 
     Maintains offset_map so scanner can report original positions.
+
+    Algorithm:
+    1. Iterate over original text char by char.
+    2. Skip obfuscation chars (zero-width, bidi, variation/tag), recording removals.
+    3. For each kept char, apply NFKC to that single char — may expand 1 → N chars.
+    4. Append each expanded output char and its source orig_i to result/offset_map.
+    5. Apply homoglyph fold on the fully-built string (1-to-1, offset_map stays valid).
     """
     removals: list[tuple[int, str, str]] = []
-
-    # Pass 1: strip obfuscation chars and build offset map
-    filtered: list[str] = []
-    offset_map: list[int] = []  # filtered_index -> original_index
+    result_chars: list[str] = []
+    offset_map: list[int] = []  # normalized_index -> original_index
 
     for orig_i, ch in enumerate(text):
         if ch in _ZERO_WIDTH:
@@ -73,19 +78,14 @@ def normalize(text: str) -> NormalizeResult:
         if _is_variation_or_tag(ch):
             removals.append((orig_i, ch, "VARIATION_OR_TAG"))
             continue
-        filtered.append(ch)
-        offset_map.append(orig_i)
+        # NFKC-expand the single char; may produce 1 or more output chars
+        expanded = unicodedata.normalize("NFKC", ch)
+        for out_ch in expanded:
+            result_chars.append(out_ch)
+            offset_map.append(orig_i)
 
-    stripped = "".join(filtered)
-
-    # Pass 2: NFKC normalization (may change char counts — we approximate offsets)
-    nfkc = unicodedata.normalize("NFKC", stripped)
-
-    # Pass 3: homoglyph fold
-    folded = nfkc.translate(_HOMOGLYPH_TABLE)
-
-    # Note: NFKC can change string length; we use the pre-NFKC offset_map
-    # as a best-effort approximation (sufficient for span reporting).
+    # Homoglyph fold is 1-to-1, so offset_map remains valid
+    folded = "".join(result_chars).translate(_HOMOGLYPH_TABLE)
 
     return NormalizeResult(
         normalized=folded,
