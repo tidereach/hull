@@ -90,6 +90,16 @@ class Gate:
             self._model_digest = fetch_model_digest(self._client, s.ollama_model)
         return self._client
 
+    def freeze(self) -> None:
+        """Freeze the gate and invalidate all cached verdicts."""
+        self._freeze.set_frozen(True)
+        self._cache.invalidate_all()
+
+    def unfreeze(self) -> None:
+        """Unfreeze the gate and invalidate all cached verdicts."""
+        self._freeze.set_frozen(False)
+        self._cache.invalidate_all()
+
     def _run_canary(self) -> None:
         result = run_canary(scan)
         self._last_canary = result
