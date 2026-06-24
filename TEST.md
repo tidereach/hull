@@ -202,7 +202,7 @@ if sys.platform == 'linux':
 "
 ```
 
-Expected: `Dumpable: 0` (or the line is absent if the kernel omits it when already 0).
+Expected: no output (this kernel omits the `Dumpable` line from `/proc/self/status` when it is 0, which is the desired state). No exception means `PR_SET_DUMPABLE=0` was set successfully at import.
 
 ---
 
