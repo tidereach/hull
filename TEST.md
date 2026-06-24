@@ -24,7 +24,7 @@ spektralia --version   # prints: spektralia 0.1.0
 
 ```bash
 .venv/bin/pytest -q
-# Expected: 215 passed, 1 xfailed
+# Expected: 223 passed, 1 xfailed
 ```
 
 The sections below re-run targeted subsets and then exercise the behaviour manually.
@@ -709,7 +709,7 @@ Expected: `TestReDoSTimeout` tests pass; any newly-added pattern with catastroph
 
 | Command | Expected exit |
 |---------|--------------|
-| `pytest -q` | 0 (215 passed, 1 xfailed) |
+| `pytest -q` | 0 (223 passed, 1 xfailed) |
 | `echo "hello" \| spektralia scan` | 0 |
 | `echo "alice@example.com" \| spektralia scan` | 2 |
 | `spektralia verify-integrity` | 0 |
