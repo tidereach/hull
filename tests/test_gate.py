@@ -185,27 +185,22 @@ async def test_anomaly_auto_freeze_on_classifier_unavailable(tmp_path):
                     pass
     # After enough classifier_unavailable events, anomaly detector should trigger freeze
     assert g._anomaly.should_freeze is True
+    # Frozen state must also block the next call
+    with pytest.raises(SensitiveDataError):
+        await g.gate("hello world")
 
 
 # ---------------------------------------------------------------------------
-# Test 7: GateResult exposes only labels, not raw values
+# Test 7: Detection dataclass does not expose raw matched text
 # ---------------------------------------------------------------------------
 
-@pytest.mark.asyncio
-@respx.mock
-async def test_gate_result_detections_have_no_raw_values(tmp_path):
-    """Detection objects in GateResult must not expose raw matched text."""
-    # This tests a pass case: safe text with no detections
-    respx.post(f"{MOCK_BASE}/api/generate").mock(side_effect=[
-        httpx.Response(200, json=_cr(False, 0.03, [])),
-        httpx.Response(200, json=_cr(False, 0.01, [])),
-    ])
-    g = _gate(tmp_path)
-    with patch.object(g, "_get_client", return_value=_mock_client()):
-        result = await g.gate("The quick brown fox jumps over the lazy dog")
-    assert result.blocked is False
-    for det in result.detections:
-        assert hasattr(det, "label")
-        assert hasattr(det, "start")
-        assert hasattr(det, "end")
-        assert not hasattr(det, "value"), "Detection must not have a 'value' attribute"
+def test_detection_has_no_value_attribute():
+    """Detection dataclass must not expose raw matched text as a 'value' attribute."""
+    from spektralia.scanner import scan
+    dets = scan("Contact alice@example.com today")
+    assert dets, "expected at least one Detection for email input"
+    for det in dets:
+        assert hasattr(det, "label"), "Detection must have label"
+        assert hasattr(det, "start"), "Detection must have start"
+        assert hasattr(det, "end"), "Detection must have end"
+        assert not hasattr(det, "value"), "Detection must not have a 'value' attribute (raw text must not be stored)"
