@@ -531,7 +531,7 @@ Expected: `Blocked: rule(EMAIL) + classifier(1.00, ['PII'])` on stderr, exits 2.
 echo "alice@example.com" | spektralia scan --explain
 ```
 
-Expected: stderr shows `[EMAIL]` detection and span. Stdout may be sanitized text or empty (depending on mode).
+Expected: `Blocked: rule(EMAIL) + classifier(1.00, ['PII'])` on stderr plus `[EMAIL]` detection and span info.
 
 ### 3.5 `spektralia verify-integrity`
 
