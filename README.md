@@ -190,6 +190,25 @@ SPEKTRALIA_CLASSIFIER_TIMEOUT_SECONDS=60 spektralia scan
 
 The gate still blocks on a rule hit even when the classifier is unavailable — `classifier_unavailable` in the block reason is a secondary signal, not the primary cause of the block.
 
+### Classifier false-positives on benign input (`classifier(1.00, [])`)
+
+`llama3.2:3b` may classify short or ambiguous benign text as sensitive with `confidence: 1.0` and no categories (`[]`). This happens because the classifier defaults to fail-closed when the model's JSON response lacks specific category signals. The `sensitivity_threshold` (default `0.7`) applies — `confidence >= threshold` blocks.
+
+Options:
+
+```bash
+# Use a longer, unambiguous sentence to test
+echo "The weather today is sunny and warm." | spektralia scan
+
+# Raise the threshold to reduce false positives
+SPEKTRALIA_SENSITIVITY_THRESHOLD=0.9 spektralia scan
+
+# Skip classifier-driven blocks entirely (fail-open mode, not recommended for production)
+SPEKTRALIA_FAIL_OPEN=1 spektralia scan
+```
+
+Rule-based blocks (email, credit card, API keys, etc.) are always enforced regardless of `SPEKTRALIA_FAIL_OPEN` or the sensitivity threshold.
+
 ---
 
 ## Reference
