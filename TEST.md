@@ -539,7 +539,14 @@ Expected: `Blocked: rule(EMAIL) + classifier(1.00, ['PII'])` on stderr plus `[EM
 spektralia verify-integrity
 ```
 
-Expected: prints `pattern_hash`, `model_digest`, `prompt_hash` hex strings. Exit 0.
+Expected:
+```
+pattern_hash: ea7c5d6000218632475c7d61bcd5383831b8cbf72525b6fdbe9951b7d6f5ceb4
+prompt_hash: 34ee66ac1a8b2f84f2c1abfc094f50a589091f6d44a8d8f6a27cc368508b2965
+model_digest:
+```
+
+`pattern_hash` and `prompt_hash` are deterministic (they hash the pattern table and classifier prompts). `model_digest` is empty unless `SPEKTRALIA_OLLAMA_MODEL_DIGEST` is set. Exit 0.
 
 ### 3.6 `spektralia stats`
 
