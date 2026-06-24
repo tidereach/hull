@@ -49,7 +49,7 @@ export SPEKTRALIA_OLLAMA_SOCKET="/path/to/ollama.sock"      # UDS (takes precede
 ```
 
 ```toml
-# ~/.spektralia/config.toml or ./spektralia.toml
+# .spektralia.toml (project dir, checked first) or ~/.spektralia/config.toml (global)
 [spektralia]
 ollama_url    = "http://192.168.1.10:11434"
 ollama_model  = "llama3.1:8b"
