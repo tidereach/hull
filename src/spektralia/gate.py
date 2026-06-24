@@ -20,7 +20,6 @@ from .entropy import find_high_entropy
 from .errors import SensitiveDataError
 from .heartbeat import HeartbeatEmitter
 from .integrity import compute_pattern_hash, fetch_model_digest, get_integrity_report
-from .memory_safety import disable_core_dumps
 from .ollama_trust import build_client
 from .sanitizer import Sanitized, sanitize
 from .scanner import Detection, scan
@@ -45,8 +44,6 @@ class Gate:
 
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or Settings.from_env()
-        disable_core_dumps()
-
         s = self._settings
         self._state_dir = s.state_dir
         self._state_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -165,12 +162,7 @@ class Gate:
             self._emit("block", detections, None, reason="REGEX_TIMEOUT")
             raise SensitiveDataError(reason="REGEX_TIMEOUT", labels=tuple(rule_labels))
 
-        rule_hit = bool(rule_labels - {"SECRET_HIGH_ENTROPY", "OBFUSCATION_CHAR"} or "SECRET_HIGH_ENTROPY" in rule_labels)
-        # More precise: any real pattern detection is a rule_hit
-        rule_hit = any(
-            d.label not in ("OBFUSCATION_CHAR",)
-            for d in detections
-        )
+        rule_hit = any(d.label not in ("OBFUSCATION_CHAR",) for d in detections)
 
         # Sanitize before classifier
         sanitized = sanitize(text, detections)
@@ -201,30 +193,34 @@ class Gate:
 
         # Classify
         cr: ClassifierResult | None = None
-        if detections or True:  # always classify
-            try:
-                client = self._get_client()
-                cr = classify(
-                    sanitized.text,
-                    client=client,
-                    model=s.ollama_model,
-                    mode=s.classifier_mode,
-                    sensitivity_threshold=s.sensitivity_threshold,
-                    framing_disagreement_threshold=s.framing_disagreement_threshold,
-                    timeout=s.classifier_timeout_seconds,
-                )
-            except Exception as e:
-                logger.warning("classifier error: %s", e)
-                if not s.fail_open:
-                    self._anomaly.record("classifier_unavailable")
-                    self._emit("classifier_unavailable", detections, None)
-                    if self._anomaly.should_freeze:
-                        self._chain.emit("gate_frozen_auto", pattern_hash=self._pattern_hash)
-                    raise SensitiveDataError(
-                        reason="classifier_unavailable",
-                        labels=tuple(rule_labels),
+        try:
+            client = self._get_client()
+            cr = classify(
+                sanitized.text,
+                client=client,
+                model=s.ollama_model,
+                mode=s.classifier_mode,
+                sensitivity_threshold=s.sensitivity_threshold,
+                framing_disagreement_threshold=s.framing_disagreement_threshold,
+                timeout=s.classifier_timeout_seconds,
+            )
+        except Exception as e:
+            logger.warning("classifier error: %s", e)
+            if not s.fail_open:
+                self._anomaly.record("classifier_unavailable")
+                self._emit("classifier_unavailable", detections, None)
+                if self._anomaly.should_freeze:
+                    self._chain.emit(
+                        "gate_frozen_auto",
+                        pattern_hash=self._pattern_hash,
+                        model_digest=self._model_digest,
+                        prompt_hash=self._prompt_hash,
                     )
-                cr = None
+                raise SensitiveDataError(
+                    reason="classifier_unavailable",
+                    labels=tuple(rule_labels),
+                )
+            cr = None
 
         # Classifier unavailable category
         if cr and "classifier_unavailable" in cr.categories:
