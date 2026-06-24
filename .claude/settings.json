@@ -28,6 +28,10 @@
       "autoUpdate": true
     }
   },
+  "attribution": 
+    "commit": "",
+    "pr": ""
+  },
   "effortLevel": "medium",
   "advisorModel": "claude-opus-4-7",
   "awaySummaryEnabled": false,
