@@ -64,10 +64,12 @@ integrations/claude_code_hooks/
 
 ```bash
 # Install (dev)
+python -m venv .venv
+source .venv/bin/activate
 pip install -e .[dev]
 
 # Run tests
-pytest -q
+.venv/bin/pytest -q
 
 # CLI
 spektralia scan                   # stdin → sanitized stdout; exit 2 on block
@@ -83,7 +85,7 @@ spektralia hook-check             # assert Claude Code hooks installed correctly
 spektralia check-ollama           # ping configured Ollama endpoint
 
 # SBOM
-make sbom                         # regenerates SBOM.json via cyclonedx-py
+.venv/bin/cyclonedx-py environment -o SBOM.json  # regenerates SBOM.json
 ```
 
 ---
@@ -109,9 +111,48 @@ regex          # ReDoS-safe patterns with per-call timeout
 keyring        # optional: TOML HMAC verification
 ```
 
-Dev: `pytest pytest-asyncio respx cyclonedx-py`
+Dev: `pytest pytest-asyncio respx cyclonedx-bom`
 
 Ollama: `ollama pull llama3.2:3b`
+
+---
+
+## Claude Code hook integration
+
+Spektralia gates prompts via Claude Code hooks. Copy `integrations/claude_code_hooks/settings.example.json` into your project's `.claude/settings.json` (or merge into `~/.claude/settings.json` for global use), replacing `/path/to/spektralia` with the repo root.
+
+```json
+"hooks": {
+  "UserPromptSubmit": [{"hooks": [{"type": "command",
+    "command": "python /path/to/spektralia/integrations/claude_code_hooks/user_prompt_submit.py"}]}],
+  "PreToolUse":       [{"matcher": ".*", "hooks": [{"type": "command",
+    "command": "python /path/to/spektralia/integrations/claude_code_hooks/pre_tool_use.py"}]}],
+  "PostToolUse":      [{"matcher": ".*", "hooks": [{"type": "command",
+    "command": "python /path/to/spektralia/integrations/claude_code_hooks/post_tool_use.py"}]}],
+  "SessionStart":     [{"hooks": [{"type": "command",
+    "command": "python /path/to/spektralia/integrations/claude_code_hooks/session_start.py"}]}],
+  "Stop":             [{"hooks": [{"type": "command",
+    "command": "python /path/to/spektralia/integrations/claude_code_hooks/stop.py"}]}]
+}
+```
+
+**What each hook does:**
+
+| Hook | File | Effect |
+|------|------|--------|
+| `UserPromptSubmit` | `user_prompt_submit.py` | Scans + sanitizes the user prompt before it reaches Claude; blocks or substitutes sanitized text |
+| `PreToolUse` | `pre_tool_use.py` | Blocks Task/Bash/Write/Edit calls whose args contain sensitive data; default-deny on unrecognised MCP tools |
+| `PostToolUse` | `post_tool_use.py` | Scans Read/Bash/Grep/Glob/MCP results before they re-enter context |
+| `SessionStart` | `session_start.py` | Runs `verify-integrity` + canary self-test + `hook-check` at session open |
+| `Stop` | `stop.py` | Emits a session-end audit event |
+
+The `PreToolUse(Task)` hook is **required** — without it a parent agent can launder sensitive context into a subagent prompt and bypass `UserPromptSubmit`.
+
+Verify hooks are wired correctly with:
+
+```bash
+spektralia hook-check
+```
 
 ---
 
