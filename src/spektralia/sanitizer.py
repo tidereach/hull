@@ -129,52 +129,6 @@ def _replace_tokens_in_str(value: str, token_map: dict[str, "Secret"]) -> tuple[
     return value, consumed
 
 
-def _restore_recursive(
-    obj: dict | list | str,
-    token_map: dict[str, "Secret"],
-    path_segments_list: list[list[str | int]],
-    current_path: list[str | int],
-) -> dict | list | str:
-    """Recursively traverse obj, replacing tokens only at target paths.
-
-    path_segments_list: list of parsed path segment lists to match
-    current_path: the path taken to reach this node
-    """
-    if isinstance(obj, str):
-        # Check if current_path matches any of the target paths
-        for segments in path_segments_list:
-            if current_path == segments:
-                new_val, consumed = _replace_tokens_in_str(obj, token_map)
-                for token in consumed:
-                    secret = token_map.pop(token)
-                    secret.wipe()
-                return new_val
-        return obj
-
-    elif isinstance(obj, dict):
-        new_dict = {}
-        for key, val in obj.items():
-            # Check if this key is targeted by a wildcard or exact match
-            child_path = current_path + [key]
-            # Also check if any path has a wildcard "*" at this level
-            new_dict[key] = _restore_recursive(val, token_map, path_segments_list, child_path)
-        return new_dict
-
-    elif isinstance(obj, list):
-        new_list = []
-        for idx, val in enumerate(obj):
-            child_path = current_path + [idx]
-            # Check if any path uses "*" at this list level
-            # by substituting idx with "*" — handled in _restore_recursive for str leaves
-            # We also need to check wildcard: if path is [..., "*"] and child_path matches
-            # up to the parent, the wildcard matches any index
-            new_list.append(_restore_recursive(val, token_map, path_segments_list, child_path))
-        return new_list
-
-    else:
-        return obj
-
-
 def _path_matches(current_path: list[str | int], segments: list[str | int]) -> bool:
     """Check if current_path matches the given segment pattern (supports '*' wildcard)."""
     if len(current_path) != len(segments):
