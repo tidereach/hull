@@ -365,7 +365,14 @@ asyncio.run(run())
 "
 ```
 
-Expected: `blocked — classifier_unavailable: Blocked: classifier_unavailable` followed by `OK — gate failed closed on classifier outage`.
+Expected:
+```
+classifier error: ollama down
+blocked — classifier_unavailable: Blocked: classifier_unavailable
+OK — gate failed closed on classifier outage
+```
+
+The `classifier error: ollama down` line is the gate's internal log for the classifier exception — it appears before the `SensitiveDataError` propagates and is normal.
 
 ### 2.7 Gate passes in fail-open mode when classifier is unavailable
 
