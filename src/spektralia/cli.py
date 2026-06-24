@@ -76,6 +76,7 @@ def cmd_verify_integrity(args: argparse.Namespace) -> int:
 
     s = Settings.from_env()
     report = get_integrity_report(None, s.ollama_model)
+    report["model_digest"] = s.ollama_model_digest or ""
     for k, v in report.items():
         print(f"{k}: {v}")
     return 0
