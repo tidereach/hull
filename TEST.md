@@ -114,6 +114,8 @@ print('OK')
 "
 ```
 
+Expected: a line like `send to [REDACTED:EMAIL:xxxxxx]` (random suffix) followed by `OK`. Confirms NFKC expansion doesn't break span alignment.
+
 ### 1.6 Entropy detection
 
 ```bash
