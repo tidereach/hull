@@ -113,7 +113,7 @@ keyring        # optional: TOML HMAC verification
 
 Dev: `pytest pytest-asyncio respx cyclonedx-bom`
 
-Ollama: `ollama pull llama3.2:3b`
+Ollama: `ollama pull llama3.1:8b`
 
 ---
 

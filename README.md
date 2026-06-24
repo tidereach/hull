@@ -25,7 +25,7 @@ Every action produces a hash-chained audit event. A canary corpus runs at startu
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e .[dev]
-ollama pull llama3.2:3b
+ollama pull llama3.1:8b
 pytest -q
 spektralia scan            # stdin → sanitized stdout; exit 2 on block
 spektralia self-test       # run canary corpus against live classifier
@@ -52,7 +52,7 @@ export SPEKTRALIA_OLLAMA_SOCKET="/path/to/ollama.sock"      # UDS (takes precede
 # ~/.spektralia/config.toml or ./spektralia.toml
 [spektralia]
 ollama_url    = "http://192.168.1.10:11434"
-ollama_model  = "llama3.2:3b"
+ollama_model  = "llama3.1:8b"
 ```
 
 ### Classifier sensitivity threshold
@@ -182,7 +182,7 @@ Compliance documentation maps each gate component to its OWASP ASI Top 10 risk. 
 
 ```bash
 # Warm up the model before running spektralia
-ollama run llama3.2:3b "ping" --nowordwrap
+ollama run llama3.1:8b "ping" --nowordwrap
 
 # Or raise the timeout for a single invocation
 SPEKTRALIA_CLASSIFIER_TIMEOUT_SECONDS=60 spektralia scan
@@ -192,7 +192,7 @@ The gate still blocks on a rule hit even when the classifier is unavailable — 
 
 ### Classifier false-positives on benign input (`classifier(1.00, [])`)
 
-`llama3.2:3b` may classify short or ambiguous benign text as sensitive with `confidence: 1.0` and no categories (`[]`). This happens because the classifier defaults to fail-closed when the model's JSON response lacks specific category signals. The `sensitivity_threshold` (default `0.7`) applies — `confidence >= threshold` blocks.
+`llama3.1:8b` may classify short or ambiguous benign text as sensitive with `confidence: 1.0` and no categories (`[]`). This happens because the classifier defaults to fail-closed when the model's JSON response lacks specific category signals. The `sensitivity_threshold` (default `0.7`) applies — `confidence >= threshold` blocks.
 
 Options:
 

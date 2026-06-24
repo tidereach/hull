@@ -24,7 +24,7 @@ class Settings:
     ollama_url: str = "http://127.0.0.1:11434"
     ollama_socket: str | None = None
     ollama_auth_header: str | None = None
-    ollama_model: str = "llama3.2:3b"
+    ollama_model: str = "llama3.1:8b"
     ollama_model_digest: str | None = None
     ollama_telemetry_accepted: bool = False
 

@@ -198,7 +198,7 @@ These are real bugs in code already on disk. Fix them as part of Phase 2's norma
 - Default-deny MCP matcher; attachment refusal; hook crash → block
 - **`PreToolUse(Task)` hook is mandatory** — without it, subagent prompts launder context past `UserPromptSubmit`
 
-**Exit criteria:** End-to-end manual scenario from spec §20 step 5 works against a scratch Claude Code config (cat scratch `.env` → sanitized; `Task(prompt=...)` carrying secret → blocked; `Bash(curl -d [REDACTED:*:*])` → blocked); `spektralia self-test` green against a real local Ollama (`ollama pull llama3.2:3b`).
+**Exit criteria:** End-to-end manual scenario from spec §20 step 5 works against a scratch Claude Code config (cat scratch `.env` → sanitized; `Task(prompt=...)` carrying secret → blocked; `Bash(curl -d [REDACTED:*:*])` → blocked); `spektralia self-test` green against a real local Ollama (`ollama pull llama3.1:8b`).
 
 ---
 
@@ -220,7 +220,7 @@ These are real bugs in code already on disk. Fix them as part of Phase 2's norma
 - `src/spektralia/errors.py` — `SensitiveDataError` aligned with spec §13.5's actionable block-reason format; reuse unchanged
 - Python stdlib: `unicodedata` (NFKC), `hashlib`, `secrets` (token suffixes), `base64`, `binascii`, `gzip`, `prctl` via `ctypes` for `PR_SET_DUMPABLE`, `idna` via str.encode for IDN shadow
 - Third party (pinned in `pyproject.toml`): `httpx`, `regex` (ReDoS-safe with `timeout=`), `keyring`; dev: `pytest`, `pytest-asyncio`, `respx`, `cyclonedx-bom`
-- Ollama: `ollama pull llama3.2:3b`
+- Ollama: `ollama pull llama3.1:8b`
 
 ---
 
