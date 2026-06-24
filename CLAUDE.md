@@ -172,6 +172,10 @@ spektralia hook-check
   `llama3.2:3b` returns `sensitive=True, confidence=1.0, categories=[]` for short benign text
   even with JSON schema constraints.
 
+- **`spektralia hook-check` checks both global and project settings.**
+  `~/.claude/settings.json` and `.claude/settings.json` (project root) are both scanned;
+  hooks may live in either or both files.
+
 ---
 
 ## What this gate does NOT cover
