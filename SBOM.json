@@ -2467,7 +2467,12 @@
     }
   ],
   "metadata": {
-    "timestamp": "2026-06-24T22:45:55.244467+00:00",
+    "properties": [
+      {
+        "name": "cdx:reproducible",
+        "value": "true"
+      }
+    ],
     "tools": {
       "components": [
         {
@@ -2571,7 +2576,6 @@
       ]
     }
   },
-  "serialNumber": "urn:uuid:3fe7e613-f4b6-48c0-8e13-2e079dfbdb53",
   "version": 1,
   "$schema": "http://cyclonedx.org/schema/bom-1.6.schema.json",
   "bomFormat": "CycloneDX",

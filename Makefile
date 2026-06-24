@@ -1,7 +1,7 @@
 .PHONY: sbom verify test lock
 
 sbom:
-	.venv/bin/cyclonedx-py environment -o SBOM.json
+	.venv/bin/cyclonedx-py environment --output-reproducible -o SBOM.json
 
 verify:
 	.venv/bin/spektralia verify-integrity && .venv/bin/spektralia verify-installed
