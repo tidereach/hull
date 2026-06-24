@@ -131,11 +131,40 @@ class JournaldSink(AuditSink):
         )
 
 
+class SyslogSink(AuditSink):
+    """Write to syslog via logging.handlers.SysLogHandler."""
+
+    def __init__(self, address: str = "/dev/log") -> None:
+        import logging.handlers
+        handler = logging.handlers.SysLogHandler(
+            address=address,
+            facility=logging.handlers.SysLogHandler.LOG_USER,
+        )
+        self._handler = handler
+        self._logger = logging.getLogger("spektralia.audit")
+        if handler not in self._logger.handlers:
+            self._logger.addHandler(handler)
+        self._logger.setLevel(logging.INFO)
+
+    def write(self, record: AuditRecord) -> None:
+        self._logger.info("spektralia_audit %s", json.dumps(record.to_dict()))
+
+    def close(self) -> None:
+        self._handler.close()
+
+
 def _choose_sink(state_dir: Path) -> AuditSink:
     """Auto-detect best sink: journald > syslog > append-file > stdout."""
     try:
         sink = JournaldSink()
         logger.info("audit: using journald sink")
+        return sink
+    except Exception:
+        pass
+
+    try:
+        sink = SyslogSink()
+        logger.info("audit: using syslog sink")
         return sink
     except Exception:
         pass
