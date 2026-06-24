@@ -15,10 +15,15 @@ class LRUCache:
         self._misses = 0
 
     @staticmethod
-    def make_key(sanitized_text: str, config_hash: str) -> str:
-        return hashlib.sha256(
-            (sanitized_text + config_hash).encode("utf-8")
-        ).hexdigest()
+    def make_key(
+        sanitized_text: str,
+        config_hash: str,
+        pattern_hash: str = "",
+        model_digest: str = "",
+        prompt_hash: str = "",
+    ) -> str:
+        payload = "|".join([sanitized_text, config_hash, pattern_hash, model_digest, prompt_hash])
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     def get(self, key: str) -> Any | None:
         if key in self._store:

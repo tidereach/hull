@@ -168,7 +168,13 @@ class Gate:
         # Cache check — keyed on sanitized text so inputs that differ only in secret value
         # but produce the same sanitized form share a cache entry
         config_hash = s.config_hash()
-        cache_key = LRUCache.make_key(sanitized.text, config_hash)
+        cache_key = LRUCache.make_key(
+            sanitized.text,
+            config_hash,
+            pattern_hash=self._pattern_hash,
+            model_digest=self._model_digest,
+            prompt_hash=self._prompt_hash,
+        )
         cached = self._cache.get(cache_key)
         if cached is not None:
             if cached.get("blocked"):
