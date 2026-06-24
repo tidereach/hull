@@ -419,7 +419,17 @@ print('OK')
 "
 ```
 
-Expected: `should_freeze: True` and `freeze_reason: classifier_unavailable_rate_high (1.00)` followed by `OK`.
+Expected:
+```
+anomaly: classifier_unavailable rate 1.00 > 0.50 — auto-freeze
+anomaly: classifier_unavailable rate 1.00 > 0.50 — auto-freeze
+anomaly: classifier_unavailable rate 1.00 > 0.50 — auto-freeze
+should_freeze: True
+freeze_reason: classifier_unavailable_rate_high (1.00)
+OK
+```
+
+The repeated `anomaly:` lines are the detector logging each event that crosses the threshold — one per `record()` call once the rate exceeds 0.50.
 
 ### 2.9 Cache invalidation matrix
 
