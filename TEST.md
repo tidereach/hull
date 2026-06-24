@@ -755,8 +755,8 @@ Expected:
 
 2. Wire hooks into `~/.claude/settings.json` (or a project `.claude/settings.json`):
    ```bash
-   cp integrations/claude_code_hooks/settings.example.json ~/.claude/settings.json
-   # Edit: replace /path/to/spektralia with $(pwd)
+   sed 's|/path/to/spektralia|'"$(pwd)"'|g' \
+     integrations/claude_code_hooks/settings.example.json > ~/.claude/settings.json
    ```
 
 3. Verify hooks are wired:
