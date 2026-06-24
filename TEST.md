@@ -52,7 +52,7 @@ The sections below re-run targeted subsets and then exercise the behaviour manua
   tests/test_corpus.py
 ```
 
-Expected: all pass, no failures.
+Expected: 119 passed, 1 xfailed.
 
 ### 1.2 Scanner smoke test
 
