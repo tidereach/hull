@@ -91,7 +91,7 @@ python -c "
 from spektralia.normalize import normalize
 # Cyrillic 'а' (U+0430) in place of Latin 'a'
 result = normalize('аlice@exаmple.com')  # two Cyrillic chars
-print(result.text)
+print(result.normalized)
 # Should match alice@example.com after fold
 "
 ```
