@@ -224,7 +224,7 @@ Expected: no output (this kernel omits the `Dumpable` line from `/proc/self/stat
   tests/test_gate.py
 ```
 
-Expected: all pass. (`test_gate.py` and `test_ollama_trust.py` are mandatory — failures here mean a security-critical contract is broken.)
+Expected: 54 passed. (`test_gate.py` and `test_ollama_trust.py` are mandatory — failures here mean a security-critical contract is broken.)
 
 ### 2.2 Audit chain integrity
 
@@ -249,6 +249,8 @@ with tempfile.TemporaryDirectory() as d:
     print('OK — chain intact,', len(records), 'records')
 "
 ```
+
+Expected: `broken indices: []` followed by `OK — chain intact, 2 records`.
 
 ### 2.3 Audit chain survives restart
 
@@ -278,6 +280,8 @@ with tempfile.TemporaryDirectory() as d:
 "
 ```
 
+Expected: `broken: []` followed by `OK — chain spans two sessions, 2 records`.
+
 ### 2.4 Audit log never stores sensitive values
 
 ```bash
@@ -300,6 +304,8 @@ with tempfile.TemporaryDirectory() as d:
 "
 ```
 
+Expected: `OK — no sensitive values in audit log`.
+
 ### 2.5 Gate blocks on rule hit (mocked Ollama)
 
 ```bash
@@ -308,24 +314,30 @@ import asyncio
 from unittest.mock import patch, MagicMock
 from spektralia.config import Settings
 from spektralia.gate import gate
+from spektralia.errors import SensitiveDataError
 
 clf_safe = MagicMock()
 clf_safe.sensitive = False
 clf_safe.confidence = 0.1
 clf_safe.categories = []
+clf_safe.framing_disagreement = False
+clf_safe.min_confidence = 0.1
 
 async def run():
-    with patch('spektralia.gate.classify', return_value=clf_safe):
-        result = await gate('alice@example.com', Settings())
-    print('blocked:', result.blocked)
-    print('block_reason:', result.block_reason)
-    assert result.blocked
-    assert 'EMAIL' in str(result.block_reason).upper() or 'rule' in result.block_reason
-    print('OK')
+    try:
+        with patch('spektralia.gate.classify', return_value=clf_safe):
+            await gate('alice@example.com', Settings())
+        print('ERROR: expected SensitiveDataError')
+    except SensitiveDataError as e:
+        print('blocked by rule:', e)
+        assert 'EMAIL' in str(e).upper()
+        print('OK')
 
 asyncio.run(run())
 "
 ```
+
+Expected: `blocked by rule: Blocked: rule(EMAIL)` followed by `OK`. Gate raises `SensitiveDataError` on a rule hit — it does not return a `GateResult` with `blocked=True`.
 
 ### 2.6 Gate fails closed when classifier is unavailable
 
@@ -335,18 +347,23 @@ import asyncio
 from unittest.mock import patch
 from spektralia.config import Settings
 from spektralia.gate import gate
+from spektralia.errors import SensitiveDataError
 
 async def run():
-    with patch('spektralia.gate.classify', side_effect=Exception('ollama down')):
-        s = Settings(fail_open=False)
-        result = await gate('hello world', s)
-    print('blocked:', result.blocked)
-    assert result.blocked, 'must fail closed'
-    print('OK — gate failed closed on classifier outage')
+    try:
+        with patch('spektralia.gate.classify', side_effect=Exception('ollama down')):
+            s = Settings(fail_open=False)
+            await gate('hello world', s)
+        print('ERROR: expected SensitiveDataError')
+    except SensitiveDataError as e:
+        print('blocked — classifier_unavailable:', e)
+        print('OK — gate failed closed on classifier outage')
 
 asyncio.run(run())
 "
 ```
+
+Expected: `blocked — classifier_unavailable: Blocked: classifier_unavailable` followed by `OK — gate failed closed on classifier outage`.
 
 ### 2.7 Gate passes in fail-open mode when classifier is unavailable
 
@@ -369,25 +386,31 @@ asyncio.run(run())
 "
 ```
 
+Expected: `blocked: False` followed by `sanitized_text: hello world` followed by `OK`.
+
 ### 2.8 Anomaly counter auto-freeze
 
 ```bash
 python -c "
-import tempfile
-from pathlib import Path
-from spektralia.anomaly import AnomalyCounters
+from spektralia.anomaly import AnomalyDetector
 
-with tempfile.TemporaryDirectory() as d:
-    p = Path(d)
-    freeze_path = p / 'FREEZE'
-    counters = AnomalyCounters(freeze_path=freeze_path, classifier_unavailable_threshold=3)
-    for _ in range(3):
-        counters.record('classifier_unavailable')
-    print('frozen:', freeze_path.exists())
-    assert freeze_path.exists(), 'should auto-freeze after threshold'
-    print('OK')
+# threshold of 0.5 means >50% of events must be this type to freeze
+# 10 events all of the same type = 100% rate → triggers freeze after >=3 events
+a = AnomalyDetector(
+    window_seconds=60,
+    classifier_unavailable_rate_threshold=0.5,
+    rule_classifier_disagreement_rate_threshold=0.5,
+)
+for _ in range(5):
+    triggered = a.record('classifier_unavailable')
+print('should_freeze:', a.should_freeze)
+print('freeze_reason:', a.freeze_reason)
+assert a.should_freeze
+print('OK')
 "
 ```
+
+Expected: `should_freeze: True` and `freeze_reason: classifier_unavailable_rate_high (1.00)` followed by `OK`.
 
 ### 2.9 Cache invalidation matrix
 
@@ -425,7 +448,7 @@ from spektralia.gate import gate
 async def run():
     result = await gate('My email is alice@example.com', Settings())
     print('blocked:', result.blocked)
-    print('labels:', result.labels)
+    print('labels:', [d.label for d in result.detections])
     assert result.blocked
     print('OK — live gate blocked on email')
 
