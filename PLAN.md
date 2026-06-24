@@ -272,6 +272,7 @@ Items deferred from v1 scope. Add to this list whenever a task surfaces a candid
 - **Gating model outputs / assistant turns** — currently out of scope; prose response stream is the wrong surface for v1 but worth revisiting once NER lands.
 - **`pip install --require-hashes` enforcement at install time** — Phase 4 exit criteria mention this; wire it into the install docs and CI once Phase 4 closes.
 - **ReDoS nightly fuzz** — Phase 4 CI item; add as a scheduled GitHub Actions job.
+- **Log raw model response on empty categories** — when the classifier returns `sensitive=True, confidence=1.0, categories=[]`, the fail-closed defaults mask whether the model returned a bad response or an empty-but-valid one. Log the raw model output (redacted) at DEBUG level so false positives are diagnosable without rerunning with a debugger.
 
 ---
 
