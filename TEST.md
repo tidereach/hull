@@ -440,6 +440,18 @@ Expected: all pass (UDS with wrong owner/mode raises, never silently accepted).
 
 > Skip this step if Ollama is not running locally. The gate falls back to fail-closed without it.
 
+**Starting Ollama:**
+
+```bash
+# TCP (default — Ollama listens on http://127.0.0.1:11434)
+ollama serve
+
+# UDS (preferred — spektralia verifies socket ownership/permissions before trusting it)
+OLLAMA_SOCK="/var/run/ollama/ollama.sock" ollama serve
+# then point spektralia at it:
+export SPEKTRALIA_OLLAMA_SOCKET="/var/run/ollama/ollama.sock"
+```
+
 ```bash
 ollama pull llama3.2:3b
 python -c "
