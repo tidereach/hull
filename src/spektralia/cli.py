@@ -213,25 +213,33 @@ def cmd_scan_config(args: argparse.Namespace) -> int:
 
 
 def cmd_hook_check(args: argparse.Namespace) -> int:
-    """Check Claude Code hooks are installed."""
-    hook_dir = Path.home() / ".claude"
-    settings_path = hook_dir / "settings.json"
-    if not settings_path.exists():
-        print("FAIL: ~/.claude/settings.json not found", file=sys.stderr)
-        return 1
-    try:
-        data = json.loads(settings_path.read_text())
-        hooks = data.get("hooks", {})
-        required = {"UserPromptSubmit", "PreToolUse", "PostToolUse", "SessionStart"}
-        missing = required - set(hooks.keys())
-        if missing:
-            print(f"FAIL: missing hooks: {missing}", file=sys.stderr)
+    """Check Claude Code hooks are installed (global or project settings)."""
+    candidates = [
+        Path(".claude") / "settings.json",
+        Path.home() / ".claude" / "settings.json",
+    ]
+    found_hooks: set[str] = set()
+    checked: list[str] = []
+    for settings_path in candidates:
+        if not settings_path.exists():
+            continue
+        try:
+            data = json.loads(settings_path.read_text())
+            found_hooks |= set(data.get("hooks", {}).keys())
+            checked.append(str(settings_path))
+        except Exception as e:
+            print(f"Error reading {settings_path}: {e}", file=sys.stderr)
             return 1
-        print("OK: all required hooks present")
-        return 0
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+    if not checked:
+        print("FAIL: no settings.json found in .claude/ or ~/.claude/", file=sys.stderr)
         return 1
+    required = {"UserPromptSubmit", "PreToolUse", "PostToolUse", "SessionStart"}
+    missing = required - found_hooks
+    if missing:
+        print(f"FAIL: missing hooks: {missing}", file=sys.stderr)
+        return 1
+    print(f"OK: all required hooks present (checked: {', '.join(checked)})")
+    return 0
 
 
 def main() -> None:

@@ -691,9 +691,9 @@ HOME=/tmp/fake-home spektralia hook-check
 echo "exit $?"
 ```
 
-Expected:
+Expected (file paths in parentheses vary by location of checked settings files):
 ```
-OK: all required hooks present
+OK: all required hooks present (checked: ...)
 exit 0
 ```
 
@@ -755,8 +755,7 @@ Expected:
 
 2. Wire hooks into `~/.claude/settings.json` (or a project `.claude/settings.json`):
    ```bash
-   sed 's|/path/to/spektralia|'"$(pwd)"'|g' \
-     integrations/claude_code_hooks/settings.example.json > ~/.claude/settings.json
+   sed 's|/path/to/spektralia|'"$(pwd)"'|g' integrations/claude_code_hooks/settings.example.json > ~/.claude/settings.json
    ```
 
 3. Verify hooks are wired:

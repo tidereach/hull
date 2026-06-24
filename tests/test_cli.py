@@ -377,10 +377,33 @@ class TestCmdHookCheck:
         assert code == 1
         assert "missing" in capsys.readouterr().err
 
-    def test_missing_settings_exits_1(self, tmp_path, capsys):
+    def test_missing_settings_exits_1(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.chdir(tmp_path)
         with patch("pathlib.Path.home", return_value=tmp_path):
             code = cmd_hook_check(_args())
         assert code == 1
+
+    def test_project_level_settings_accepted(self, tmp_path, capsys, monkeypatch):
+        # Hooks in .claude/settings.json under cwd (not home) should satisfy hook-check.
+        project_dir = tmp_path / "myproject"
+        project_dir.mkdir()
+        (project_dir / ".claude").mkdir()
+        (project_dir / ".claude" / "settings.json").write_text(json.dumps({
+            "hooks": {
+                "UserPromptSubmit": [],
+                "PreToolUse": [],
+                "PostToolUse": [],
+                "SessionStart": [],
+            }
+        }))
+        home_dir = tmp_path / "home"
+        home_dir.mkdir()
+        monkeypatch.chdir(project_dir)
+        with patch("pathlib.Path.home", return_value=home_dir):
+            code = cmd_hook_check(_args())
+        assert code == 0
+        out = capsys.readouterr().out
+        assert "all required hooks present" in out
 
 
 # ---------------------------------------------------------------------------
