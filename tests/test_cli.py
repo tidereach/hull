@@ -47,6 +47,7 @@ class TestCmdScan:
         result_mock.blocked = False
 
         with patch("sys.stdin", StringIO("hello world")), \
+             patch("spektralia.gate.gate", new=MagicMock()), \
              patch("asyncio.run", return_value=result_mock):
             code = cmd_scan(_args(explain=False))
         assert code == 0
@@ -57,6 +58,7 @@ class TestCmdScan:
         monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
         from spektralia.errors import SensitiveDataError
         with patch("sys.stdin", StringIO("alice@example.com")), \
+             patch("spektralia.gate.gate", new=MagicMock()), \
              patch("asyncio.run", side_effect=SensitiveDataError(reason="rule(EMAIL)", labels=("EMAIL",))):
             code = cmd_scan(_args(explain=False))
         assert code == 2
@@ -73,6 +75,7 @@ class TestCmdScan:
         result_mock.block_reason = "rule(EMAIL)"
 
         with patch("sys.stdin", StringIO("alice@example.com")), \
+             patch("spektralia.gate.gate", new=MagicMock()), \
              patch("asyncio.run", return_value=result_mock):
             code = cmd_scan(_args(explain=False))
         assert code == 2
@@ -98,6 +101,7 @@ class TestCmdScan:
         result_mock.blocked = False
 
         with patch("sys.stdin", StringIO("alice@example.com")), \
+             patch("spektralia.gate.gate", new=MagicMock()), \
              patch("asyncio.run", return_value=result_mock):
             code = cmd_scan(_args(explain=True))
         assert code == 0

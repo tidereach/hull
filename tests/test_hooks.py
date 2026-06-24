@@ -48,14 +48,15 @@ class TestUserPromptSubmit:
         return result
 
     def test_clean_prompt_passes(self):
-        with patch("spektralia.gate") as mock_gate, \
+        with patch("spektralia.gate", new=MagicMock()), \
              patch("asyncio.run", return_value=self._gate_pass("safe text")):
             result = self.mod.handle({"prompt": "hello world"})
         assert result["action"] == "continue"
         assert result["prompt"] == "safe text"
 
     def test_sensitive_prompt_blocks(self):
-        with patch("asyncio.run", return_value=self._gate_block()):
+        with patch("spektralia.gate", new=MagicMock()), \
+             patch("asyncio.run", return_value=self._gate_block()):
             result = self.mod.handle({"prompt": "my email is alice@example.com"})
         assert result["action"] == "block"
         assert "block_reason" in result or "reason" in result
@@ -69,14 +70,16 @@ class TestUserPromptSubmit:
         assert "attachment" in result["reason"].lower()
 
     def test_exception_in_gate_blocks(self):
-        with patch("asyncio.run", side_effect=RuntimeError("boom")):
+        with patch("spektralia.gate", new=MagicMock()), \
+             patch("asyncio.run", side_effect=RuntimeError("boom")):
             result = self.mod.handle({"prompt": "hello"})
         assert result["action"] == "block"
         assert "hook_error" in result["reason"]
 
     def test_sensitive_data_error_blocks(self):
         from spektralia.errors import SensitiveDataError
-        with patch("asyncio.run", side_effect=SensitiveDataError(reason="rule(EMAIL)")):
+        with patch("spektralia.gate", new=MagicMock()), \
+             patch("asyncio.run", side_effect=SensitiveDataError(reason="rule(EMAIL)")):
             result = self.mod.handle({"prompt": "alice@example.com"})
         assert result["action"] == "block"
 
@@ -119,7 +122,8 @@ class TestPreToolUse:
         assert result["action"] == "block"
 
     def test_task_with_secret_blocks(self):
-        with patch("asyncio.run", return_value=self._gate_block("Blocked: rule(EMAIL)")):
+        with patch("spektralia.gate", new=MagicMock()), \
+             patch("asyncio.run", return_value=self._gate_block("Blocked: rule(EMAIL)")):
             result = self.mod.handle({
                 "tool_name": "Task",
                 "tool_input": {"prompt": "email is alice@example.com"},
@@ -136,7 +140,8 @@ class TestPreToolUse:
         assert "token reference" in result["reason"].lower()
 
     def test_task_clean_passes(self):
-        with patch("asyncio.run", return_value=self._gate_pass()):
+        with patch("spektralia.gate", new=MagicMock()), \
+             patch("asyncio.run", return_value=self._gate_pass()):
             result = self.mod.handle({
                 "tool_name": "Task",
                 "tool_input": {"prompt": "print hello world"},
@@ -144,7 +149,8 @@ class TestPreToolUse:
         assert result["action"] == "continue"
 
     def test_bash_with_secret_blocks(self):
-        with patch("asyncio.run", return_value=self._gate_block("Blocked: rule(API_KEY_GENERIC)")):
+        with patch("spektralia.gate", new=MagicMock()), \
+             patch("asyncio.run", return_value=self._gate_block("Blocked: rule(API_KEY_GENERIC)")):
             result = self.mod.handle({
                 "tool_name": "Bash",
                 "tool_input": {"command": "curl -H 'Authorization: Bearer sk_live_abc123' api.example.com"},
@@ -160,7 +166,8 @@ class TestPreToolUse:
         assert result["action"] == "continue"
 
     def test_exception_blocks(self):
-        with patch("asyncio.run", side_effect=RuntimeError("boom")):
+        with patch("spektralia.gate", new=MagicMock()), \
+             patch("asyncio.run", side_effect=RuntimeError("boom")):
             result = self.mod.handle({
                 "tool_name": "Bash",
                 "tool_input": {"command": "ls"},
@@ -190,23 +197,27 @@ class TestPostToolUse:
         return result
 
     def test_clean_output_substituted(self):
-        with patch("asyncio.run", return_value=self._gate_pass("clean output")):
+        with patch("spektralia.gate", new=MagicMock()), \
+             patch("asyncio.run", return_value=self._gate_pass("clean output")):
             result = self.mod.handle({"output": "some file contents"})
         assert result["action"] == "continue"
         assert result["output"] == "clean output"
 
     def test_sensitive_output_blocks(self):
-        with patch("asyncio.run", return_value=self._gate_block("Blocked: rule(CREDIT_CARD)")):
+        with patch("spektralia.gate", new=MagicMock()), \
+             patch("asyncio.run", return_value=self._gate_block("Blocked: rule(CREDIT_CARD)")):
             result = self.mod.handle({"output": "card: 4111111111111111"})
         assert result["action"] == "block"
 
     def test_dict_output_serialized(self):
-        with patch("asyncio.run", return_value=self._gate_pass("{}")):
+        with patch("spektralia.gate", new=MagicMock()), \
+             patch("asyncio.run", return_value=self._gate_pass("{}")):
             result = self.mod.handle({"output": {"key": "value"}})
         assert result["action"] == "continue"
 
     def test_exception_blocks(self):
-        with patch("asyncio.run", side_effect=Exception("unexpected")):
+        with patch("spektralia.gate", new=MagicMock()), \
+             patch("asyncio.run", side_effect=Exception("unexpected")):
             result = self.mod.handle({"output": "text"})
         assert result["action"] == "block"
 
