@@ -155,6 +155,8 @@ print('OK:', str(e))
 "
 ```
 
+Expected: `OK: Blocked: rule(EMAIL)`. Confirms the exception message contains the block reason but never the original secret value.
+
 ### 1.9 Config hash stable and policy-sensitive
 
 ```bash
