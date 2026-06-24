@@ -55,6 +55,31 @@ ollama_url    = "http://192.168.1.10:11434"
 ollama_model  = "llama3.1:8b"
 ```
 
+### Pinning the model weights hash
+
+Spektralia can verify the Ollama model digest at startup via `spektralia verify-integrity`. Set `SPEKTRALIA_OLLAMA_MODEL_DIGEST` to the expected digest to enable this check — a mismatch triggers an integrity warning.
+
+Find the digest for your pulled model:
+
+```bash
+curl -s http://localhost:11434/api/tags | python3 -m json.tool
+# Look for the "digest" field under the model name, e.g.:
+# "digest": "sha256:abc123..."
+```
+
+Then pin it:
+
+```bash
+# env var
+export SPEKTRALIA_OLLAMA_MODEL_DIGEST="sha256:abc123..."
+```
+
+```toml
+# ~/.spektralia/config.toml
+[spektralia]
+ollama_model_digest = "sha256:abc123..."
+```
+
 ### Classifier sensitivity threshold
 
 The gate blocks when the classifier returns `confidence >= sensitivity_threshold` (default `0.7`). Raise it to reduce false positives from the model:
