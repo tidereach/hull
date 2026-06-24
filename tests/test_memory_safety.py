@@ -88,3 +88,41 @@ def test_disable_core_dumps_no_crash():
 def test_pr_set_dumpable_executes_on_linux():
     # Just verify it runs without error on Linux
     disable_core_dumps()
+
+
+def test_prctl_called_on_module_import(monkeypatch):
+    """PR_SET_DUMPABLE=0 must be called when memory_safety is imported."""
+    import importlib
+    import sys
+    import ctypes as _ctypes
+
+    calls = []
+
+    class FakeLibc:
+        def prctl(self, *args):
+            calls.append(args)
+            return 0
+
+    class FakeCDLL:
+        def __init__(self, name, **kwargs):
+            pass
+        def __call__(self, name, **kwargs):
+            return FakeLibc()
+
+    # Remove the cached module so reload triggers the module-level call again
+    mod_name = "spektralia.memory_safety"
+    saved = sys.modules.pop(mod_name, None)
+    try:
+        monkeypatch.setattr(_ctypes, "CDLL", lambda name, **kw: FakeLibc())
+        import spektralia.memory_safety  # triggers module-level disable_core_dumps()
+        import sys as _sys
+        if _sys.platform == "linux":
+            assert any(args[0] == 4 and args[1] == 0 for args in calls), \
+                f"Expected prctl(PR_SET_DUMPABLE=4, 0) call, got: {calls}"
+    finally:
+        if saved is not None:
+            sys.modules[mod_name] = saved
+        elif mod_name in sys.modules:
+            del sys.modules[mod_name]
+        # Re-import to restore module state
+        import spektralia.memory_safety  # noqa: F401
