@@ -51,30 +51,28 @@ def test_negative(path):
 
 
 _INJECTION_XFAIL = {
-    # scan() doesn't invoke decode_and_rescan(); base64 unwrap only happens in
-    # gate.py._gate_inner.  Tracked as a known architectural gap.
-    "b64_key": pytest.mark.xfail(
-        reason=(
-            "scan() does not call decode_and_rescan(); "
-            "base64 unwrap only runs in gate._gate_inner. "
-            "Architecture gap — tracked for v1.1."
-        ),
-        strict=True,
-    ),
+    "b64_key": "scan() does not call decode_and_rescan(); base64 unwrap only runs in gate._gate_inner.",
 }
 
 
-@pytest.mark.parametrize("path", _all_files("injection"), ids=lambda p: p.stem)
-def test_injection(path):
-    marker = _INJECTION_XFAIL.get(path.stem)
-    if marker is not None:
-        pytest.mark.xfail(
-            reason=marker.kwargs.get("reason", ""),
-            strict=marker.kwargs.get("strict", False),
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.param(
+            p,
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason=_INJECTION_XFAIL[p.stem],
+            ),
         )
+        if p.stem in _INJECTION_XFAIL
+        else p
+        for p in _all_files("injection")
+    ],
+    ids=lambda p: p.stem,
+)
+def test_injection(path):
     text = path.read_text()
     detections = scan(text)
-    if marker is not None:
-        pytest.xfail(marker.kwargs.get("reason", "known xfail"))
     assert detections, \
         f"{path.name}: expected ≥1 detection, got none"
