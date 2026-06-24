@@ -69,3 +69,9 @@ def test_detection_has_no_value():
     text = "AKIAIOSFODNN7EXAMPLE"
     det = Detection(label="AWS_KEY", start=0, end=20)
     assert not hasattr(det, "value")
+
+
+def test_restore_not_in_public_api():
+    import spektralia
+    assert not hasattr(spektralia, "_restore"), "_restore must not be in public __init__"
+    assert not hasattr(spektralia, "restore"), "restore must not be in public __init__"

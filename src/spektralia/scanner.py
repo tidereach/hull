@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re as _re
 from dataclasses import dataclass
 
 from .normalize import NormalizeResult, normalize, whitespace_collapsed_shadow
@@ -58,6 +59,26 @@ def _dedupe(detections: list[Detection]) -> list[Detection]:
     return always + result
 
 
+_UNICODE_EMAIL_RE = _re.compile(r'\b[a-zA-Z0-9._%+\-]+@(\S+)')
+_EMAIL_PAT = next(p for p in PATTERNS if p.label == "EMAIL")
+
+
+def _scan_idna_emails(text: str) -> list[Detection]:
+    """Detect emails with non-ASCII domains by IDNA-encoding the domain part."""
+    detections = []
+    for m in _UNICODE_EMAIL_RE.finditer(text):
+        domain = m.group(1).rstrip(".,;:!?")
+        if domain.isascii():
+            continue
+        try:
+            encoded = ".".join(lbl.encode("idna").decode("ascii") for lbl in domain.split(".") if lbl)
+            if match_pattern(_EMAIL_PAT, f"x@{encoded}"):
+                detections.append(Detection(label="EMAIL", start=m.start(), end=m.start() + len(m.group(0).rstrip(".,;:!?"))))
+        except (UnicodeError, ValueError):
+            pass
+    return detections
+
+
 def scan(text: str) -> list[Detection]:
     """Run all patterns over text (original + normalized + shadow).
 
@@ -104,5 +125,8 @@ def scan(text: str) -> list[Detection]:
     # Emit obfuscation char detections
     for orig_i, ch, reason in norm_result.removals:
         all_detections.append(Detection(label="OBFUSCATION_CHAR", start=orig_i, end=orig_i + 1))
+
+    # IDN email shadow: detect emails with unicode (non-ASCII) domains
+    all_detections.extend(_scan_idna_emails(text))
 
     return _dedupe(all_detections)

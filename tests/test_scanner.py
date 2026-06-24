@@ -57,3 +57,17 @@ def test_detection_has_no_value_field():
     assert hasattr(det, "label")
     assert hasattr(det, "start")
     assert hasattr(det, "end")
+
+
+def test_idn_email_punycode_already_ascii():
+    # Punycode form is valid ASCII — EMAIL regex must catch it directly
+    dets = scan("alice@xn--mnchen-3ya.de")
+    labels = {d.label for d in dets}
+    assert "EMAIL" in labels
+
+
+def test_idn_email_unicode_domain_detected():
+    # Unicode domain (ü not a homoglyph) requires IDNA shadow to detect
+    dets = scan("alice@münchen.de")
+    labels = {d.label for d in dets}
+    assert "EMAIL" in labels

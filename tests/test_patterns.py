@@ -112,3 +112,55 @@ class TestGithubToken:
         pat = _get("GITHUB_TOKEN")
         r = match_pattern(pat, "ghp_" + "A" * 36)
         assert r
+
+
+class TestPrivateKeyBody:
+    def test_contiguous_base64_lines_detected(self):
+        # 10+ lines of 64-char base64 content (no PEM header)
+        line = "A" * 64
+        body = "\n".join([line] * 12)
+        pat = _get("PRIVATE_KEY_BODY")
+        r = match_pattern(pat, body)
+        assert r
+
+    def test_few_lines_not_detected(self):
+        # Only 3 base64 lines — too few to trigger heuristic
+        line = "A" * 64
+        body = "\n".join([line] * 3)
+        pat = _get("PRIVATE_KEY_BODY")
+        r = match_pattern(pat, body)
+        assert r == []
+
+
+class TestStripeKey:
+    def test_sk_live(self):
+        pat = _get("STRIPE_KEY")
+        r = match_pattern(pat, "sk_live_" + "x" * 24)
+        assert r
+
+    def test_pk_live(self):
+        pat = _get("STRIPE_KEY")
+        r = match_pattern(pat, "pk_live_" + "y" * 24)
+        assert r
+
+
+class TestReDoSTimeout:
+    def test_api_key_generic_timeout_handled(self):
+        # A 10k-char string that could trigger ReDoS — should return REGEX_TIMEOUT or []
+        # The important thing is it doesn't hang
+        import time
+        pat = _get("API_KEY_GENERIC")
+        evil = "api_key=" + "a" * 5000
+        t0 = time.monotonic()
+        r = match_pattern(pat, evil)
+        elapsed = time.monotonic() - t0
+        # Must complete within 2 seconds regardless of match result
+        assert elapsed < 2.0
+
+    def test_regex_timeout_sentinel_returned(self, monkeypatch):
+        # Verify that when timeout fires, match_pattern returns the REGEX_TIMEOUT sentinel
+        import spektralia.patterns as p_mod
+        monkeypatch.setattr(p_mod, "_TIMEOUT_MS", 0.001)
+        pat = _get("API_KEY_GENERIC")
+        r = match_pattern(pat, "api_key=" + "a" * 5000)
+        assert r == [(-1, -1, "REGEX_TIMEOUT")]

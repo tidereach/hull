@@ -43,3 +43,19 @@ def test_whitespace_shadow():
     assert len(idx_map) == 16
     # First char maps to index 0
     assert idx_map[0] == 0
+
+
+def test_homoglyph_fold_greek():
+    # Greek ο (omicron, U+03BF) folds to 'o'; Greek ρ (rho) folds to 'p'
+    # Construct a string that uses Greek lookalikes
+    text = "αpi_key"  # Greek α (U+03B1) → 'a'
+    result = normalize(text)
+    assert result.normalized[0] == "a"
+
+
+def test_homoglyph_fold_cyrillic_api_key():
+    # Cyrillic а, р, і lookalikes assembled into "api_key"-like string
+    # Cyrillic а (U+0430) → a, Cyrillic р (U+0440) → p
+    text = "аpi_key=secret123"  # starts with Cyrillic а
+    result = normalize(text)
+    assert result.normalized.startswith("api_key=secret123")
