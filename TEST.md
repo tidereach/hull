@@ -453,6 +453,8 @@ Expected: `3 passed, 7 deselected` (UDS with wrong owner/mode raises, never sile
 .venv/bin/pytest -q tests/test_canary.py::test_canary_corpus_has_positive_and_negative
 ```
 
+Expected: `1 passed`.
+
 ### 2.12 Gate with live Ollama (requires `ollama pull llama3.2:3b`)
 
 > Skip this step if Ollama is not running locally. The gate falls back to fail-closed without it.
