@@ -523,7 +523,7 @@ echo "alice@example.com" | spektralia scan
 echo "exit $?"
 ```
 
-Expected: exits 2 (either by raising `SensitiveDataError` or by gate returning `blocked=True`). No email value in stdout.
+Expected: `Blocked: rule(EMAIL) + classifier(1.00, ['PII'])` on stderr, exits 2. No email value in stdout.
 
 ### 3.4 `spektralia scan --explain`
 
