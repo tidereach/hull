@@ -82,6 +82,8 @@ print('OK')
 "
 ```
 
+Expected: a line like `email is [REDACTED:EMAIL:xxxxxx]` (the suffix is a random hex token, so it varies) followed by `OK`. The original address must not appear.
+
 ### 1.4 Normalization + homoglyph fold
 
 ```bash
