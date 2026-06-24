@@ -2,11 +2,28 @@
 from __future__ import annotations
 
 import os
+import shutil
 import socket as sock_mod
+import tempfile
+from pathlib import Path
 
 import httpx
 import pytest
 import respx
+
+
+@pytest.fixture()
+def sock_dir():
+    """Short-path temp dir for AF_UNIX sockets.
+
+    macOS limits socket paths to 104 bytes; pytest's tmp_path uses long paths
+    under /private/var/folders/... that exceed this limit. Using /tmp directly
+    keeps paths well under the limit on both Linux and macOS.
+    """
+    d = tempfile.mkdtemp(dir="/tmp", prefix="sk_")
+    os.chmod(d, 0o700)
+    yield Path(d)
+    shutil.rmtree(d, ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------
@@ -14,31 +31,29 @@ import respx
 # ---------------------------------------------------------------------------
 
 
-def test_uds_happy_path(tmp_path):
+def test_uds_happy_path(sock_dir):
     """Valid UDS (S_ISSOCK, owner==EUID, mode 0600, owner-only parent) must be accepted."""
     from spektralia.ollama_trust import _socket_stat_ok
 
-    sock_path = tmp_path / "ollama.sock"
+    sock_path = sock_dir / "ollama.sock"
     s = sock_mod.socket(sock_mod.AF_UNIX, sock_mod.SOCK_STREAM)
     s.bind(str(sock_path))
     os.chmod(str(sock_path), 0o600)
-    # tmp_path parent is already owner-only in pytest
     try:
         assert _socket_stat_ok(str(sock_path)) is True
     finally:
         s.close()
 
 
-def test_uds_owner_mismatch_rejected(tmp_path, monkeypatch):
+def test_uds_owner_mismatch_rejected(sock_dir, monkeypatch):
     """UDS owned by another user must be rejected."""
     from spektralia.ollama_trust import _socket_stat_ok
 
-    sock_path = tmp_path / "ollama.sock"
+    sock_path = sock_dir / "ollama.sock"
     s = sock_mod.socket(sock_mod.AF_UNIX, sock_mod.SOCK_STREAM)
     s.bind(str(sock_path))
     os.chmod(str(sock_path), 0o600)
 
-    # Make getuid() return a different UID than the file's real uid
     real_uid = os.getuid()
     monkeypatch.setattr(os, "getuid", lambda: real_uid + 1)
     try:
@@ -47,11 +62,11 @@ def test_uds_owner_mismatch_rejected(tmp_path, monkeypatch):
         s.close()
 
 
-def test_uds_mode_0644_rejected(tmp_path):
+def test_uds_mode_0644_rejected(sock_dir):
     """UDS with mode 0644 (group/world readable) must be rejected."""
     from spektralia.ollama_trust import _socket_stat_ok
 
-    sock_path = tmp_path / "ollama.sock"
+    sock_path = sock_dir / "ollama.sock"
     s = sock_mod.socket(sock_mod.AF_UNIX, sock_mod.SOCK_STREAM)
     s.bind(str(sock_path))
     os.chmod(str(sock_path), 0o644)
@@ -61,12 +76,11 @@ def test_uds_mode_0644_rejected(tmp_path):
         s.close()
 
 
-def test_uds_world_writable_parent_rejected(tmp_path):
+def test_uds_world_writable_parent_rejected(sock_dir):
     """UDS in a world-writable parent directory must be rejected."""
     from spektralia.ollama_trust import _socket_stat_ok
 
-    # Create a subdirectory and make it world-writable
-    parent = tmp_path / "public"
+    parent = sock_dir / "public"
     parent.mkdir(mode=0o777)
     sock_path = parent / "ollama.sock"
     s = sock_mod.socket(sock_mod.AF_UNIX, sock_mod.SOCK_STREAM)
@@ -90,11 +104,11 @@ def test_uds_missing_file_rejected(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_build_client_raises_on_untrusted_uds(tmp_path):
+def test_build_client_raises_on_untrusted_uds(sock_dir):
     """build_client with untrusted UDS must raise RuntimeError."""
     from spektralia.ollama_trust import build_client
 
-    sock_path = tmp_path / "bad.sock"
+    sock_path = sock_dir / "bad.sock"
     s = sock_mod.socket(sock_mod.AF_UNIX, sock_mod.SOCK_STREAM)
     s.bind(str(sock_path))
     os.chmod(str(sock_path), 0o644)  # bad mode
