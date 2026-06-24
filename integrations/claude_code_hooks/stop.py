@@ -1,0 +1,26 @@
+#!/usr/bin/env python3
+"""Claude Code Stop hook — emit session_end audit roll-up."""
+from __future__ import annotations
+
+import asyncio
+import json
+import sys
+
+
+def main() -> None:
+    try:
+        from spektralia.config import Settings
+        from spektralia.audit import AuditChain
+
+        s = Settings.from_env()
+        chain = AuditChain(s.state_dir)
+        chain.emit("session_end", pattern_hash="", model_digest="", prompt_hash="")
+        chain.close()
+    except Exception:
+        pass  # Don't block session termination on audit errors
+
+    print(json.dumps({"action": "continue"}))
+
+
+if __name__ == "__main__":
+    main()

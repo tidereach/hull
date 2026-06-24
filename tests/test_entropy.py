@@ -1,0 +1,29 @@
+from spektralia.entropy import find_high_entropy
+
+
+def test_random_base64_flagged():
+    # High-entropy random-looking string should trigger
+    token = "tXj3K9mN2pQr7wVa8bCd4eF5gHiJ6kLo"  # 32 random-ish chars
+    dets = find_high_entropy(f"key: {token}")
+    assert dets, f"Expected high-entropy detection for token={token!r}"
+    assert dets[0].label == "SECRET_HIGH_ENTROPY"
+
+
+def test_uuid_not_flagged():
+    dets = find_high_entropy("id: 550e8400-e29b-41d4-a716-446655440000")
+    assert dets == []
+
+
+def test_git_sha_not_flagged():
+    dets = find_high_entropy("commit: 4b825dc642cb6eb9a060e54bf8d69288fbee4904")
+    assert dets == []
+
+
+def test_short_token_not_flagged():
+    dets = find_high_entropy("x: abc123")  # too short
+    assert dets == []
+
+
+def test_lorem_not_flagged():
+    dets = find_high_entropy("Lorem ipsum dolor sit amet consectetur")
+    assert dets == []
