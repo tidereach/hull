@@ -81,3 +81,34 @@ def test_cache_key_is_sanitized_text():
     raw_key1 = LRUCache.make_key(text1, config_hash)
     raw_key2 = LRUCache.make_key(text2, config_hash)
     assert raw_key1 != raw_key2, "raw texts must produce different keys (proving why fix was needed)"
+
+
+def test_cache_miss_on_pattern_hash_change():
+    """Changing pattern_hash must produce a different cache key."""
+    key1 = LRUCache.make_key("text", "cfg", "patternh1", "model1", "prompt1")
+    key2 = LRUCache.make_key("text", "cfg", "patternh2", "model1", "prompt1")
+    assert key1 != key2
+
+
+def test_cache_miss_on_model_digest_change():
+    """Changing model_digest must produce a different cache key."""
+    key1 = LRUCache.make_key("text", "cfg", "pattern1", "modeldigest1", "prompt1")
+    key2 = LRUCache.make_key("text", "cfg", "pattern1", "modeldigest2", "prompt1")
+    assert key1 != key2
+
+
+def test_cache_miss_on_prompt_hash_change():
+    """Changing prompt_hash must produce a different cache key."""
+    key1 = LRUCache.make_key("text", "cfg", "pattern1", "model1", "prompth1")
+    key2 = LRUCache.make_key("text", "cfg", "pattern1", "model1", "prompth2")
+    assert key1 != key2
+
+
+def test_cache_key_all_components_matter():
+    """All five components contribute to the key (identical except one differs)."""
+    base = LRUCache.make_key("t", "c", "p", "m", "q")
+    assert base != LRUCache.make_key("t2", "c", "p", "m", "q")   # sanitized text
+    assert base != LRUCache.make_key("t", "c2", "p", "m", "q")   # config_hash
+    assert base != LRUCache.make_key("t", "c", "p2", "m", "q")   # pattern_hash
+    assert base != LRUCache.make_key("t", "c", "p", "m2", "q")   # model_digest
+    assert base != LRUCache.make_key("t", "c", "p", "m", "q2")   # prompt_hash
