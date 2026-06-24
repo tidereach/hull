@@ -80,6 +80,24 @@ class Settings:
 
     @classmethod
     def from_env(cls, **overrides) -> "Settings":
+        # TOML discovery: ./spektralia.toml then ~/.spektralia/config.toml
+        toml_data: dict = {}
+        for candidate in (
+            Path("spektralia.toml"),
+            Path.home() / ".spektralia" / "config.toml",
+        ):
+            if candidate.exists():
+                with open(candidate, "rb") as fh:
+                    raw = tomllib.load(fh)
+                # Accept both [spektralia] section and top-level keys
+                toml_data = raw.get("spektralia", raw)
+                break
+
+        # Coerce Path fields from TOML
+        for fname in ("freeze_path", "state_dir"):
+            if fname in toml_data:
+                toml_data[fname] = Path(toml_data[fname])
+
         env = {}
         mapping = {
             "SPEKTRALIA_OLLAMA_URL": ("ollama_url", str),
@@ -92,6 +110,8 @@ class Settings:
             "SPEKTRALIA_FAIL_OPEN": ("fail_open", lambda v: v.lower() in ("1", "true", "yes")),
             "SPEKTRALIA_MAX_INPUT_CHARS": ("max_input_chars", int),
             "SPEKTRALIA_MLOCK_SECRETS": ("mlock_secrets", lambda v: v.lower() in ("1", "true", "yes")),
+            "SPEKTRALIA_CLASSIFIER_TIMEOUT_SECONDS": ("classifier_timeout_seconds", float),
+            "SPEKTRALIA_STATE_DIR": ("state_dir", Path),
         }
         for env_key, (attr, coerce) in mapping.items():
             val = os.environ.get(env_key)
@@ -100,13 +120,17 @@ class Settings:
                     env[attr] = coerce(val)
                 except (ValueError, TypeError) as e:
                     raise ValueError(f"Invalid {env_key}={val!r}: {e}") from e
-        env.update(overrides)
-        return cls(**env)
+
+        # Precedence: overrides > env vars > TOML > defaults
+        merged = {**toml_data, **env, **overrides}
+        return cls(**merged)
 
     @classmethod
     def from_toml(cls, path: Path, **overrides) -> "Settings":
         with open(path, "rb") as fh:
-            data = tomllib.load(fh)
+            raw = tomllib.load(fh)
+        # Accept both [spektralia] section and top-level keys
+        data = raw.get("spektralia", raw)
         data.update(overrides)
         # Coerce Path fields
         for fname in ("freeze_path", "state_dir"):
