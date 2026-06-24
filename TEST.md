@@ -165,11 +165,13 @@ from spektralia.config import Settings
 s1 = Settings()
 s2 = Settings()
 assert s1.config_hash() == s2.config_hash(), 'hash must be deterministic'
-s3 = Settings(entropy_threshold=9.9)
+s3 = Settings(sensitivity_threshold=0.99)
 assert s3.config_hash() != s1.config_hash(), 'policy change must change hash'
 print('OK')
 "
 ```
+
+Expected: `OK`.
 
 ### 1.10 Pattern hash deterministic
 
