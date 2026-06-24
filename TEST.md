@@ -565,7 +565,13 @@ spektralia unfreeze
 spektralia stats | grep frozen
 ```
 
-Expected: stats reports `frozen: True` after freeze, `frozen: False` after unfreeze.
+Expected:
+```
+Gate frozen.
+frozen: True (gate_frozen)
+Gate unfrozen.
+frozen: False
+```
 
 ### 3.8 `spektralia audit-verify`
 
@@ -584,7 +590,11 @@ spektralia audit-verify $TMPDIR/audit.jsonl
 echo "exit $?"
 ```
 
-Expected: prints "chain intact", exits 0.
+Expected:
+```
+OK: 1 records, chain intact
+exit 0
+```
 
 ### 3.9 `spektralia audit-rotate`
 
@@ -593,7 +603,11 @@ spektralia audit-rotate --keep-days 90
 echo "exit $?"
 ```
 
-Expected: prints `OK: rotated audit log — N record(s) removed`, exits 0.
+Expected:
+```
+OK: rotated audit log — 0 record(s) removed (keep_days=90)
+exit 0
+```
 
 ### 3.10 `spektralia audit-purge` — valid date
 
@@ -602,7 +616,11 @@ spektralia audit-purge --before 2020-01-01
 echo "exit $?"
 ```
 
-Expected: exits 0. Reports 0 records removed (all records are newer than 2020).
+Expected:
+```
+OK: purged audit log — 0 record(s) removed (before=2020-01-01)
+exit 0
+```
 
 ### 3.11 `spektralia audit-purge` — invalid date exits 1
 
@@ -611,29 +629,47 @@ spektralia audit-purge --before not-a-date
 echo "exit $?"
 ```
 
-Expected: exits 1, error to stderr.
+Expected: exits 1, error to stderr:
+```
+Error: Invalid date format 'not-a-date'; expected YYYY-MM-DD
+exit 1
+```
 
 ### 3.12 `spektralia scan-config` — safe CLAUDE.md
 
+> Use a fresh isolated dir — `/tmp` may contain pytest temp dirs with email-bearing CLAUDE.md files
+> that would trigger false hits.
+
 ```bash
-cd /tmp && echo "# Hello\nThis is safe." > CLAUDE.md
+TESTDIR=$(mktemp -d) && cd "$TESTDIR"
+printf "# Hello\nThis is safe.\n" > CLAUDE.md
 spektralia scan-config
 echo "exit $?"
-cd -
+cd - && rm -rf "$TESTDIR"
 ```
 
-Expected: exits 0.
+Expected:
+```
+exit 0
+```
+(`cd -` prints the previous directory on the last line.)
 
 ### 3.13 `spektralia scan-config` — sensitive CLAUDE.md
 
 ```bash
-cd /tmp && echo "# Config\ncontact me at alice@example.com" > CLAUDE.md
+TESTDIR=$(mktemp -d) && cd "$TESTDIR"
+printf "# Config\ncontact me at alice@example.com\n" > CLAUDE.md
 spektralia scan-config
 echo "exit $?"
-cd -
+cd - && rm -rf "$TESTDIR"
 ```
 
-Expected: exits 1, `EMAIL` in stderr.
+Expected: exits 1, `EMAIL` in stderr:
+```
+WARN: CLAUDE.md: [EMAIL] at (2,40)
+exit 1
+```
+(`cd -` prints the previous directory on the last line.)
 
 ### 3.14 `spektralia hook-check`
 
@@ -655,7 +691,11 @@ HOME=/tmp/fake-home spektralia hook-check
 echo "exit $?"
 ```
 
-Expected: exits 0.
+Expected:
+```
+OK: all required hooks present
+exit 0
+```
 
 ### 3.15 Hook: MCP tool default-deny (subprocess I/O wiring)
 
@@ -664,7 +704,10 @@ echo '{"tool_name": "mcp__github__create_issue", "tool_input": {}}' \
   | python integrations/claude_code_hooks/pre_tool_use.py
 ```
 
-Expected: `{"action": "block", "reason": "MCP tool 'mcp__github__create_issue' blocked by default-deny policy"}`.
+Expected:
+```
+{"action": "block", "reason": "MCP tool 'mcp__github__create_issue' blocked by default-deny policy"}
+```
 
 ### 3.16 Hook: Task with token reference (cross-turn leak detection)
 
@@ -673,7 +716,10 @@ echo '{"tool_name": "Task", "tool_input": {"prompt": "use [REDACTED:EMAIL:abc123
   | python integrations/claude_code_hooks/pre_tool_use.py
 ```
 
-Expected: `{"action": "block", ...}` with "token reference" in reason.
+Expected:
+```
+{"action": "block", "reason": "Token reference detected in tool args — possible cross-turn leak"}
+```
 
 ### 3.17 Hook: attachment blocked at UserPromptSubmit
 
@@ -682,7 +728,10 @@ echo '{"prompt": "look at this", "attachments": [{"type": "image"}]}' \
   | python integrations/claude_code_hooks/user_prompt_submit.py
 ```
 
-Expected: `{"action": "block", "reason": "...attachment..."}`.
+Expected:
+```
+{"action": "block", "reason": "Spektralia cannot scan attachments — paste content as text"}
+```
 
 ### 3.18 Hook: invalid JSON input blocks
 
@@ -690,7 +739,10 @@ Expected: `{"action": "block", "reason": "...attachment..."}`.
 echo 'not json' | python integrations/claude_code_hooks/user_prompt_submit.py
 ```
 
-Expected: `{"action": "block", "reason": "hook_input_parse_error"}`.
+Expected:
+```
+{"action": "block", "reason": "hook_input_parse_error"}
+```
 
 ### 3.19 Manual end-to-end (requires live Claude Code + Ollama)
 

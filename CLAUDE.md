@@ -156,6 +156,24 @@ spektralia hook-check
 
 ---
 
+## Gotchas
+
+- **`gate()` raises, does not return, on hard block.** In strict mode (default), `gate()` raises
+  `SensitiveDataError`. It only returns `GateResult(blocked=True)` in soft mode
+  (`SPEKTRALIA_MODE=soft`). All callers must `try/except SensitiveDataError`.
+
+- **TOML config requires `[spektralia]` section.** Top-level keys in `.spektralia.toml` or
+  `~/.spektralia/config.toml` are silently ignored. All settings must be under `[spektralia]`.
+
+- **macOS: 1 test skipped.** `test_pr_set_dumpable` tests a Linux-only syscall (`PR_SET_DUMPABLE`)
+  and skips on macOS. Expected suite result on macOS: `1 skipped, 1 xfailed`.
+
+- **`llama3.2:3b` produces classifier false positives.** Use `llama3.1:8b` (the default).
+  `llama3.2:3b` returns `sensitive=True, confidence=1.0, categories=[]` for short benign text
+  even with JSON schema constraints.
+
+---
+
 ## What this gate does NOT cover
 
 - Contextual PII in prose (names, addresses — NER is a v2 roadmap item)
