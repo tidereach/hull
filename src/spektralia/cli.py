@@ -234,7 +234,14 @@ def cmd_hook_check(args: argparse.Namespace) -> int:
 
 
 def main() -> None:
+    from importlib.metadata import version as _pkg_version
+    try:
+        _version_str = _pkg_version("spektralia")
+    except Exception:
+        _version_str = "0.0.0+unknown"
+
     parser = argparse.ArgumentParser(prog="spektralia")
+    parser.add_argument("--version", action="version", version=f"spektralia {_version_str}")
     parser.add_argument("--api-version", action="version", version=str(_API_VERSION))
 
     sub = parser.add_subparsers(dest="command")

@@ -9,13 +9,13 @@ Step-by-step tests to confirm each phase is correctly implemented. Run them in o
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -e .[dev]
+pip install -e ".[dev]"   # quotes required in zsh to prevent glob expansion
 ```
 
 Confirm install:
 ```bash
 python -c "import spektralia; print('ok')"
-spektralia --version
+spektralia --version   # prints: spektralia 0.1.0
 ```
 
 ---
