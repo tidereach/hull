@@ -55,6 +55,28 @@ ollama_url    = "http://192.168.1.10:11434"
 ollama_model  = "llama3.2:3b"
 ```
 
+### Classifier sensitivity threshold
+
+The gate blocks when the classifier returns `confidence >= sensitivity_threshold` (default `0.7`). Raise it to reduce false positives from the model:
+
+```bash
+# env var (one-off)
+SPEKTRALIA_SENSITIVITY_THRESHOLD=0.9 spektralia scan
+
+# persistent — env var in shell profile
+export SPEKTRALIA_SENSITIVITY_THRESHOLD=0.9
+
+# persistent — TOML config
+```
+
+```toml
+# ~/.spektralia/config.toml or ./spektralia.toml
+[spektralia]
+sensitivity_threshold = 0.9
+```
+
+Threshold range: `0.0` (block on any classifier signal) to `1.0` (only block at maximum confidence). The rule-based scanner always blocks regardless of this value — the threshold only governs classifier-driven blocks.
+
 ---
 
 ## Key decisions, by phase
