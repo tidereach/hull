@@ -19,6 +19,7 @@ dev = [
     "pytest-asyncio>=0.23",
     "respx>=0.21",
     "cyclonedx-bom",
+    "pip-tools",
 ]
 
 [project.scripts]

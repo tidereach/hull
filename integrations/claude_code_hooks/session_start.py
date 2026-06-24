@@ -17,7 +17,37 @@ def _run_check(cmd: list[str]) -> tuple[bool, str]:
         return False, str(e)
 
 
+def _emit_hook_identity(payload: dict) -> None:
+    """Emit an HMAC-signed identity token into the audit chain.
+
+    If the hook binary is replaced, the token will either be absent (keyring
+    inaccessible) or mismatch future verifications — both conditions are auditable.
+    """
+    try:
+        from spektralia.config import Settings
+        from spektralia.audit import AuditChain
+        from spektralia.integrity import compute_hook_token
+
+        session_id = payload.get("session_id") or payload.get("sessionId")
+        token = compute_hook_token(session_id)
+        s = Settings.from_env()
+        chain = AuditChain(s.state_dir)
+        chain.emit(
+            "hook_identity",
+            pattern_hash="",
+            model_digest="",
+            prompt_hash="",
+            hook="session_start",
+            token_present=bool(token),
+            token=token,
+        )
+        chain.close()
+    except Exception:
+        pass  # Never block session start on identity emit failure
+
+
 def handle(payload: dict) -> dict:
+    _emit_hook_identity(payload)
     failures: list[str] = []
 
     checks = [

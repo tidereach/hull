@@ -9,5 +9,4 @@ build/
 .pytest_cache/
 *.egg
 SBOM.json
-requirements.lock
 settings.local.json
