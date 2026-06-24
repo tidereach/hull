@@ -437,7 +437,7 @@ The repeated `anomaly:` lines are the detector logging each event that crosses t
 .venv/bin/pytest -q tests/test_cache.py -k "invalidat or miss_on"
 ```
 
-Expected: all selected tests pass (covers pattern_hash, model_digest, prompt_hash, freeze, unfreeze, canary drift).
+Expected: `7 passed, 6 deselected` (covers pattern_hash, model_digest, prompt_hash, freeze, unfreeze, canary drift).
 
 ### 2.10 Ollama trust — UDS owner mismatch rejected
 
