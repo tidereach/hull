@@ -10,3 +10,4 @@ build/
 *.egg
 SBOM.json
 requirements.lock
+settings.local.json
