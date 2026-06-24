@@ -2,7 +2,7 @@
 
 A local pre-cloud sensitivity gate. Two layers of deterministic detection (regex + entropy), normalization to strip obfuscation, sanitization to typed placeholders, a small local Ollama classifier as second signal, then a block/pass decision delivered through hash-chained tamper-evident audit. Built to be embedded in Claude Code (or any agent) via hooks. Built to be hostile to its own users only when the alternative is leaking secrets.
 
-> **Status (2026-06-24):** Phase 1 complete (109 tests passing, all deterministic-core modules built). Phase 2 complete (165 tests passing; all carry-overs closed; `test_gate.py`, `test_ollama_trust.py`, cache-invalidation matrix, SyslogSink all green). Phase 3 code complete (215 tests passing; CLI all subcommands including `audit-rotate`/`audit-purge`; all five hooks refactored with `handle()` for testability; MCP default-deny fixed to `mcp__` prefix; `test_hooks.py`/`test_cli.py` passing; hooks README written). **Manual e2e against a real Claude Code config + real Ollama still required before Phase 3 can be marked done.** Phase 4 not started.
+> **Status (2026-06-25):** Phase 1 complete (109 tests passing, all deterministic-core modules built). Phase 2 complete (165 tests passing; all carry-overs closed; `test_gate.py`, `test_ollama_trust.py`, cache-invalidation matrix, SyslogSink all green). Phase 3 code complete (215 tests passing; CLI all subcommands including `audit-rotate`/`audit-purge`; all five hooks refactored with `handle()` for testability; MCP default-deny fixed to `mcp__` prefix; `test_hooks.py`/`test_cli.py` passing; hooks README written). **Manual e2e against a real Claude Code config + real Ollama still required before Phase 3 can be marked done.** Phase 4 in progress — Makefile, SBOM.json, docs/COMPLIANCE.md, docs/THREATS.md, README disclaimer, scripts/latency_bench.py, and GitHub Actions ci.yml/latency.yml complete; redos-fuzz workflow and pyproject.toml recheck dep pending user decision on ReDoS tool.
 
 > **Related files:** `SPEC.md` (full 22-chapter spec), `RATIONALE.md` (design arguments from v2/v3/v4 proposals), `README.md` (key decisions by phase with spec §§ references).
 
@@ -202,15 +202,21 @@ These are real bugs in code already on disk. Fix them as part of Phase 2's norma
 
 ---
 
-### Phase 4 — Supply chain + docs + CI
+### Phase 4 — Supply chain + docs + CI ⏳ (in progress)
 
-- `requirements.lock` via `pip-compile --generate-hashes`
-- `make sbom` target + committed `SBOM.json`
-- `docs/COMPLIANCE.md`, `docs/THREATS.md`
-- README with the verbatim disclaimer paragraph from spec §13.5
-- CI: nightly ReDoS fuzz, per-hook latency budgets, `verify-installed` gate
+- ✅ `requirements.lock` via `pip-compile --generate-hashes` (pre-existing)
+- ✅ `make sbom` target + committed `SBOM.json` (reproducible via `--output-reproducible`)
+- ✅ `docs/COMPLIANCE.md`, `docs/THREATS.md`
+- ✅ README with verbatim disclaimer paragraph from spec §13.5
+- ✅ CI: `verify-installed` gate, per-hook latency budgets (`ci.yml`, `latency.yml`)
+- ⏳ CI: nightly ReDoS fuzz — pending ReDoS tool selection (`recheck` unavailable on PyPI)
+- ⏳ `scripts/redos_fuzz.py` — same blocker
+- ⏳ `pyproject.toml` + `requirements.lock` regeneration — same blocker
 
-**Exit criteria:** `make sbom` regenerates without diff churn; `pip install --require-hashes -r requirements.lock` succeeds in a clean venv; nightly ReDoS fuzz job dry-run.
+**Exit criteria:**
+- ✅ `make sbom` regenerates without diff churn
+- ⏳ `pip install --require-hashes -r requirements.lock` succeeds in a clean venv (verify once recheck blocker resolved)
+- ⏳ Nightly ReDoS fuzz job dry-run (pending tool selection)
 
 ---
 
@@ -282,3 +288,13 @@ Items deferred from v1 scope. Add to this list whenever a task surfaces a candid
 - **Full 22-chapter implementation spec** (exact schemas, signatures, behaviour): `SPEC.md`
 - **Design rationale** (why each decision was made — Ember critiques, OWASP ASI gap analysis, Ollama trust reasoning): `RATIONALE.md`
 - **This file (PLAN.md):** phased plan, current status, bugs, and carry-overs. Update as phases close.
+
+### Hook known issues — **MUST FIX BEFORE PROD** (found 2026-06-24, §3.19)
+
+See `docs/hook-exceptions-v2.md` for full detail. Summary of five items that are v2 work but are prod-release blockers:
+
+1. Self-scan: Write/Edit hooks scan own source files and trip false positives
+2. Empty categories pattern from classifier on benign content (`categories=[]`)
+3. UnboundLocalError in post_tool_use import block when venv unavailable
+4. Wrong JSON output shape in all three hook scripts (fixed in session; needs contract test)
+5. Wrong tool name for subagent spawn (`"Task"` was `"Agent"`; fixed in session; needs regression test)
