@@ -262,6 +262,19 @@ make sbom                         # regenerates SBOM.json via cyclonedx-py
 
 ---
 
+## 8. v2 roadmap
+
+Items deferred from v1 scope. Add to this list whenever a task surfaces a candidate; don't wait.
+
+- **Contextual PII / NER** — names, addresses, free-text identifiers not capturable by regex. Requires a local NER model (spaCy or similar). Currently documented as out-of-scope in spec §13.5.
+- **Cryptographic hook identity (stronger form)** — current HMAC-in-keyring approach makes substitution *auditable*; a future version could use an Ed25519 key pair so the hook can *prove* identity to a verifier without relying on keyring availability.
+- **Hook signing / binary integrity** — verify that the hook scripts themselves haven't been tampered with (hash of hook files at install time, checked at SessionStart against a stored manifest).
+- **Gating model outputs / assistant turns** — currently out of scope; prose response stream is the wrong surface for v1 but worth revisiting once NER lands.
+- **`pip install --require-hashes` enforcement at install time** — Phase 4 exit criteria mention this; wire it into the install docs and CI once Phase 4 closes.
+- **ReDoS nightly fuzz** — Phase 4 CI item; add as a scheduled GitHub Actions job.
+
+---
+
 ## 7. Where to find what
 
 - **Full 22-chapter implementation spec** (exact schemas, signatures, behaviour): `SPEC.md`
