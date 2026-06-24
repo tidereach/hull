@@ -44,6 +44,19 @@ Respond ONLY with valid JSON matching: {"sensitive": bool, "confidence": float 0
 Valid categories: PII, CREDENTIALS, INTERNAL_INFRA, FINANCIAL, HEALTH, CONFIDENTIAL, PROMPT_INJECTION
 """
 
+_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "sensitive": {"type": "boolean"},
+        "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+        "categories": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+    },
+    "required": ["sensitive", "confidence", "categories"],
+}
+
 _FRAMING_1 = "Score the sensitivity of this content on a scale from 0 to 1:"
 _FRAMING_2 = "List any sensitive categories present in this content:"
 
@@ -90,8 +103,9 @@ def _call_ollama(
 ) -> str:
     payload = {
         "model": model,
-        "prompt": _SYSTEM_PROMPT + "\n\n" + prompt,
-        "format": "json",
+        "system": _SYSTEM_PROMPT,
+        "prompt": prompt,
+        "format": _JSON_SCHEMA,
         "stream": False,
         "options": {"temperature": 0},
     }
