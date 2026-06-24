@@ -35,19 +35,17 @@ spektralia hook-check      # assert Claude Code hooks are installed correctly
 ### Starting Ollama
 
 ```bash
-# TCP (default — spektralia connects to http://127.0.0.1:11434)
 ollama serve
-
-# UDS (preferred — spektralia verifies socket owner/permissions before trusting it)
-OLLAMA_SOCK="/var/run/ollama/ollama.sock" ollama serve
 ```
+
+Ollama listens on `http://127.0.0.1:11434` by default. Spektralia connects via TCP and pins the remote PID and binary hash on first connection. UDS support depends on Ollama exposing a socket — check your Ollama version's documentation.
 
 Configure spektralia to use a non-default endpoint via env var or TOML:
 
 ```bash
 # env var
-export SPEKTRALIA_OLLAMA_URL="http://192.168.1.10:11434"   # remote TCP
-export SPEKTRALIA_OLLAMA_SOCKET="/var/run/ollama/ollama.sock"  # local UDS (takes precedence over URL)
+export SPEKTRALIA_OLLAMA_URL="http://192.168.1.10:11434"   # remote or non-default TCP
+export SPEKTRALIA_OLLAMA_SOCKET="/path/to/ollama.sock"      # UDS (takes precedence over URL, if Ollama exposes one)
 ```
 
 ```toml
