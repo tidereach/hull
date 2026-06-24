@@ -7,7 +7,7 @@ import subprocess
 import sys
 
 
-def run_check(cmd: list[str]) -> tuple[bool, str]:
+def _run_check(cmd: list[str]) -> tuple[bool, str]:
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         ok = result.returncode == 0
@@ -17,7 +17,7 @@ def run_check(cmd: list[str]) -> tuple[bool, str]:
         return False, str(e)
 
 
-def main() -> None:
+def handle(payload: dict) -> dict:
     failures: list[str] = []
 
     checks = [
@@ -28,17 +28,25 @@ def main() -> None:
     ]
 
     for cmd, name in checks:
-        ok, output = run_check(cmd)
+        ok, output = _run_check(cmd)
         if not ok:
             failures.append(f"{name}: {output}")
 
     if failures:
-        print(json.dumps({
+        return {
             "action": "block",
             "reason": "Spektralia session start checks failed:\n" + "\n".join(failures),
-        }))
-    else:
-        print(json.dumps({"action": "continue"}))
+        }
+    return {"action": "continue"}
+
+
+def main() -> None:
+    try:
+        payload = json.loads(sys.stdin.read())
+    except Exception:
+        payload = {}
+
+    print(json.dumps(handle(payload)))
 
 
 if __name__ == "__main__":

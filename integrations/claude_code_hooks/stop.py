@@ -2,12 +2,11 @@
 """Claude Code Stop hook — emit session_end audit roll-up."""
 from __future__ import annotations
 
-import asyncio
 import json
 import sys
 
 
-def main() -> None:
+def handle(payload: dict) -> dict:
     try:
         from spektralia.config import Settings
         from spektralia.audit import AuditChain
@@ -19,7 +18,16 @@ def main() -> None:
     except Exception:
         pass  # Don't block session termination on audit errors
 
-    print(json.dumps({"action": "continue"}))
+    return {"action": "continue"}
+
+
+def main() -> None:
+    try:
+        payload = json.loads(sys.stdin.read())
+    except Exception:
+        payload = {}
+
+    print(json.dumps(handle(payload)))
 
 
 if __name__ == "__main__":

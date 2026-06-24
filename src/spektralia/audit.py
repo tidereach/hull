@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import hashlib
 import json
 import logging
@@ -264,6 +265,99 @@ class AuditChain:
             if expected_hash != rec.get("record_hash"):
                 broken.append(i)
         return broken
+
+    def rotate(self, keep_days: int) -> int:
+        """Remove records older than keep_days from the file-based audit log.
+
+        Returns number of records removed. Emits chain_anchor_after_rotate event.
+        Only operates on append-only file sinks; is a no-op otherwise.
+        """
+        log_path = self._state_dir / "audit.jsonl"
+        if not log_path.exists():
+            return 0
+        cutoff_ns = int((time.time() - keep_days * 86400) * 1e9)
+        kept: list[str] = []
+        removed = 0
+        with open(log_path) as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                    if rec.get("wall_ns", 0) >= cutoff_ns:
+                        kept.append(line)
+                    else:
+                        removed += 1
+                except json.JSONDecodeError:
+                    kept.append(line)
+        if removed:
+            tmp = log_path.with_suffix(".tmp")
+            tmp.write_text("\n".join(kept) + ("\n" if kept else ""))
+            tmp.replace(log_path)
+            if kept:
+                last = json.loads(kept[-1])
+                self._prev_hash = last.get("record_hash", "0" * 64)
+                self._seq = last.get("seq", self._seq)
+            self.emit(
+                "chain_anchor_after_rotate",
+                pattern_hash="",
+                model_digest="",
+                prompt_hash="",
+                keep_days=keep_days,
+                removed=removed,
+            )
+        return removed
+
+    def purge(self, before_date: str) -> int:
+        """Remove records before the given ISO date (YYYY-MM-DD) from the file-based log.
+
+        Returns number of records removed. Emits chain_anchor_after_purge event.
+        Only operates on append-only file sinks; is a no-op otherwise.
+        """
+        try:
+            cutoff_dt = datetime.date.fromisoformat(before_date)
+        except ValueError as exc:
+            raise ValueError(f"Invalid date format '{before_date}'; expected YYYY-MM-DD") from exc
+        log_path = self._state_dir / "audit.jsonl"
+        if not log_path.exists():
+            return 0
+        cutoff_ns = int(datetime.datetime(
+            cutoff_dt.year, cutoff_dt.month, cutoff_dt.day,
+            tzinfo=datetime.timezone.utc,
+        ).timestamp() * 1e9)
+        kept: list[str] = []
+        removed = 0
+        with open(log_path) as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                    if rec.get("wall_ns", 0) >= cutoff_ns:
+                        kept.append(line)
+                    else:
+                        removed += 1
+                except json.JSONDecodeError:
+                    kept.append(line)
+        if removed:
+            tmp = log_path.with_suffix(".tmp")
+            tmp.write_text("\n".join(kept) + ("\n" if kept else ""))
+            tmp.replace(log_path)
+            if kept:
+                last = json.loads(kept[-1])
+                self._prev_hash = last.get("record_hash", "0" * 64)
+                self._seq = last.get("seq", self._seq)
+            self.emit(
+                "chain_anchor_after_purge",
+                pattern_hash="",
+                model_digest="",
+                prompt_hash="",
+                before_date=before_date,
+                removed=removed,
+            )
+        return removed
 
     def close(self) -> None:
         self._sink.close()

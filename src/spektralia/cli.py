@@ -30,6 +30,10 @@ def cmd_scan(args: argparse.Namespace) -> int:
         print(str(e), file=sys.stderr)
         return 2
 
+    if result.blocked:
+        print(f"Blocked: {result.block_reason}", file=sys.stderr)
+        return 2
+
     if args.explain:
         _print_explain(result)
     else:
@@ -158,6 +162,35 @@ def cmd_audit_verify(args: argparse.Namespace) -> int:
         return 1
 
 
+def cmd_audit_rotate(args: argparse.Namespace) -> int:
+    from .audit import AuditChain
+    from .config import Settings
+
+    s = Settings.from_env()
+    chain = AuditChain(s.state_dir)
+    removed = chain.rotate(args.keep_days)
+    chain.close()
+    print(f"OK: rotated audit log — {removed} record(s) removed (keep_days={args.keep_days})")
+    return 0
+
+
+def cmd_audit_purge(args: argparse.Namespace) -> int:
+    from .audit import AuditChain
+    from .config import Settings
+
+    s = Settings.from_env()
+    chain = AuditChain(s.state_dir)
+    try:
+        removed = chain.purge(args.before)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        chain.close()
+        return 1
+    chain.close()
+    print(f"OK: purged audit log — {removed} record(s) removed (before={args.before})")
+    return 0
+
+
 def cmd_scan_config(args: argparse.Namespace) -> int:
     """Scan CLAUDE.md files for sensitive content."""
     from .errors import SensitiveDataError
@@ -241,6 +274,8 @@ def main() -> None:
         "freeze": cmd_freeze,
         "unfreeze": cmd_unfreeze,
         "audit-verify": cmd_audit_verify,
+        "audit-rotate": cmd_audit_rotate,
+        "audit-purge": cmd_audit_purge,
         "scan-config": cmd_scan_config,
         "hook-check": cmd_hook_check,
     }

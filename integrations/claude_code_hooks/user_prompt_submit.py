@@ -7,23 +7,14 @@ import json
 import sys
 
 
-def main() -> None:
-    try:
-        payload = json.loads(sys.stdin.read())
-    except Exception:
-        # Cannot read input — block
-        print(json.dumps({"action": "block", "reason": "hook_input_parse_error"}))
-        sys.exit(0)
-
+def handle(payload: dict) -> dict:
     prompt = payload.get("prompt", "")
 
-    # Check for attachments
     if payload.get("attachments"):
-        print(json.dumps({
+        return {
             "action": "block",
             "reason": "Spektralia cannot scan attachments — paste content as text",
-        }))
-        sys.exit(0)
+        }
 
     try:
         from spektralia import gate, SensitiveDataError
@@ -35,24 +26,23 @@ def main() -> None:
         result = asyncio.run(gate(prompt, settings))
 
         if result.blocked:
-            # Soft-mode warn — output the block reason for user decision
-            print(json.dumps({
-                "action": "block",
-                "reason": result.block_reason,
-            }))
-        else:
-            # Substitute sanitized text
-            print(json.dumps({
-                "action": "continue",
-                "prompt": result.sanitized_text,
-            }))
+            return {"action": "block", "reason": result.block_reason}
+        return {"action": "continue", "prompt": result.sanitized_text}
 
     except SensitiveDataError as e:
-        print(json.dumps({"action": "block", "reason": str(e)}))
+        return {"action": "block", "reason": str(e)}
     except Exception as e:
-        # Fail-closed: any unexpected error blocks
-        print(json.dumps({"action": "block", "reason": f"hook_error: {type(e).__name__}"}))
+        return {"action": "block", "reason": f"hook_error: {type(e).__name__}"}
+
+
+def main() -> None:
+    try:
+        payload = json.loads(sys.stdin.read())
+    except Exception:
+        print(json.dumps({"action": "block", "reason": "hook_input_parse_error"}))
         sys.exit(0)
+
+    print(json.dumps(handle(payload)))
 
 
 if __name__ == "__main__":

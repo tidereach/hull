@@ -7,13 +7,7 @@ import json
 import sys
 
 
-def main() -> None:
-    try:
-        payload = json.loads(sys.stdin.read())
-    except Exception:
-        print(json.dumps({"action": "block", "reason": "hook_input_parse_error"}))
-        sys.exit(0)
-
+def handle(payload: dict) -> dict:
     output = payload.get("output", "")
     if not isinstance(output, str):
         output = json.dumps(output)
@@ -28,17 +22,23 @@ def main() -> None:
         result = asyncio.run(gate(output, settings))
 
         if result.blocked:
-            print(json.dumps({"action": "block", "reason": result.block_reason}))
-        else:
-            print(json.dumps({
-                "action": "continue",
-                "output": result.sanitized_text,
-            }))
+            return {"action": "block", "reason": result.block_reason}
+        return {"action": "continue", "output": result.sanitized_text}
 
     except SensitiveDataError as e:
-        print(json.dumps({"action": "block", "reason": str(e)}))
+        return {"action": "block", "reason": str(e)}
     except Exception as e:
-        print(json.dumps({"action": "block", "reason": f"hook_error: {type(e).__name__}"}))
+        return {"action": "block", "reason": f"hook_error: {type(e).__name__}"}
+
+
+def main() -> None:
+    try:
+        payload = json.loads(sys.stdin.read())
+    except Exception:
+        print(json.dumps({"action": "block", "reason": "hook_input_parse_error"}))
+        sys.exit(0)
+
+    print(json.dumps(handle(payload)))
 
 
 if __name__ == "__main__":
