@@ -82,3 +82,44 @@ def test_audit_state_written(tmp_path):
     data = json.loads(state_path.read_text())
     assert "last_hash" in data
     assert data["seq"] == 1
+
+
+def test_choose_sink_falls_back_to_syslog_then_file(tmp_path, monkeypatch):
+    """_choose_sink must try: journald → syslog → file → stdout."""
+    from spektralia.audit import _choose_sink, SyslogSink, AppendOnlyFileSink
+
+    # Make JournaldSink raise (it always does in test environments without systemd)
+    # Make SyslogSink succeed — patch SyslogSink.__init__ to succeed without /dev/log
+    syslog_constructed = []
+
+    class FakeSyslogSink(SyslogSink):
+        def __init__(self):
+            syslog_constructed.append(True)
+            # Don't call super().__init__ — avoid real syslog connection
+            import logging.handlers
+            self._handler = logging.handlers.MemoryHandler(capacity=100)
+            self._logger = logging.getLogger("spektralia.audit.test")
+            self._logger.addHandler(self._handler)
+
+        def write(self, record):
+            pass
+
+    monkeypatch.setattr("spektralia.audit.SyslogSink", FakeSyslogSink)
+
+    sink = _choose_sink(tmp_path)
+    assert syslog_constructed, "SyslogSink must be tried when JournaldSink fails"
+    assert isinstance(sink, FakeSyslogSink), f"Expected FakeSyslogSink, got {type(sink)}"
+
+
+def test_choose_sink_falls_back_to_file_when_syslog_fails(tmp_path, monkeypatch):
+    """_choose_sink falls through to AppendOnlyFileSink when syslog also fails."""
+    from spektralia.audit import _choose_sink, AppendOnlyFileSink
+
+    def fail_syslog_init(self):
+        raise OSError("no /dev/log")
+
+    monkeypatch.setattr("spektralia.audit.SyslogSink.__init__", fail_syslog_init)
+
+    sink = _choose_sink(tmp_path)
+    assert isinstance(sink, AppendOnlyFileSink), \
+        f"Expected AppendOnlyFileSink when syslog fails, got {type(sink)}"
