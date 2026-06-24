@@ -112,3 +112,66 @@ def test_cache_key_all_components_matter():
     assert base != LRUCache.make_key("t", "c", "p2", "m", "q")   # pattern_hash
     assert base != LRUCache.make_key("t", "c", "p", "m2", "q")   # model_digest
     assert base != LRUCache.make_key("t", "c", "p", "m", "q2")   # prompt_hash
+
+
+def test_cache_invalidated_on_freeze(tmp_path):
+    """Freezing the gate must invalidate all cached verdicts."""
+    from spektralia.gate import Gate
+    from spektralia.config import Settings
+    from spektralia.cache import LRUCache
+
+    settings = Settings(state_dir=tmp_path / "state", freeze_path=tmp_path / "freeze")
+    gate = Gate(settings=settings)
+
+    # Manually populate the cache with a "pass" verdict
+    key = LRUCache.make_key("sanitized_text", settings.config_hash())
+    gate._cache.set(key, {"blocked": False, "sanitized_text": "sanitized_text"})
+    assert gate._cache.get(key) is not None, "cache should have entry before freeze"
+
+    # Freeze — must invalidate cache
+    gate.freeze()
+    assert gate._cache.get(key) is None, "cache must be empty after freeze"
+
+
+def test_cache_invalidated_on_unfreeze(tmp_path):
+    """Unfreezing the gate must invalidate all cached verdicts."""
+    from spektralia.gate import Gate
+    from spektralia.config import Settings
+    from spektralia.cache import LRUCache
+
+    settings = Settings(state_dir=tmp_path / "state", freeze_path=tmp_path / "freeze")
+    gate = Gate(settings=settings)
+    gate.freeze()  # start frozen
+
+    # Populate cache (simulates something cached while frozen)
+    key = LRUCache.make_key("sanitized_text", settings.config_hash())
+    gate._cache.set(key, {"blocked": True, "reason": "frozen"})
+    assert gate._cache.get(key) is not None
+
+    # Unfreeze — must also invalidate cache
+    gate.unfreeze()
+    assert gate._cache.get(key) is None, "cache must be empty after unfreeze"
+
+
+def test_cache_invalidated_on_canary_drift(tmp_path):
+    """Canary drift must invalidate all cached verdicts."""
+    from spektralia.gate import Gate
+    from spektralia.config import Settings
+    from spektralia.cache import LRUCache
+    from unittest.mock import patch, MagicMock
+    from spektralia.canary import CanaryResult
+
+    settings = Settings(state_dir=tmp_path / "state", freeze_path=tmp_path / "freeze")
+    gate = Gate(settings=settings)
+
+    # Populate cache
+    key = LRUCache.make_key("some_text", settings.config_hash())
+    gate._cache.set(key, {"blocked": False, "sanitized_text": "some_text"})
+    assert gate._cache.get(key) is not None
+
+    # Simulate canary drift
+    failed_result = CanaryResult(passed=False, failures=["canary: expected EMAIL not found"], duration_seconds=0.01)
+    with patch("spektralia.gate.run_canary", return_value=failed_result):
+        gate._run_canary()
+
+    assert gate._cache.get(key) is None, "cache must be empty after canary drift"
