@@ -10,6 +10,7 @@ Run from repo root:
 """
 from __future__ import annotations
 
+import math
 import os
 import sys
 import tempfile
@@ -24,6 +25,10 @@ os.environ["SPEKTRALIA_CLASSIFIER_TIMEOUT_SECONDS"] = "1"
 os.environ["SPEKTRALIA_STATE_DIR"] = _STATE_DIR
 # Force TCP URL so we can intercept it with respx (overrides .spektralia.toml)
 os.environ["SPEKTRALIA_OLLAMA_URL"] = "http://127.0.0.1:11434"
+# PostToolUse budget (200 ms) assumes fast/rules-only mode (no Ollama call).
+# Set globally so the env matches spec intent; post_tool_use.py only calls
+# scan() and doesn't use the classifier, so this doesn't change behaviour.
+os.environ["SPEKTRALIA_CLASSIFIER_MODE"] = "fast"
 
 # Add hook dir to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "integrations", "claude_code_hooks"))
@@ -135,11 +140,13 @@ def _run_hook_bench(name: str, handle_fn, payload: dict) -> list[float]:
 
 
 def p95(timings: list[float]) -> float:
-    """p95 per brief: sort and take index int(0.95 * N)."""
+    """p95 using nearest-rank method: ceil(0.95 * N) - 1 (0-indexed).
+
+    For N=20: int(ceil(19.0)) - 1 = 18 → index 18 of 20, i.e. the 19th value.
+    The old int(0.95 * N) formula always returned max() for any exact multiple.
+    """
     sorted_t = sorted(timings)
-    idx = int(0.95 * len(sorted_t))
-    # Clamp to last element
-    idx = min(idx, len(sorted_t) - 1)
+    idx = min(int(math.ceil(0.95 * len(sorted_t))) - 1, len(sorted_t) - 1)
     return sorted_t[idx]
 
 

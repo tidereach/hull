@@ -35,15 +35,23 @@ jobs:
       - name: Supply chain check
         run: spektralia verify-installed
 
-      - name: SBOM drift check
-        # Regenerate the SBOM from the runner environment and assert no diff.
-        # --output-reproducible strips the non-deterministic timestamp and
-        # serialNumber fields so the diff reflects real dependency changes.
-        # NOTE: the committed SBOM.json must also have been generated with
-        # --output-reproducible for this check to be green.  If the committed
-        # SBOM.json was produced without that flag, regenerate it locally:
-        #   cyclonedx-py environment --output-reproducible -o SBOM.json
-        # and commit the result before this step will pass.
+      - name: Check SBOM is up to date
         run: |
+          # Regenerate SBOM (reproducible — no timestamp/serialNumber)
           cyclonedx-py environment --output-reproducible -o SBOM.json
+          # Strip machine-specific file:// paths from externalReferences before diff
+          # (editable installs embed the local checkout path, which differs per machine)
+          python - <<'EOF'
+import json
+with open('SBOM.json') as f:
+    sbom = json.load(f)
+for c in sbom.get('components', []):
+    c['externalReferences'] = [
+        r for r in c.get('externalReferences', [])
+        if not r.get('url', '').startswith('file://')
+    ]
+with open('SBOM.json', 'w') as f:
+    json.dump(sbom, f, indent=2)
+    f.write('\n')
+EOF
           git diff --exit-code SBOM.json

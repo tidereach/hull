@@ -1344,7 +1344,8 @@
       "name": "pluggy",
       "purl": "pkg:pypi/pluggy@1.6.0",
       "type": "library",
-      "version": "1.6.0"
+      "version": "1.6.0",
+      "externalReferences": []
     },
     {
       "bom-ref": "py-serializable==2.1.0",
@@ -1946,13 +1947,7 @@
     {
       "bom-ref": "spektralia==0.1.0",
       "description": "Local pre-cloud sensitivity gate",
-      "externalReferences": [
-        {
-          "comment": "PackageSource: Local",
-          "type": "distribution",
-          "url": "file:///home/dotme/Code/llm/spektralia"
-        }
-      ],
+      "externalReferences": [],
       "name": "spektralia",
       "type": "library",
       "version": "0.1.0"
