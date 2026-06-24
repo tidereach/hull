@@ -1,0 +1,35 @@
+name: Latency Benchmark
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ hashFiles('requirements.lock') }}
+
+      - name: Install locked production dependencies
+        run: pip install --require-hashes -r requirements.lock
+
+      - name: Install package and dev extras
+        run: pip install -e ".[dev]"
+
+      - name: Run latency benchmark
+        # Mocks Ollama with respx internally; no live Ollama service needed.
+        # Exits 0 if all hook p95 latencies are within budget, 1 otherwise.
+        run: python scripts/latency_bench.py

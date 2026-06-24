@@ -1,0 +1,49 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ hashFiles('requirements.lock') }}
+
+      - name: Install locked production dependencies
+        run: pip install --require-hashes -r requirements.lock
+
+      - name: Install package and dev extras
+        # requirements.lock covers only production deps; dev tools (pytest,
+        # respx, cyclonedx-bom) are not locked.  Install them separately so
+        # supply-chain coverage applies to the production surface.  Prod deps
+        # are already satisfied, so pip only fetches the unlocked dev tools.
+        run: pip install -e ".[dev]"
+
+      - name: Run tests
+        run: pytest -q
+
+      - name: Supply chain check
+        run: spektralia verify-installed
+
+      - name: SBOM drift check
+        # Regenerate the SBOM from the runner environment and assert no diff.
+        # --output-reproducible strips the non-deterministic timestamp and
+        # serialNumber fields so the diff reflects real dependency changes.
+        # NOTE: the committed SBOM.json must also have been generated with
+        # --output-reproducible for this check to be green.  If the committed
+        # SBOM.json was produced without that flag, regenerate it locally:
+        #   cyclonedx-py environment --output-reproducible -o SBOM.json
+        # and commit the result before this step will pass.
+        run: |
+          cyclonedx-py environment --output-reproducible -o SBOM.json
+          git diff --exit-code SBOM.json
