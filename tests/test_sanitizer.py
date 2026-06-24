@@ -52,15 +52,17 @@ def test_restore_roundtrip():
     text = "Email: alice@example.com"
     det = Detection(label="EMAIL", start=7, end=24)
     sanitized = sanitize(text, [det])
-    restored = _restore(sanitized.text, sanitized, unsafe_restore_fields=["EMAIL"])
-    assert "alice@example.com" in restored
+    payload = {"text": sanitized.text}
+    restored = _restore(payload, sanitized, unsafe_restore_paths=["$.text"])
+    assert "alice@example.com" in restored["text"]
 
 
 def test_restore_removes_from_map():
     text = "Email: alice@example.com"
     det = Detection(label="EMAIL", start=7, end=24)
     sanitized = sanitize(text, [det])
-    _restore(sanitized.text, sanitized, unsafe_restore_fields=["EMAIL"])
+    payload = {"text": sanitized.text}
+    _restore(payload, sanitized, unsafe_restore_paths=["$.text"])
     # After restore, map should be empty
     assert sanitized._token_map == {}
 
@@ -75,3 +77,98 @@ def test_restore_not_in_public_api():
     import spektralia
     assert not hasattr(spektralia, "_restore"), "_restore must not be in public __init__"
     assert not hasattr(spektralia, "restore"), "restore must not be in public __init__"
+
+
+def test_restore_jsonpath_scoped():
+    """Token at $.user.email restores; identical token at $.body does not."""
+    from spektralia.sanitizer import sanitize, _restore
+    from spektralia.memory_safety import Secret
+    from spektralia.sanitizer import Sanitized
+
+    token = "[REDACTED:EMAIL:abcdef]"
+    token2 = "[REDACTED:EMAIL:aabbcc]"
+
+    s3 = Sanitized(
+        text="ignored",
+        _token_map={
+            token: Secret(b"alice@example.com", label="EMAIL"),
+            token2: Secret(b"alice@example.com", label="EMAIL"),
+        },
+    )
+    payload2 = {
+        "user": {"email": f"send to {token}"},
+        "body": f"message mentioning {token2}",
+    }
+    result = _restore(payload2, s3, unsafe_restore_paths=["$.user.email"])
+    assert "alice@example.com" in result["user"]["email"]
+    assert token2 in result["body"]  # body token NOT restored
+    assert token not in s3._token_map  # consumed
+    assert token2 in s3._token_map    # not consumed
+
+
+def test_restore_flat_string_with_dollar_path():
+    """Flat string + '$' path restores all tokens."""
+    text = "Email: alice@example.com"
+    det = Detection(label="EMAIL", start=7, end=24)
+    sanitized = sanitize(text, [det])
+    restored = _restore(sanitized.text, sanitized, unsafe_restore_paths=["$"])
+    assert "alice@example.com" in restored
+
+
+def test_restore_flat_string_no_dollar_path():
+    """Flat string + path that isn't '$' restores nothing."""
+    from spektralia.memory_safety import Secret
+    from spektralia.sanitizer import Sanitized
+
+    token = "[REDACTED:EMAIL:112233]"
+    s = Sanitized(
+        text=f"send to {token}",
+        _token_map={token: Secret(b"alice@example.com", label="EMAIL")},
+    )
+    restored = _restore(s.text, s, unsafe_restore_paths=["$.email"])
+    assert token in restored  # NOT restored
+    assert token in s._token_map  # still in map
+
+
+def test_restore_list_wildcard():
+    """$.items[*] restores all items in a list."""
+    from spektralia.memory_safety import Secret
+    from spektralia.sanitizer import Sanitized
+
+    token1 = "[REDACTED:EMAIL:111111]"
+    token2 = "[REDACTED:EMAIL:222222]"
+    s = Sanitized(
+        text="ignored",
+        _token_map={
+            token1: Secret(b"alice@example.com", label="EMAIL"),
+            token2: Secret(b"bob@example.com", label="EMAIL"),
+        },
+    )
+    payload = {"items": [token1, token2]}
+    result = _restore(payload, s, unsafe_restore_paths=["$.items[*]"])
+    assert result["items"][0] == "alice@example.com"
+    assert result["items"][1] == "bob@example.com"
+    assert token1 not in s._token_map
+    assert token2 not in s._token_map
+
+
+def test_restore_list_index():
+    """$[0] restores only the first list element."""
+    from spektralia.memory_safety import Secret
+    from spektralia.sanitizer import Sanitized
+
+    token1 = "[REDACTED:EMAIL:333333]"
+    token2 = "[REDACTED:EMAIL:444444]"
+    s = Sanitized(
+        text="ignored",
+        _token_map={
+            token1: Secret(b"alice@example.com", label="EMAIL"),
+            token2: Secret(b"bob@example.com", label="EMAIL"),
+        },
+    )
+    payload = [token1, token2]
+    result = _restore(payload, s, unsafe_restore_paths=["$[0]"])
+    assert result[0] == "alice@example.com"
+    assert result[1] == token2  # NOT restored
+    assert token1 not in s._token_map
+    assert token2 in s._token_map
