@@ -461,21 +461,32 @@ Expected: `1 passed`.
 
 ```bash
 ollama pull llama3.2:3b
+
+# Warm up the model first (first inference load can take several seconds)
+ollama run llama3.2:3b "ping" --nowordwrap 2>/dev/null
+
 python -c "
 import asyncio
 from spektralia.config import Settings
 from spektralia.gate import gate
+from spektralia.errors import SensitiveDataError
 
 async def run():
-    result = await gate('My email is alice@example.com', Settings())
-    print('blocked:', result.blocked)
-    print('labels:', [d.label for d in result.detections])
-    assert result.blocked
-    print('OK — live gate blocked on email')
+    try:
+        await gate('My email is alice@example.com', Settings())
+        print('ERROR: expected SensitiveDataError')
+    except SensitiveDataError as e:
+        print('blocked:', e)
+        assert 'EMAIL' in str(e).upper()
+        print('OK — live gate blocked on email')
 
 asyncio.run(run())
 "
 ```
+
+Expected: `blocked: Blocked: rule(EMAIL)...` followed by `OK — live gate blocked on email`.
+
+> **Classifier timeout:** `check-ollama` only pings `/api/version` — it does not run inference. If the classifier times out (default 10 s), increase it: `SPEKTRALIA_CLASSIFIER_TIMEOUT_SECONDS=60 python -c "..."`. The gate still blocks correctly on the rule hit even when the classifier is unavailable.
 
 ---
 
