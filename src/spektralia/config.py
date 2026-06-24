@@ -80,9 +80,10 @@ class Settings:
 
     @classmethod
     def from_env(cls, **overrides) -> "Settings":
-        # TOML discovery: ./spektralia.toml then ~/.spektralia/config.toml
+        # TOML discovery: local files first, then global
         toml_data: dict = {}
         for candidate in (
+            Path(".spektralia.toml"),
             Path("spektralia.toml"),
             Path.home() / ".spektralia" / "config.toml",
         ):
