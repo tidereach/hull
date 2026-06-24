@@ -500,7 +500,7 @@ Expected: `blocked: Blocked: rule(EMAIL)...` followed by `OK — live gate block
 .venv/bin/pytest -q tests/test_cli.py tests/test_hooks.py
 ```
 
-Expected: all pass.
+Expected: `50 passed`.
 
 ### 3.2 `spektralia scan` — clean input
 
