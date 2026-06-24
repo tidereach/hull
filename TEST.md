@@ -339,6 +339,8 @@ asyncio.run(run())
 
 Expected: `blocked by rule: Blocked: rule(EMAIL)` followed by `OK`. Gate raises `SensitiveDataError` on a rule hit — it does not return a `GateResult` with `blocked=True`.
 
+> **macOS note (tested):** On macOS without a running Ollama, this snippet also prints `--- Logging error ---` blocks to stderr from the audit syslog sink (macOS syslog socket path differs from Linux `/dev/log`) and a `classifier error: Cannot reach Ollama` message. These are cosmetic — the gate still produces the correct result. **Linux: verify this runs cleanly without the syslog logging errors.**
+
 ### 2.6 Gate fails closed when classifier is unavailable
 
 ```bash
