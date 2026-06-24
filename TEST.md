@@ -177,13 +177,15 @@ Expected: `OK`.
 
 ```bash
 python -c "
-from spektralia.integrity import pattern_hash
-h1 = pattern_hash()
-h2 = pattern_hash()
+from spektralia.integrity import compute_pattern_hash
+h1 = compute_pattern_hash()
+h2 = compute_pattern_hash()
 assert h1 == h2
 print('pattern_hash:', h1[:16], '...')
 "
 ```
+
+Expected: `pattern_hash: <16 hex chars> ...` (exact value varies with pattern table but is stable across runs).
 
 ### 1.11 PR_SET_DUMPABLE invoked at import (Linux only)
 
