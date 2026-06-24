@@ -87,3 +87,8 @@ class Secret:
 
     def __hash__(self):
         raise TypeError("Secret is not hashable")
+
+
+# Called at import time so that any code path importing this module
+# (scanner, cli, etc.) sets PR_SET_DUMPABLE=0 immediately.
+disable_core_dumps()
