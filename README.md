@@ -32,6 +32,31 @@ spektralia self-test       # run canary corpus against live classifier
 spektralia hook-check      # assert Claude Code hooks are installed correctly
 ```
 
+### Starting Ollama
+
+```bash
+# TCP (default — spektralia connects to http://127.0.0.1:11434)
+ollama serve
+
+# UDS (preferred — spektralia verifies socket owner/permissions before trusting it)
+OLLAMA_SOCK="/var/run/ollama/ollama.sock" ollama serve
+```
+
+Configure spektralia to use a non-default endpoint via env var or TOML:
+
+```bash
+# env var
+export SPEKTRALIA_OLLAMA_URL="http://192.168.1.10:11434"   # remote TCP
+export SPEKTRALIA_OLLAMA_SOCKET="/var/run/ollama/ollama.sock"  # local UDS (takes precedence over URL)
+```
+
+```toml
+# ~/.spektralia/config.toml or ./spektralia.toml
+[spektralia]
+ollama_url    = "http://192.168.1.10:11434"
+ollama_model  = "llama3.2:3b"
+```
+
 ---
 
 ## Key decisions, by phase
