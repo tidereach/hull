@@ -144,24 +144,6 @@ class Gate:
             self._emit("block", [], None, reason="input_too_large")
             raise SensitiveDataError(reason="input_too_large", labels=("input_too_large",))
 
-        # Cache check (keyed on sanitized-then-classified, so we check after scanning)
-        # Actually key is on the raw text for the scan result cache
-        config_hash = s.config_hash()
-        cache_key = LRUCache.make_key(text, config_hash)
-        cached = self._cache.get(cache_key)
-        if cached is not None:
-            if cached.get("blocked"):
-                raise SensitiveDataError(
-                    reason=cached["reason"],
-                    labels=tuple(cached.get("labels", [])),
-                    categories=tuple(cached.get("categories", [])),
-                )
-            return GateResult(
-                sanitized_text=cached["sanitized_text"],
-                detections=[],
-                classifier_result=None,
-            )
-
         # Detection pipeline
         detections = scan(text)
         detections.extend(find_high_entropy(text))
@@ -182,6 +164,24 @@ class Gate:
 
         # Sanitize before classifier
         sanitized = sanitize(text, detections)
+
+        # Cache check — keyed on sanitized text so inputs that differ only in secret value
+        # but produce the same sanitized form share a cache entry
+        config_hash = s.config_hash()
+        cache_key = LRUCache.make_key(sanitized.text, config_hash)
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            if cached.get("blocked"):
+                raise SensitiveDataError(
+                    reason=cached["reason"],
+                    labels=tuple(cached.get("labels", [])),
+                    categories=tuple(cached.get("categories", [])),
+                )
+            return GateResult(
+                sanitized_text=cached["sanitized_text"],
+                detections=[],
+                classifier_result=None,
+            )
 
         # Classify
         cr: ClassifierResult | None = None
