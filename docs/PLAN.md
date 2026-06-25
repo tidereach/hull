@@ -280,6 +280,7 @@ Items deferred from v1 scope. Add to this list whenever a task surfaces a candid
 - **ReDoS nightly fuzz** — Phase 4 CI item; add as a scheduled GitHub Actions job.
 - **Log raw model response on empty categories** — when the classifier returns `sensitive=True, confidence=1.0, categories=[]`, the fail-closed defaults mask whether the model returned a bad response or an empty-but-valid one. Log the raw model output (redacted) at DEBUG level so false positives are diagnosable without rerunning with a debugger.
 - **Automated hook setup (`spektralia install-hooks`)** — current setup requires manual sed + copy; a dedicated CLI subcommand should locate the repo root, write `~/.claude/settings.json` (or a project `.claude/settings.json`), and verify with `hook-check` in one step.
+- **Cross-layer sandbox preflight (`spektralia check-sandbox`)** — ✅ implemented. Asserts the configured execution-plane sandbox (`fence` or `cplt`) is on `PATH`, with optional config-hash pinning (detect-only by default); wired into the `SessionStart` preflight and `none` by default so existing installs are unaffected. Realizes the [ENDPOINT_STACK.md cross-layer-integrity item](ENDPOINT_STACK.md); see [SANDBOX_ALTERNATIVES.md](SANDBOX_ALTERNATIVES.md) for the Fence-vs-[cplt](https://github.com/navikt/cplt) comparison. **Remaining:** the equivalent Prempti-service-up assertion.
 
 ---
 
