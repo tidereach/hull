@@ -122,4 +122,5 @@ jobs:
       - name: Check SBOM is up to date
         run: |
           cyclonedx-py requirements --output-reproducible -o SBOM.json requirements.lock
+          printf '\n' >> SBOM.json
           git diff --exit-code SBOM.json
