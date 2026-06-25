@@ -56,3 +56,69 @@ def test_freeze_switch_file(tmp_path):
     sw.set_frozen(False)
     frozen, _ = sw.is_frozen()
     assert not frozen
+
+
+# ---------------------------------------------------------------------------
+# Rolling-window pruning and counter filtering
+# ---------------------------------------------------------------------------
+
+
+def test_events_pruned_outside_window():
+    # A negative window forces every recorded event to fall outside the window,
+    # so _prune pops it immediately and counters report zero.
+    det = AnomalyDetector(window_seconds=-1)
+    assert det.record("pass") is False  # pruned before any rate check
+    assert all(v == 0 for v in det.counters().values())
+
+
+def test_counters_ignore_unknown_event_names():
+    det = AnomalyDetector()
+    det.record("session_end")  # not one of the tracked _COUNTERS
+    det.record("block")
+    counts = det.counters()
+    assert counts["block"] == 1
+    assert "session_end" not in counts
+
+
+# ---------------------------------------------------------------------------
+# FreezeSwitch anomaly conditions
+# ---------------------------------------------------------------------------
+
+
+def test_freeze_switch_non_regular_file_is_anomalous(tmp_path):
+    # A symlink where the freeze file should be is treated as frozen+anomalous.
+    freeze_path = tmp_path / "FREEZE"
+    freeze_path.symlink_to(tmp_path / "elsewhere")
+    frozen, reason = FreezeSwitch(freeze_path).is_frozen()
+    assert frozen is True
+    assert reason == "freeze_file_anomalous"
+
+
+def test_freeze_switch_foreign_owner_is_anomalous(tmp_path, monkeypatch):
+    import os
+
+    freeze_path = tmp_path / "FREEZE"
+    freeze_path.touch(mode=0o600)
+    real_uid = os.getuid()
+    monkeypatch.setattr(os, "getuid", lambda: real_uid + 1)
+    frozen, reason = FreezeSwitch(freeze_path).is_frozen()
+    assert frozen is True
+    assert reason == "freeze_file_anomalous"
+
+
+def test_freeze_switch_wrong_mode_is_anomalous(tmp_path):
+    import os
+
+    freeze_path = tmp_path / "FREEZE"
+    freeze_path.touch()
+    os.chmod(freeze_path, 0o644)  # group/world readable
+    frozen, reason = FreezeSwitch(freeze_path).is_frozen()
+    assert frozen is True
+    assert reason == "freeze_file_anomalous"
+
+
+def test_unfreeze_when_no_file_is_noop(tmp_path):
+    # set_frozen(False) on a missing freeze file swallows FileNotFoundError.
+    sw = FreezeSwitch(tmp_path / "FREEZE")
+    sw.set_frozen(False)  # must not raise
+    assert sw.is_frozen()[0] is False
