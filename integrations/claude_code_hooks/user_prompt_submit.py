@@ -12,37 +12,43 @@ def handle(payload: dict) -> dict:
 
     if payload.get("attachments"):
         return {
-            "action": "block",
+            "decision": "block",
             "reason": "Spektralia cannot scan attachments — paste content as text",
         }
 
     try:
-        from spektralia import gate, SensitiveDataError
+        from spektralia import gate
+        from spektralia import SensitiveDataError
         from spektralia.config import Settings
+    except Exception as e:
+        return {"decision": "block", "reason": f"hook_import_error: {type(e).__name__}"}
 
+    try:
         settings = Settings.from_env()
         settings.classifier_mode = "strict"
 
         result = asyncio.run(gate(prompt, settings))
 
         if result.blocked:
-            return {"action": "block", "reason": result.block_reason}
-        return {"action": "continue", "prompt": result.sanitized_text}
+            return {"decision": "block", "reason": result.block_reason}
+        return {}
 
     except SensitiveDataError as e:
-        return {"action": "block", "reason": str(e)}
+        return {"decision": "block", "reason": str(e)}
     except Exception as e:
-        return {"action": "block", "reason": f"hook_error: {type(e).__name__}"}
+        return {"decision": "block", "reason": f"hook_error: {type(e).__name__}"}
 
 
 def main() -> None:
     try:
         payload = json.loads(sys.stdin.read())
     except Exception:
-        print(json.dumps({"action": "block", "reason": "hook_input_parse_error"}))
+        print(json.dumps({"decision": "block", "reason": "hook_input_parse_error"}))
         sys.exit(0)
 
-    print(json.dumps(handle(payload)))
+    result = handle(payload)
+    if result:
+        print(json.dumps(result))
 
 
 if __name__ == "__main__":

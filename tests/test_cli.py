@@ -367,7 +367,8 @@ class TestCmdHookCheck:
             code = cmd_hook_check(_args())
         assert code == 0
 
-    def test_missing_hook_exits_1(self, tmp_path, capsys):
+    def test_missing_hook_exits_1(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.chdir(tmp_path)
         claude_dir = tmp_path / ".claude"
         claude_dir.mkdir()
         settings_path = claude_dir / "settings.json"
@@ -404,6 +405,12 @@ class TestCmdHookCheck:
         assert code == 0
         out = capsys.readouterr().out
         assert "all required hooks present" in out
+        # Must name only the file that has hooks, not both candidates
+        assert "configured in:" in out
+        project_settings = str(project_dir / ".claude" / "settings.json")
+        assert project_settings in out
+        home_settings = str(home_dir / ".claude" / "settings.json")
+        assert home_settings not in out
 
 
 # ---------------------------------------------------------------------------

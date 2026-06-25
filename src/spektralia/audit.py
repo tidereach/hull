@@ -155,17 +155,15 @@ class SyslogSink(AuditSink):
 
 
 def _choose_sink(state_dir: Path) -> AuditSink:
-    """Auto-detect best sink: journald > syslog > append-file > stdout."""
+    """Auto-detect best sink: journald > append-file > syslog > stdout.
+
+    Syslog is a last resort: it cannot be read by audit-verify. The file
+    sink is preferred over syslog so that audit-verify and manual inspection
+    via `tail ~/.spektralia/audit.jsonl` always work.
+    """
     try:
         sink = JournaldSink()
         logger.info("audit: using journald sink")
-        return sink
-    except Exception:
-        pass
-
-    try:
-        sink = SyslogSink()
-        logger.info("audit: using syslog sink")
         return sink
     except Exception:
         pass
@@ -174,6 +172,13 @@ def _choose_sink(state_dir: Path) -> AuditSink:
     try:
         sink = AppendOnlyFileSink(log_path)
         logger.info("audit: using append-only file sink at %s", log_path)
+        return sink
+    except Exception:
+        pass
+
+    try:
+        sink = SyslogSink()
+        logger.info("audit: using syslog sink")
         return sink
     except Exception:
         pass
