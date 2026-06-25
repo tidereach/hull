@@ -4,7 +4,7 @@ import httpx
 import pytest
 import respx
 
-from spektralia.classifier import PROMPT_HASH, classify
+from spektralia.classifier import PROMPT_HASH, _parse_response, classify
 
 MOCK_BASE = "http://127.0.0.1:11434"
 
@@ -120,3 +120,60 @@ def test_prompt_hash_stable():
     """PROMPT_HASH must be stable — changes indicate prompt drift."""
     assert len(PROMPT_HASH) == 64  # sha256 hex
     assert PROMPT_HASH  # non-empty
+
+
+# ---------------------------------------------------------------------------
+# _parse_response fail-closed branches
+# ---------------------------------------------------------------------------
+
+
+def test_parse_response_invalid_json_fails_closed():
+    sensitive, confidence, categories = _parse_response("this is not json")
+    assert sensitive is True
+    assert confidence == 1.0
+    assert "classifier_unavailable" in categories
+
+
+def test_parse_response_non_numeric_confidence_defaults_to_one():
+    raw = json.dumps({"sensitive": True, "confidence": "high", "categories": ["PII"]})
+    _sensitive, confidence, categories = _parse_response(raw)
+    assert confidence == 1.0  # float("high") raises → fail-closed default
+    assert categories == ["PII"]
+
+
+def test_parse_response_clamps_out_of_range_confidence():
+    raw = json.dumps({"sensitive": True, "confidence": 5.0, "categories": []})
+    _, confidence, _ = _parse_response(raw)
+    assert confidence == 1.0
+
+
+# ---------------------------------------------------------------------------
+# Fast mode (single framing) and framing-2 failure
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+def test_fast_mode_single_framing():
+    route = respx.post(f"{MOCK_BASE}/api/generate").mock(
+        return_value=httpx.Response(200, json=_mock_response(True, 0.8, ["PII"]))
+    )
+    client = httpx.Client(base_url=MOCK_BASE)
+    result = classify("text", client=client, model="llama3.2:3b", mode="fast")
+    assert result.sensitive is True
+    assert result.confidence == pytest.approx(0.8)
+    assert route.call_count == 1  # fast mode issues exactly one framing call
+
+
+@respx.mock
+def test_framing_two_failure_fails_closed_with_disagreement():
+    respx.post(f"{MOCK_BASE}/api/generate").mock(
+        side_effect=[
+            httpx.Response(200, json=_mock_response(False, 0.1, [])),
+            httpx.ConnectError("framing 2 dropped"),
+        ]
+    )
+    client = httpx.Client(base_url=MOCK_BASE)
+    result = classify("text", client=client, model="llama3.2:3b")
+    assert result.sensitive is True
+    assert result.confidence == 1.0
+    assert result.framing_disagreement is True
