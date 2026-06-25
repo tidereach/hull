@@ -3,7 +3,7 @@
 
 Calls each Claude Code hook's handle() in-process, mocks all Ollama HTTP
 calls with respx (no live Ollama needed), and asserts p95 latencies against
-the budgets defined in SPEC.md §20.3.
+the budgets defined in docs/SPEC.md §20.3.
 
 Run from repo root:
     .venv/bin/python scripts/latency_bench.py

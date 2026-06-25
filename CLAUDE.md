@@ -2,7 +2,7 @@
 
 Local pre-cloud sensitivity gate. Normalizes and scans input for PII, credentials, and internal identifiers before any cloud LLM call; classifies residual risk locally via Ollama; blocks or passes the sanitized payload.
 
-**Authoritative design spec:** [`SPEC.md`](SPEC.md) — read this before touching any code. [`PLAN.md`](PLAN.md) has phased status and open bugs. [`RATIONALE.md`](RATIONALE.md) has the full design arguments.
+**Authoritative design spec:** [`docs/SPEC.md`](docs/SPEC.md) — read this before touching any code. [`docs/PLAN.md`](docs/PLAN.md) has phased status and open bugs. [`docs/RATIONALE.md`](docs/RATIONALE.md) has the full design arguments.
 
 ---
 

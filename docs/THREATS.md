@@ -4,7 +4,7 @@ Spektralia is a local pre-cloud sensitivity gate. This document enumerates
 the attacker models it is designed to resist and the surfaces it explicitly
 does not cover.
 
-See also: [docs/COMPLIANCE.md](COMPLIANCE.md) | [SPEC.md §2](../SPEC.md)
+See also: [docs/COMPLIANCE.md](COMPLIANCE.md) | [SPEC.md §2](SPEC.md)
 
 ---
 

@@ -4,7 +4,7 @@ Spektralia makes no compliance certification claims. The notes below describe ho
 gate components align with common regulatory and security frameworks, for use as
 reference by deployers assessing the system. This is not legal advice.
 
-See also: [docs/THREATS.md](THREATS.md) | [SPEC.md](../SPEC.md)
+See also: [docs/THREATS.md](THREATS.md) | [SPEC.md](SPEC.md)
 
 ---
 

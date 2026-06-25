@@ -67,6 +67,11 @@ ignore = [
     "RUF003", # Comment contains ambiguous Unicode (intentional for homoglyph testing)
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# Env vars must be set before spektralia imports (reads env at import time);
+# the post-setup imports are intentional and load-bearing.
+"scripts/latency_bench.py" = ["E402"]
+
 [tool.black]
 line-length = 100
 target-version = ["py311"]

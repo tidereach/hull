@@ -55,4 +55,4 @@ Each hook call owns its own token map. Maps are never persisted, never reused ac
 - `/compact` conversation summaries (happen above the API; start fresh sessions for sensitive work).
 - Dynamic system prompts assembled by Claude Code per session.
 
-See `SPEC.md §18` for the full integration design.
+See `docs/SPEC.md §18` for the full integration design.

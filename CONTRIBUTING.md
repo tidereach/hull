@@ -121,4 +121,4 @@ To improve type coverage:
 
 ## Questions?
 
-See [SPEC.md](SPEC.md) for gate architecture, [PLAN.md](PLAN.md) for development timeline, and [COMPLIANCE.md](docs/COMPLIANCE.md) for security/privacy compliance.
+See [SPEC.md](docs/SPEC.md) for gate architecture, [PLAN.md](docs/PLAN.md) for development timeline, and [COMPLIANCE.md](docs/COMPLIANCE.md) for security/privacy compliance.
