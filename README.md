@@ -34,6 +34,25 @@ spektralia self-test       # run canary corpus against live classifier
 spektralia hook-check      # assert Claude Code hooks are installed correctly
 ```
 
+### Pre-commit hooks
+
+```bash
+# install hooks into .git/hooks
+python -m pre_commit install
+
+# run all hooks across the repo
+python -m pre_commit run --all-files # Note: run twice if hooks auto-fix files!
+```
+
+If your environment does not expose the module on the default python, use your venv python directly:
+
+```bash
+.venv/bin/python -m pre_commit install
+.venv/bin/python -m pre_commit run --all-files
+```
+
+Use `git commit --no-verify` only as a temporary escape hatch (for example, to push work-in-progress). Follow up by fixing hook failures and recommitting normally.
+
 ### Starting Ollama
 
 ```bash
