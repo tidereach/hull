@@ -378,7 +378,7 @@
       "version": "5.2.0"
     },
     {
-      "bom-ref": "click==8.4.1",
+      "bom-ref": "click==8.4.2",
       "description": "Composable command line interface toolkit",
       "externalReferences": [
         {
@@ -416,9 +416,9 @@
         }
       ],
       "name": "click",
-      "purl": "pkg:pypi/click@8.4.1",
+      "purl": "pkg:pypi/click@8.4.2",
       "type": "library",
-      "version": "8.4.1"
+      "version": "8.4.2"
     },
     {
       "bom-ref": "cryptography==49.0.0",
@@ -2142,7 +2142,7 @@
       "ref": "chardet==5.2.0"
     },
     {
-      "ref": "click==8.4.1"
+      "ref": "click==8.4.2"
     },
     {
       "dependsOn": [
@@ -2194,7 +2194,7 @@
         "Pygments==2.20.0",
         "anyio==4.14.0",
         "certifi==2026.6.17",
-        "click==8.4.1",
+        "click==8.4.2",
         "httpcore==1.0.9",
         "idna==3.18"
       ],
@@ -2322,7 +2322,7 @@
     {
       "dependsOn": [
         "build==1.5.0",
-        "click==8.4.1",
+        "click==8.4.2",
         "pip==26.1.2",
         "pyproject_hooks==1.2.0",
         "pytest==9.1.1",
