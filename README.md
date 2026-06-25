@@ -26,7 +26,7 @@ Every action produces a hash-chained audit event. A canary corpus runs at startu
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
-pip install -e .[dev]
+pip install -e .[dev] # in zsh: `pip install -e ."[dev]"`
 ollama pull llama3.1:8b
 pytest -q
 spektralia scan            # stdin → sanitized stdout; exit 2 on block
