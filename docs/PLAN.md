@@ -283,6 +283,14 @@ Items deferred from v1 scope. Add to this list whenever a task surfaces a candid
 
 ---
 
+## 9. v3 roadmap
+
+Items deferred beyond v2 scope.
+
+- **Quickstart setup script** — a `scripts/setup.sh` (or `spektralia setup` CLI subcommand) that installs the venv, pulls the Ollama model, and wires Claude Code hooks in one step for end-users. `--dev` flag additionally installs dev dependencies, seeds the canary corpus, runs the full test suite, and verifies hook-check, so a developer has a fully exercised environment after a single command.
+
+---
+
 ## 7. Where to find what
 
 - **Full 22-chapter implementation spec** (exact schemas, signatures, behaviour): `SPEC.md`
