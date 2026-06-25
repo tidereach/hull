@@ -6,7 +6,12 @@ shows how Spektralia composes with a process sandbox ([Fence](https://github.com
 and a Falco-based policy layer ([Prempti](https://github.com/falcosecurity/prempti))
 into a defense-in-depth stack, and — just as importantly — where the seams are.
 
-See also: [docs/THREATS.md](THREATS.md) | [docs/COMPLIANCE.md](COMPLIANCE.md) | [SPEC.md](SPEC.md)
+The execution plane shown here uses Fence; [navikt/cplt](https://github.com/navikt/cplt) is an
+alternative sandbox for that plane (notably the only option that runs on macOS, plus a
+domain-filtering egress proxy and built-in git/gh guards). See
+[docs/SANDBOX_ALTERNATIVES.md](SANDBOX_ALTERNATIVES.md) for the Fence-vs-cplt comparison.
+
+See also: [docs/SANDBOX_ALTERNATIVES.md](SANDBOX_ALTERNATIVES.md) | [docs/THREATS.md](THREATS.md) | [docs/COMPLIANCE.md](COMPLIANCE.md) | [SPEC.md](SPEC.md)
 
 ---
 
@@ -19,7 +24,7 @@ and each covers a gap the others structurally cannot reach.
 |------|-------|---------------------|-----------|
 | **Spektralia** | Data | *What information leaves the endpoint for the cloud LLM?* | Content scan — regex + Luhn/MOD-11 validators + entropy + decoded payloads + a local classifier — on prompts and tool I/O, via Claude Code hooks |
 | **Prempti** | Control / intent | *What is the agent asking to do?* | Falco rule engine over hook events (`PreToolUse`) → `deny` / `ask` / `allow` the action |
-| **Fence** | Execution / side-effects | *What actually runs against the OS?* | `bubblewrap` namespaces + `landlock` + `seccomp`; default-deny network |
+| **Fence** (or **cplt** — see [SANDBOX_ALTERNATIVES.md](SANDBOX_ALTERNATIVES.md)) | Execution / side-effects | *What actually runs against the OS?* | `bubblewrap` namespaces + `landlock` + `seccomp`; default-deny network |
 
 A cross-cutting **visibility** plane unifies the three telemetry streams (see below).
 
@@ -111,6 +116,11 @@ blocks the call. The order is a deliberate choice:
 ---
 
 ## How Fence wraps the agent
+
+> This section describes Fence specifically. [navikt/cplt](https://github.com/navikt/cplt) is an
+> alternative execution-plane sandbox — purpose-built to wrap coding agents, cross-platform
+> (Linux + macOS), with a domain-filtering egress proxy and built-in git/gh guards. See
+> [docs/SANDBOX_ALTERNATIVES.md](SANDBOX_ALTERNATIVES.md) for the comparison and its allowlist.
 
 Fence can wrap execution at three granularities:
 
@@ -216,9 +226,11 @@ Adding layers narrows the gap; it does not close it. Honest residual exposure:
   intent policy.
 - **Cross-layer integrity.** All three layers typically run under the same UID, so one can
   in principle disable another. Spektralia already self-checks (`spektralia hook-check`,
-  `verify-integrity`). **Roadmap, not v1:** extend that preflight to also assert the Prempti
-  service is up and the Fence wrapper is on `PATH`, pinning their config hashes the way
-  Spektralia pins its pattern, prompt, and model digests today.
+  `verify-integrity`). The sandbox half of this is now implemented: **`spektralia check-sandbox`**
+  (wired into the `SessionStart` preflight) asserts the configured execution-plane wrapper
+  (`fence` or `cplt`) is on `PATH` and optionally pins its config hash the way Spektralia pins its
+  pattern, prompt, and model digests — see [docs/SANDBOX_ALTERNATIVES.md](SANDBOX_ALTERNATIVES.md).
+  **Still roadmap:** the equivalent assertion that the Prempti service is up.
 
 ---
 

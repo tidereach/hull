@@ -2,7 +2,7 @@
 
 Local pre-cloud sensitivity gate. Normalizes and scans input for PII, credentials, and internal identifiers before any cloud LLM call; classifies residual risk locally via Ollama; blocks or passes the sanitized payload.
 
-**Authoritative design spec:** [`docs/SPEC.md`](docs/SPEC.md) — read this before touching any code. [`docs/PLAN.md`](docs/PLAN.md) has phased status and open bugs. [`docs/RATIONALE.md`](docs/RATIONALE.md) has the full design arguments. [`docs/ENDPOINT_STACK.md`](docs/ENDPOINT_STACK.md) shows how Spektralia composes with a sandbox (Fence) and a Falco policy layer (Prempti) into a layered endpoint stack.
+**Authoritative design spec:** [`docs/SPEC.md`](docs/SPEC.md) — read this before touching any code. [`docs/PLAN.md`](docs/PLAN.md) has phased status and open bugs. [`docs/RATIONALE.md`](docs/RATIONALE.md) has the full design arguments. [`docs/ENDPOINT_STACK.md`](docs/ENDPOINT_STACK.md) shows how Spektralia composes with a sandbox (Fence) and a Falco policy layer (Prempti) into a layered endpoint stack; [`docs/SANDBOX_ALTERNATIVES.md`](docs/SANDBOX_ALTERNATIVES.md) compares Fence with [navikt/cplt](https://github.com/navikt/cplt) as the execution-plane sandbox.
 
 ---
 
@@ -90,6 +90,7 @@ spektralia audit-purge --before YYYY-MM-DD # GDPR Right to Erasure; re-anchors c
 spektralia scan-config            # lint CLAUDE.md files for sensitive content
 spektralia hook-check             # assert Claude Code hooks installed correctly
 spektralia check-ollama           # ping configured Ollama endpoint
+spektralia check-sandbox          # assert configured execution-plane sandbox (fence|cplt) is present
 
 # SBOM / supply chain
 make sbom    # regenerate SBOM.json from requirements.lock (reproducible; lockfile-based)
