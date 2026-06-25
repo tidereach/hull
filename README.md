@@ -2,7 +2,7 @@
 
 A local pre-cloud sensitivity gate. Normalizes and scans input for PII, credentials, and internal identifiers before any cloud LLM call; classifies residual risk locally via Ollama; blocks or passes the sanitized payload.
 
-> **Disclaimer:** This tool is a best-effort gate, not a security guarantee. It will not catch all sensitive data. Do not rely on it as a sole control for data classified above the threat model it addresses (see `SPEC.md §2`). Sensitive work should be done in fresh sessions, not through `/compact`.
+> **Disclaimer:** This tool is a best-effort gate, not a security guarantee. It will not catch all sensitive data. Do not rely on it as a sole control for data classified above the threat model it addresses (see `docs/SPEC.md §2`). Sensitive work should be done in fresh sessions, not through `/compact`.
 
 > *Spektralia is a sensitivity gate, not a sensitivity guarantee. It detects what its rules and a small local classifier can see — credentials with known shapes, identifiers with valid checksums, high-entropy strings, and content the classifier flags. It does not detect contextual personal data (names in prose, employment history, dates of birth as words), novel credential formats, or content the classifier has never seen. Use Spektralia as one control in a defense-in-depth posture, not as the sole boundary between your data and a cloud LLM.*
 
@@ -259,7 +259,7 @@ Rule-based blocks (email, credit card, API keys, etc.) are always enforced regar
 
 ## Reference
 
-- `PLAN.md` — consolidated phased plan with current status, bugs, and carry-overs
-- `SPEC.md` — full 22-chapter implementation spec (exact schemas, signatures, behaviour)
-- `RATIONALE.md` — full design arguments (Ember critiques, OWASP ASI gap analysis, Ollama trust reasoning)
+- `docs/PLAN.md` — consolidated phased plan with current status, bugs, and carry-overs
+- `docs/SPEC.md` — full 22-chapter implementation spec (exact schemas, signatures, behaviour)
+- `docs/RATIONALE.md` — full design arguments (Ember critiques, OWASP ASI gap analysis, Ollama trust reasoning)
 - `CLAUDE.md` — file layout, commands, dependency list
