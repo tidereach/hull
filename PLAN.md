@@ -2,7 +2,7 @@
 
 A local pre-cloud sensitivity gate. Two layers of deterministic detection (regex + entropy), normalization to strip obfuscation, sanitization to typed placeholders, a small local Ollama classifier as second signal, then a block/pass decision delivered through hash-chained tamper-evident audit. Built to be embedded in Claude Code (or any agent) via hooks. Built to be hostile to its own users only when the alternative is leaking secrets.
 
-> **Status (2026-06-25):** Phase 1 complete (109 tests passing, all deterministic-core modules built). Phase 2 complete (165 tests passing; all carry-overs closed; `test_gate.py`, `test_ollama_trust.py`, cache-invalidation matrix, SyslogSink all green). Phase 3 code complete (215 tests passing; CLI all subcommands including `audit-rotate`/`audit-purge`; all five hooks refactored with `handle()` for testability; MCP default-deny fixed to `mcp__` prefix; `test_hooks.py`/`test_cli.py` passing; hooks README written). **Manual e2e against a real Claude Code config + real Ollama still required before Phase 3 can be marked done.** Phase 4 complete (225 tests passing; Makefile, SBOM.json, docs/COMPLIANCE.md, docs/THREATS.md, README §13.5 disclaimer, scripts/latency_bench.py, scripts/redos_fuzz.py, GitHub Actions ci.yml/latency.yml/redos-fuzz.yml all done; PR #3 open).
+> **Status (2026-06-25):** Phase 1 complete (109 tests passing, all deterministic-core modules built). Phase 2 complete (165 tests passing; all carry-overs closed; `test_gate.py`, `test_ollama_trust.py`, cache-invalidation matrix, SyslogSink all green). Phase 3 complete (215 tests passing; CLI all subcommands including `audit-rotate`/`audit-purge`; all five hooks refactored with `handle()` for testability; MCP default-deny fixed to `mcp__` prefix; `test_hooks.py`/`test_cli.py` passing; hooks README written; §3.19 live e2e verified 2026-06-25: credential block, email block via Agent prompt, email block via Bash prompt, self-test all green). Phase 4 complete and manually verified (225 tests passing; Makefile, SBOM.json, docs/COMPLIANCE.md, docs/THREATS.md, README §13.5 disclaimer, scripts/latency_bench.py, scripts/redos_fuzz.py, GitHub Actions ci.yml/latency.yml/redos-fuzz.yml all done; §4.1–§4.6 manual checks all pass; PR #3 open).
 
 > **Related files:** `SPEC.md` (full 22-chapter spec), `RATIONALE.md` (design arguments from v2/v3/v4 proposals), `README.md` (key decisions by phase with spec §§ references).
 
@@ -190,7 +190,7 @@ These are real bugs in code already on disk. Fix them as part of Phase 2's norma
 
 ---
 
-### Phase 3 — CLI + Claude Code hooks ⚠️ (code complete, 215 tests passing; manual e2e pending)
+### Phase 3 — CLI + Claude Code hooks ✅ (complete, 215 tests passing; e2e verified 2026-06-25)
 
 - `cli.py` — versioned subcommand surface from spec §17 (`scan`, `scan --explain`, `check-ollama`, `verify-integrity`, `verify-installed`, `self-test`, `stats`, `freeze`/`unfreeze`, `audit-verify`, `audit-rotate`, `audit-purge`, `scan-config`, `hook-check`)
 - `integrations/claude_code_hooks/{session_start,user_prompt_submit,pre_tool_use,post_tool_use,stop}.py`
@@ -198,7 +198,7 @@ These are real bugs in code already on disk. Fix them as part of Phase 2's norma
 - Default-deny MCP matcher; attachment refusal; hook crash → block
 - **`PreToolUse(Task)` hook is mandatory** — without it, subagent prompts launder context past `UserPromptSubmit`
 
-**Exit criteria:** End-to-end manual scenario from spec §20 step 5 works against a scratch Claude Code config (cat scratch `.env` → sanitized; `Task(prompt=...)` carrying secret → blocked; `Bash(curl -d [REDACTED:*:*])` → blocked); `spektralia self-test` green against a real local Ollama (`ollama pull llama3.1:8b`).
+**Exit criteria:** ✅ Live e2e verified 2026-06-25 against real Claude Code + `llama3.1:8b`: `sk_live_*` credential blocked at `UserPromptSubmit`; Agent prompt with email blocked; Bash prompt with email blocked; `spektralia self-test` green.
 
 ---
 

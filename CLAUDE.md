@@ -84,6 +84,8 @@ spektralia verify-installed       # check pip hashes against requirements.lock
 spektralia stats                  # rolling counters + freeze state
 spektralia freeze / unfreeze
 spektralia audit-verify <path>
+spektralia audit-rotate --keep-days <N>   # prune old audit records; re-anchors chain
+spektralia audit-purge --before YYYY-MM-DD # GDPR Right to Erasure; re-anchors chain
 spektralia scan-config            # lint CLAUDE.md files for sensitive content
 spektralia hook-check             # assert Claude Code hooks installed correctly
 spektralia check-ollama           # ping configured Ollama endpoint
@@ -91,6 +93,7 @@ spektralia check-ollama           # ping configured Ollama endpoint
 # SBOM / supply chain
 make sbom    # regenerate SBOM.json (--output-reproducible + strips file:// from externalReferences)
 make verify  # verify-integrity + verify-installed
+make test    # .venv/bin/pytest -q
 make lock    # re-pin requirements.lock with hashes (runs pip-compile --generate-hashes)
 ```
 

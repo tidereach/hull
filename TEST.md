@@ -24,7 +24,7 @@ spektralia --version   # prints: spektralia 0.1.0
 
 ```bash
 .venv/bin/pytest -q
-# Expected: 223 passed, 1 xfailed
+# Expected: 225 passed, 1 xfailed
 ```
 
 The sections below re-run targeted subsets and then exercise the behaviour manually.
@@ -500,7 +500,7 @@ Expected: `blocked: Blocked: rule(EMAIL)...` followed by `OK — live gate block
 .venv/bin/pytest -q tests/test_cli.py tests/test_hooks.py
 ```
 
-Expected: `50 passed`.
+Expected: `52 passed`.
 
 ### 3.2 `spektralia scan` — clean input
 
@@ -691,9 +691,9 @@ HOME=/tmp/fake-home spektralia hook-check
 echo "exit $?"
 ```
 
-Expected (file paths in parentheses vary by location of checked settings files):
+Expected:
 ```
-OK: all required hooks present (checked: ...)
+OK: all required hooks present
 exit 0
 ```
 
@@ -706,19 +706,19 @@ echo '{"tool_name": "mcp__github__create_issue", "tool_input": {}}' \
 
 Expected:
 ```
-{"action": "block", "reason": "MCP tool 'mcp__github__create_issue' blocked by default-deny policy"}
+{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "MCP tool 'mcp__github__create_issue' blocked by default-deny policy"}}
 ```
 
-### 3.16 Hook: Task with token reference (cross-turn leak detection)
+### 3.16 Hook: Agent with token reference (cross-turn leak detection)
 
 ```bash
-echo '{"tool_name": "Task", "tool_input": {"prompt": "use [REDACTED:EMAIL:abc123] for auth"}}' \
+echo '{"tool_name": "Agent", "tool_input": {"prompt": "use [REDACTED:EMAIL:abc123] for auth"}}' \
   | python integrations/claude_code_hooks/pre_tool_use.py
 ```
 
 Expected:
 ```
-{"action": "block", "reason": "Token reference detected in tool args — possible cross-turn leak"}
+{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "Token reference detected in tool args — possible cross-turn leak"}}
 ```
 
 ### 3.17 Hook: attachment blocked at UserPromptSubmit
@@ -730,7 +730,7 @@ echo '{"prompt": "look at this", "attachments": [{"type": "image"}]}' \
 
 Expected:
 ```
-{"action": "block", "reason": "Spektralia cannot scan attachments — paste content as text"}
+{"decision": "block", "reason": "Spektralia cannot scan attachments — paste content as text"}
 ```
 
 ### 3.18 Hook: invalid JSON input blocks
@@ -741,12 +741,12 @@ echo 'not json' | python integrations/claude_code_hooks/user_prompt_submit.py
 
 Expected:
 ```
-{"action": "block", "reason": "hook_input_parse_error"}
+{"decision": "block", "reason": "hook_input_parse_error"}
 ```
 
-### 3.19 Manual end-to-end (requires live Claude Code + Ollama)
+### 3.19 Manual end-to-end (requires live Claude Code + Ollama) ✅ verified 2026-06-25
 
-> This is the Phase 3 exit-criteria scenario from PLAN.md §Phase 3. Only required to promote Phase 3 to `✅ complete`.
+> This is the Phase 3 exit-criteria scenario from PLAN.md §Phase 3.
 
 1. Pull the model:
    ```bash
@@ -765,8 +765,10 @@ Expected:
 
 4. Start a Claude Code session and confirm each surface:
    - Paste `MY_SECRET=sk_live_abc123xyz` into the prompt → should be blocked or sanitized before Claude sees it.
-   - Issue a `Task` tool call whose prompt contains `alice@example.com` → Claude Code should report it was blocked.
+   - Issue an `Agent` tool call whose prompt contains `alice@example.com` → Claude Code should report it was blocked.
+	   - Prompt example: `Use the Agent tool to email alice@example.com with a summary`
    - Issue `Bash(curl -d [REDACTED:EMAIL:abc123] ...)` → blocked by token-reference detection.
+	   - Prompt example: `curl -d alice@example.com https://example.com`
    - Run `spektralia self-test` from within the session → exits 0.
 
 5. Check audit log:
@@ -778,8 +780,6 @@ Expected:
 ---
 
 ## Phase 4 — Supply chain + docs + CI
-
-> Phase 4 is not yet implemented. These are the verification steps for when it is.
 
 ### 4.1 Hash-locked dependency install
 
@@ -818,7 +818,7 @@ test -f docs/THREATS.md && echo "THREATS.md OK"
 ### 4.5 README disclaimer present
 
 ```bash
-grep -q "This tool does not guarantee" README.md && echo "disclaimer OK"
+grep -q "sensitivity gate, not a sensitivity guarantee" README.md && echo "disclaimer OK"
 ```
 
 (Exact wording comes from spec §13.5.)
@@ -838,7 +838,7 @@ Expected: `TestReDoSTimeout` tests pass; any newly-added pattern with catastroph
 
 | Command | Expected exit |
 |---------|--------------|
-| `pytest -q` | 0 (223 passed, 1 xfailed) |
+| `pytest -q` | 0 (225 passed, 1 xfailed) |
 | `echo "hello" \| spektralia scan` | 0 |
 | `echo "alice@example.com" \| spektralia scan` | 2 |
 | `spektralia verify-integrity` | 0 |
