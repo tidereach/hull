@@ -1,5 +1,4 @@
-import pytest
-from spektralia.scanner import scan, Detection
+from spektralia.scanner import scan
 
 
 def test_email_detected():
@@ -18,7 +17,7 @@ def test_overlapping_span_longer_wins():
     # All spans are non-overlapping
     sorted_spans = sorted(spans)
     for i in range(1, len(sorted_spans)):
-        assert sorted_spans[i][0] >= sorted_spans[i-1][1], f"Overlapping: {sorted_spans}"
+        assert sorted_spans[i][0] >= sorted_spans[i - 1][1], f"Overlapping: {sorted_spans}"
 
 
 def test_empty_input():

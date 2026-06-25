@@ -7,7 +7,6 @@ import re
 
 from .scanner import Detection, scan
 
-
 _BASE64_RE = re.compile(r"[A-Za-z0-9+/]{40,}={0,2}")
 _HEX_RE = re.compile(r"[0-9a-fA-F]{64,}")
 _GZIP_MAGIC = b"\x1f\x8b"
@@ -19,10 +18,7 @@ def _decode_and_scan(raw: bytes, outer_start: int, outer_end: int, suffix: str) 
     except Exception:
         return []
     inner = scan(text)
-    return [
-        Detection(label=f"{d.label}_{suffix}", start=outer_start, end=outer_end)
-        for d in inner
-    ]
+    return [Detection(label=f"{d.label}_{suffix}", start=outer_start, end=outer_end) for d in inner]
 
 
 def decode_and_rescan(text: str) -> list[Detection]:

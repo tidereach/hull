@@ -3,9 +3,8 @@ name: CI
 on: [push, pull_request]
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -17,7 +16,67 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip-${{ hashFiles('requirements.lock') }}
+          key: pip-lint-${{ hashFiles('pyproject.toml') }}
+
+      - name: Install dev dependencies
+        run: pip install black ruff mypy
+
+      - name: Run Ruff check
+        run: ruff check src/ tests/
+
+      - name: Run Black formatter check
+        run: black --check src/ tests/
+
+      - name: Run MyPy type checker
+        run: mypy src/ --warn-unused-ignores
+        continue-on-error: true
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-security-${{ hashFiles('requirements.lock') }}
+
+      - name: Install locked production dependencies
+        run: pip install --require-hashes -r requirements.lock
+
+      - name: Install package and dev extras
+        run: pip install -e ".[dev]"
+
+      - name: Run pip-audit for vulnerability scanning
+        run: pip-audit
+
+      - name: Supply chain check
+        run: spektralia verify-installed
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-test-${{ matrix.python-version }}-${{ hashFiles('requirements.lock') }}
 
       - name: Install locked production dependencies
         run: pip install --require-hashes -r requirements.lock
@@ -29,11 +88,37 @@ jobs:
         # are already satisfied, so pip only fetches the unlocked dev tools.
         run: pip install -e ".[dev]"
 
-      - name: Run tests
-        run: pytest -q
+      - name: Run tests with coverage
+        run: pytest --cov=src/spektralia --cov-report=term-missing --cov-report=xml -v
 
-      - name: Supply chain check
-        run: spektralia verify-installed
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4
+        if: matrix.python-version == '3.14'
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  verify-sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-sbom-${{ hashFiles('requirements.lock') }}
+
+      - name: Install locked production dependencies
+        run: pip install --require-hashes -r requirements.lock
+
+      - name: Install package and dev extras
+        run: pip install -e ".[dev]"
 
       - name: Check SBOM is up to date
         run: |
@@ -42,16 +127,16 @@ jobs:
           # Strip machine-specific file:// paths from externalReferences before diff
           # (editable installs embed the local checkout path, which differs per machine)
           python - <<'EOF'
-import json
-with open('SBOM.json') as f:
-    sbom = json.load(f)
-for c in sbom.get('components', []):
-    c['externalReferences'] = [
-        r for r in c.get('externalReferences', [])
-        if not r.get('url', '').startswith('file://')
-    ]
-with open('SBOM.json', 'w') as f:
-    json.dump(sbom, f, indent=2)
-    f.write('\n')
-EOF
+          import json
+          with open('SBOM.json') as f:
+            sbom = json.load(f)
+          for c in sbom.get('components', []):
+            c['externalReferences'] = [
+              r for r in c.get('externalReferences', [])
+              if not r.get('url', '').startswith('file://')
+            ]
+          with open('SBOM.json', 'w') as f:
+            json.dump(sbom, f, indent=2)
+            f.write('\n')
+          EOF
           git diff --exit-code SBOM.json

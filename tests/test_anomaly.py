@@ -1,4 +1,3 @@
-import pytest
 from spektralia.anomaly import AnomalyDetector, FreezeSwitch
 
 
@@ -29,7 +28,7 @@ def test_mutation_pattern_denied_on_fourth():
     assert det.check_mutation_pattern(cats) is False  # 1st
     assert det.check_mutation_pattern(cats) is False  # 2nd
     assert det.check_mutation_pattern(cats) is False  # 3rd
-    assert det.check_mutation_pattern(cats) is True   # 4th — deny
+    assert det.check_mutation_pattern(cats) is True  # 4th — deny
 
 
 def test_counters_returns_all_keys():

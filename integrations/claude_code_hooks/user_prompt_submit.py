@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Claude Code UserPromptSubmit hook — scan and sanitize user prompt."""
+
 from __future__ import annotations
 
 import asyncio
@@ -17,8 +18,7 @@ def handle(payload: dict) -> dict:
         }
 
     try:
-        from spektralia import gate
-        from spektralia import SensitiveDataError
+        from spektralia import SensitiveDataError, gate
         from spektralia.config import Settings
     except Exception as e:
         return {"decision": "block", "reason": f"hook_import_error: {type(e).__name__}"}

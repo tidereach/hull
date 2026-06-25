@@ -1,5 +1,7 @@
 """Assert every Settings field is either in config_hash or explicitly excluded."""
+
 from dataclasses import fields
+
 from spektralia.config import Settings
 
 

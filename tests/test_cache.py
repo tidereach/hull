@@ -51,9 +51,9 @@ def test_cache_key_is_sanitized_text():
     """Two raw inputs that differ only in the secret value must share a cache entry
     because they produce the same sanitized form."""
     from spektralia.cache import LRUCache
+    from spektralia.config import Settings
     from spektralia.sanitizer import sanitize
     from spektralia.scanner import scan
-    from spektralia.config import Settings
 
     # Two different emails — different raw text, but both sanitize to [REDACTED:EMAIL:xxxxxx]
     text1 = "Contact alice@example.com for access"
@@ -65,8 +65,8 @@ def test_cache_key_is_sanitized_text():
     san1 = sanitize(text1, scan(text1))
     san2 = sanitize(text2, scan(text2))
 
-    key1 = LRUCache.make_key(san1.text, config_hash)
-    key2 = LRUCache.make_key(san2.text, config_hash)
+    LRUCache.make_key(san1.text, config_hash)
+    LRUCache.make_key(san2.text, config_hash)
 
     # Both sanitize to the same structure (token placeholder differs only in random suffix)
     # So we test the STRUCTURE: both sanitized texts have [REDACTED:EMAIL: prefix
@@ -80,7 +80,9 @@ def test_cache_key_is_sanitized_text():
     # Confirm raw text would give different keys (proving the old code was wrong)
     raw_key1 = LRUCache.make_key(text1, config_hash)
     raw_key2 = LRUCache.make_key(text2, config_hash)
-    assert raw_key1 != raw_key2, "raw texts must produce different keys (proving why fix was needed)"
+    assert (
+        raw_key1 != raw_key2
+    ), "raw texts must produce different keys (proving why fix was needed)"
 
 
 def test_cache_miss_on_pattern_hash_change():
@@ -107,18 +109,18 @@ def test_cache_miss_on_prompt_hash_change():
 def test_cache_key_all_components_matter():
     """All five components contribute to the key (identical except one differs)."""
     base = LRUCache.make_key("t", "c", "p", "m", "q")
-    assert base != LRUCache.make_key("t2", "c", "p", "m", "q")   # sanitized text
-    assert base != LRUCache.make_key("t", "c2", "p", "m", "q")   # config_hash
-    assert base != LRUCache.make_key("t", "c", "p2", "m", "q")   # pattern_hash
-    assert base != LRUCache.make_key("t", "c", "p", "m2", "q")   # model_digest
-    assert base != LRUCache.make_key("t", "c", "p", "m", "q2")   # prompt_hash
+    assert base != LRUCache.make_key("t2", "c", "p", "m", "q")  # sanitized text
+    assert base != LRUCache.make_key("t", "c2", "p", "m", "q")  # config_hash
+    assert base != LRUCache.make_key("t", "c", "p2", "m", "q")  # pattern_hash
+    assert base != LRUCache.make_key("t", "c", "p", "m2", "q")  # model_digest
+    assert base != LRUCache.make_key("t", "c", "p", "m", "q2")  # prompt_hash
 
 
 def test_cache_invalidated_on_freeze(tmp_path):
     """Freezing the gate must invalidate all cached verdicts."""
-    from spektralia.gate import Gate
-    from spektralia.config import Settings
     from spektralia.cache import LRUCache
+    from spektralia.config import Settings
+    from spektralia.gate import Gate
 
     settings = Settings(state_dir=tmp_path / "state", freeze_path=tmp_path / "freeze")
     gate = Gate(settings=settings)
@@ -135,9 +137,9 @@ def test_cache_invalidated_on_freeze(tmp_path):
 
 def test_cache_invalidated_on_unfreeze(tmp_path):
     """Unfreezing the gate must invalidate all cached verdicts."""
-    from spektralia.gate import Gate
-    from spektralia.config import Settings
     from spektralia.cache import LRUCache
+    from spektralia.config import Settings
+    from spektralia.gate import Gate
 
     settings = Settings(state_dir=tmp_path / "state", freeze_path=tmp_path / "freeze")
     gate = Gate(settings=settings)
@@ -155,11 +157,12 @@ def test_cache_invalidated_on_unfreeze(tmp_path):
 
 def test_cache_invalidated_on_canary_drift(tmp_path):
     """Canary drift must invalidate all cached verdicts."""
-    from spektralia.gate import Gate
-    from spektralia.config import Settings
+    from unittest.mock import patch
+
     from spektralia.cache import LRUCache
-    from unittest.mock import patch, MagicMock
     from spektralia.canary import CanaryResult
+    from spektralia.config import Settings
+    from spektralia.gate import Gate
 
     settings = Settings(state_dir=tmp_path / "state", freeze_path=tmp_path / "freeze")
     gate = Gate(settings=settings)
@@ -170,7 +173,9 @@ def test_cache_invalidated_on_canary_drift(tmp_path):
     assert gate._cache.get(key) is not None
 
     # Simulate canary drift
-    failed_result = CanaryResult(passed=False, failures=["canary: expected EMAIL not found"], duration_seconds=0.01)
+    failed_result = CanaryResult(
+        passed=False, failures=["canary: expected EMAIL not found"], duration_seconds=0.01
+    )
     with patch("spektralia.gate.run_canary", return_value=failed_result):
         gate._run_canary()
 

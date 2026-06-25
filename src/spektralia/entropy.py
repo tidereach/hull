@@ -6,7 +6,6 @@ import unicodedata
 
 from .scanner import Detection
 
-
 _UUID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
     re.IGNORECASE,
@@ -50,7 +49,6 @@ def find_high_entropy(
     results: list[Detection] = []
     nfkc = unicodedata.normalize("NFKC", text)
 
-    offset = 0
     for token_match in re.finditer(r"\S+", nfkc):
         token = token_match.group(0)
         tok_start = token_match.start()
@@ -64,10 +62,12 @@ def find_high_entropy(
         if _is_allowlisted(clean):
             continue
         if _shannon_entropy(clean) >= threshold:
-            results.append(Detection(
-                label="SECRET_HIGH_ENTROPY",
-                start=tok_start,
-                end=tok_end,
-            ))
+            results.append(
+                Detection(
+                    label="SECRET_HIGH_ENTROPY",
+                    start=tok_start,
+                    end=tok_end,
+                )
+            )
 
     return results

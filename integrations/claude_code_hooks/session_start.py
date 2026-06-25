@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Claude Code SessionStart hook — integrity + self-test + hook-check."""
+
 from __future__ import annotations
 
 import json
@@ -24,8 +25,8 @@ def _emit_hook_identity(payload: dict) -> None:
     inaccessible) or mismatch future verifications — both conditions are auditable.
     """
     try:
-        from spektralia.config import Settings
         from spektralia.audit import AuditChain
+        from spektralia.config import Settings
         from spektralia.integrity import compute_hook_token
 
         session_id = payload.get("session_id") or payload.get("sessionId")

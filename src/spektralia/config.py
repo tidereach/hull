@@ -8,7 +8,6 @@ from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Literal
 
-
 _POLICY_FIELDS: set[str] = set()
 
 
@@ -67,19 +66,29 @@ class Settings:
 
     # These fields are NOT policy-affecting (not in config_hash)
     _non_policy: frozenset[str] = field(
-        default_factory=lambda: frozenset({
-            "freeze_path", "state_dir", "ollama_socket", "ollama_auth_header",
-            "ollama_telemetry_accepted", "thread_safe", "mlock_secrets",
-            "canary_interval_seconds", "heartbeat_seconds", "heartbeat_every_n_calls",
-            "anomaly_window_seconds", "classifier_timeout_seconds",
-            "_non_policy",
-        }),
+        default_factory=lambda: frozenset(
+            {
+                "freeze_path",
+                "state_dir",
+                "ollama_socket",
+                "ollama_auth_header",
+                "ollama_telemetry_accepted",
+                "thread_safe",
+                "mlock_secrets",
+                "canary_interval_seconds",
+                "heartbeat_seconds",
+                "heartbeat_every_n_calls",
+                "anomaly_window_seconds",
+                "classifier_timeout_seconds",
+                "_non_policy",
+            }
+        ),
         repr=False,
         compare=False,
     )
 
     @classmethod
-    def from_env(cls, **overrides) -> "Settings":
+    def from_env(cls, **overrides) -> Settings:
         # TOML discovery: local files first, then global
         toml_data: dict = {}
         for candidate in (
@@ -110,7 +119,10 @@ class Settings:
             "SPEKTRALIA_MODE": ("mode", str),
             "SPEKTRALIA_FAIL_OPEN": ("fail_open", lambda v: v.lower() in ("1", "true", "yes")),
             "SPEKTRALIA_MAX_INPUT_CHARS": ("max_input_chars", int),
-            "SPEKTRALIA_MLOCK_SECRETS": ("mlock_secrets", lambda v: v.lower() in ("1", "true", "yes")),
+            "SPEKTRALIA_MLOCK_SECRETS": (
+                "mlock_secrets",
+                lambda v: v.lower() in ("1", "true", "yes"),
+            ),
             "SPEKTRALIA_CLASSIFIER_TIMEOUT_SECONDS": ("classifier_timeout_seconds", float),
             "SPEKTRALIA_STATE_DIR": ("state_dir", Path),
         }
@@ -127,7 +139,7 @@ class Settings:
         return cls(**merged)
 
     @classmethod
-    def from_toml(cls, path: Path, **overrides) -> "Settings":
+    def from_toml(cls, path: Path, **overrides) -> Settings:
         with open(path, "rb") as fh:
             raw = tomllib.load(fh)
         # Accept both [spektralia] section and top-level keys

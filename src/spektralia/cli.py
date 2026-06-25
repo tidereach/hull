@@ -3,10 +3,8 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-import os
 import sys
 from pathlib import Path
-
 
 _API_VERSION = 1
 
@@ -109,8 +107,8 @@ def cmd_self_test(args: argparse.Namespace) -> int:
 
 
 def cmd_stats(args: argparse.Namespace) -> int:
+    from .anomaly import FreezeSwitch
     from .config import Settings
-    from .anomaly import AnomalyDetector, FreezeSwitch
 
     s = Settings.from_env()
     frozen, reason = FreezeSwitch(s.freeze_path).is_frozen()
@@ -119,8 +117,8 @@ def cmd_stats(args: argparse.Namespace) -> int:
 
 
 def cmd_freeze(args: argparse.Namespace) -> int:
-    from .config import Settings
     from .anomaly import FreezeSwitch
+    from .config import Settings
 
     s = Settings.from_env()
     FreezeSwitch(s.freeze_path).set_frozen(True)
@@ -129,8 +127,8 @@ def cmd_freeze(args: argparse.Namespace) -> int:
 
 
 def cmd_unfreeze(args: argparse.Namespace) -> int:
-    from .config import Settings
     from .anomaly import FreezeSwitch
+    from .config import Settings
 
     s = Settings.from_env()
     FreezeSwitch(s.freeze_path).set_frozen(False)
@@ -150,6 +148,7 @@ def cmd_audit_verify(args: argparse.Namespace) -> int:
                     records.append(json.loads(line))
 
         from .config import Settings
+
         s = Settings.from_env()
         chain = AuditChain(s.state_dir)
         broken = chain.verify(records)
@@ -194,7 +193,6 @@ def cmd_audit_purge(args: argparse.Namespace) -> int:
 
 def cmd_scan_config(args: argparse.Namespace) -> int:
     """Scan CLAUDE.md files for sensitive content."""
-    from .errors import SensitiveDataError
     from .scanner import scan
 
     paths = list(Path(".").rglob("CLAUDE.md")) + list(Path.home().glob(".claude/CLAUDE.md"))
@@ -240,13 +238,14 @@ def cmd_hook_check(args: argparse.Namespace) -> int:
     if missing:
         print(f"FAIL: missing hooks: {missing}", file=sys.stderr)
         return 1
-    sources = sorted(set(hook_sources[h] for h in required))
+    sources = sorted({hook_sources[h] for h in required})
     print(f"OK: all required hooks present (configured in: {', '.join(sources)})")
     return 0
 
 
 def main() -> None:
     from importlib.metadata import version as _pkg_version
+
     try:
         _version_str = _pkg_version("spektralia")
     except Exception:

@@ -2,6 +2,7 @@ import platform
 import traceback
 
 import pytest
+
 from spektralia.memory_safety import Secret, disable_core_dumps
 
 
@@ -92,9 +93,8 @@ def test_pr_set_dumpable_executes_on_linux():
 
 def test_prctl_called_on_module_import(monkeypatch):
     """PR_SET_DUMPABLE=0 must be called when memory_safety is imported."""
-    import importlib
-    import sys
     import ctypes as _ctypes
+    import sys
 
     calls = []
 
@@ -106,6 +106,7 @@ def test_prctl_called_on_module_import(monkeypatch):
     class FakeCDLL:
         def __init__(self, name, **kwargs):
             pass
+
         def __call__(self, name, **kwargs):
             return FakeLibc()
 
@@ -114,11 +115,14 @@ def test_prctl_called_on_module_import(monkeypatch):
     saved = sys.modules.pop(mod_name, None)
     try:
         monkeypatch.setattr(_ctypes, "CDLL", lambda name, **kw: FakeLibc())
-        import spektralia.memory_safety  # triggers module-level disable_core_dumps()
         import sys as _sys
+
+        import spektralia.memory_safety  # triggers module-level disable_core_dumps()
+
         if _sys.platform == "linux":
-            assert any(args[0] == 4 and args[1] == 0 for args in calls), \
-                f"Expected prctl(PR_SET_DUMPABLE=4, 0) call, got: {calls}"
+            assert any(
+                args[0] == 4 and args[1] == 0 for args in calls
+            ), f"Expected prctl(PR_SET_DUMPABLE=4, 0) call, got: {calls}"
     finally:
         if saved is not None:
             sys.modules[mod_name] = saved

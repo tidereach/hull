@@ -20,6 +20,11 @@ dev = [
     "respx>=0.21",
     "cyclonedx-bom",
     "pip-tools",
+    "pytest-cov>=5",
+    "mypy>=1.14",
+    "black>=24.10",
+    "ruff>=0.8",
+    "pip-audit>=2.8",
 ]
 
 [project.scripts]
@@ -34,3 +39,80 @@ testpaths = ["tests"]
 
 [tool.hatch.envs.default]
 features = ["dev"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "RUF",    # Ruff-specific rules
+]
+ignore = [
+    "E501",   # Line too long (black handles this)
+    "B027",   # Empty method in abstract base class (acceptable pattern)
+    "B007",   # Loop variable being overwritten (acceptable in many cases)
+    "F841",   # Local variable assigned but never used (test setup patterns)
+    "E741",   # Ambiguous variable name (single-letter vars in comprehensions)
+    "B904",   # Exception raised without from (can be acceptable for internal exceptions)
+    "B905",   # Invalid first argument for super() (version-specific patterns)
+    "RUF001", # String contains ambiguous Unicode (intentional for homoglyph testing)
+    "RUF003", # Comment contains ambiguous Unicode (intentional for homoglyph testing)
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+pretty = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+[[tool.mypy.overrides]]
+module = [
+    "pytest.*",
+    "respx.*",
+    "keyring.*",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "regex",
+    "httpx",
+]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["src/spektralia"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+fail_under = 78
+precision = 2

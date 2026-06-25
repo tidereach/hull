@@ -3,17 +3,15 @@
 Each hook exposes handle(payload: dict) -> dict; tests call that directly.
 End-to-end subprocess tests cover the I/O wiring.
 """
+
 from __future__ import annotations
 
-import asyncio
 import importlib.util
 import json
 import subprocess
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 HOOKS_DIR = Path(__file__).parent.parent / "integrations" / "claude_code_hooks"
 
@@ -32,6 +30,7 @@ def load_hook(name: str):
 # ---------------------------------------------------------------------------
 # UserPromptSubmit
 # ---------------------------------------------------------------------------
+
 
 class TestUserPromptSubmit:
     def setup_method(self):
@@ -52,37 +51,48 @@ class TestUserPromptSubmit:
         return result
 
     def test_clean_prompt_passes(self):
-        with patch("spektralia.gate", new=MagicMock()), \
-             patch("asyncio.run", return_value=self._gate_pass("safe text")):
+        with (
+            patch("spektralia.gate", new=MagicMock()),
+            patch("asyncio.run", return_value=self._gate_pass("safe text")),
+        ):
             result = self.mod.handle({"prompt": "hello world"})
         assert result == {}
 
     def test_sensitive_prompt_blocks(self):
-        with patch("spektralia.gate", new=MagicMock()), \
-             patch("asyncio.run", return_value=self._gate_block()):
+        with (
+            patch("spektralia.gate", new=MagicMock()),
+            patch("asyncio.run", return_value=self._gate_block()),
+        ):
             result = self.mod.handle({"prompt": "some sensitive prompt"})
         assert result["decision"] == "block"
         assert "reason" in result
 
     def test_attachment_blocks_immediately(self):
-        result = self.mod.handle({
-            "prompt": "look at this",
-            "attachments": [{"type": "image"}],
-        })
+        result = self.mod.handle(
+            {
+                "prompt": "look at this",
+                "attachments": [{"type": "image"}],
+            }
+        )
         assert result["decision"] == "block"
         assert "attachment" in result["reason"].lower()
 
     def test_exception_in_gate_blocks(self):
-        with patch("spektralia.gate", new=MagicMock()), \
-             patch("asyncio.run", side_effect=RuntimeError("boom")):
+        with (
+            patch("spektralia.gate", new=MagicMock()),
+            patch("asyncio.run", side_effect=RuntimeError("boom")),
+        ):
             result = self.mod.handle({"prompt": "hello"})
         assert result["decision"] == "block"
         assert "hook_error" in result["reason"]
 
     def test_sensitive_data_error_blocks(self):
         from spektralia.errors import SensitiveDataError
-        with patch("spektralia.gate", new=MagicMock()), \
-             patch("asyncio.run", side_effect=SensitiveDataError(reason="rule(EMAIL)")):
+
+        with (
+            patch("spektralia.gate", new=MagicMock()),
+            patch("asyncio.run", side_effect=SensitiveDataError(reason="rule(EMAIL)")),
+        ):
             result = self.mod.handle({"prompt": "some prompt"})
         assert result["decision"] == "block"
 
@@ -90,6 +100,7 @@ class TestUserPromptSubmit:
 # ---------------------------------------------------------------------------
 # PreToolUse
 # ---------------------------------------------------------------------------
+
 
 class TestPreToolUse:
     def setup_method(self):
@@ -115,76 +126,101 @@ class TestPreToolUse:
         return result.get("hookSpecificOutput", {}).get("permissionDecisionReason", "")
 
     def test_mcp_tool_blocked_by_default_deny(self):
-        result = self.mod.handle({
-            "tool_name": "mcp__filesystem__read_file",
-            "tool_input": {"path": "/tmp/safe"},
-        })
+        result = self.mod.handle(
+            {
+                "tool_name": "mcp__filesystem__read_file",
+                "tool_input": {"path": "/tmp/safe"},
+            }
+        )
         assert self._is_deny(result)
         assert "default-deny" in self._deny_reason(result)
 
     def test_another_mcp_tool_blocked(self):
-        result = self.mod.handle({
-            "tool_name": "mcp__my_server__my_tool",
-            "tool_input": {},
-        })
+        result = self.mod.handle(
+            {
+                "tool_name": "mcp__my_server__my_tool",
+                "tool_input": {},
+            }
+        )
         assert self._is_deny(result)
 
     def test_agent_with_secret_blocks(self):
-        with patch("spektralia.gate", new=MagicMock()), \
-             patch("asyncio.run", return_value=self._gate_block("Blocked: rule(EMAIL)")):
-            result = self.mod.handle({
-                "tool_name": "Agent",
-                "tool_input": {"prompt": "some sensitive subagent prompt"},
-            })
+        with (
+            patch("spektralia.gate", new=MagicMock()),
+            patch("asyncio.run", return_value=self._gate_block("Blocked: rule(EMAIL)")),
+        ):
+            result = self.mod.handle(
+                {
+                    "tool_name": "Agent",
+                    "tool_input": {"prompt": "some sensitive subagent prompt"},
+                }
+            )
         assert self._is_deny(result)
 
     def test_agent_with_token_reference_blocks(self):
-        result = self.mod.handle({
-            "tool_name": "Agent",
-            "tool_input": {"prompt": "use " + _TOKEN_REF + " for auth"},
-        })
+        result = self.mod.handle(
+            {
+                "tool_name": "Agent",
+                "tool_input": {"prompt": "use " + _TOKEN_REF + " for auth"},
+            }
+        )
         assert self._is_deny(result)
         assert "token reference" in self._deny_reason(result).lower()
 
     def test_agent_clean_passes(self):
-        with patch("spektralia.gate", new=MagicMock()), \
-             patch("asyncio.run", return_value=self._gate_pass()):
-            result = self.mod.handle({
-                "tool_name": "Agent",
-                "tool_input": {"prompt": "print hello world"},
-            })
+        with (
+            patch("spektralia.gate", new=MagicMock()),
+            patch("asyncio.run", return_value=self._gate_pass()),
+        ):
+            result = self.mod.handle(
+                {
+                    "tool_name": "Agent",
+                    "tool_input": {"prompt": "print hello world"},
+                }
+            )
         assert result == {}
 
     def test_bash_with_secret_blocks(self):
-        with patch("spektralia.gate", new=MagicMock()), \
-             patch("asyncio.run", return_value=self._gate_block("Blocked: rule(API_KEY_GENERIC)")):
-            result = self.mod.handle({
-                "tool_name": "Bash",
-                "tool_input": {"command": "curl api.example.com"},
-            })
+        with (
+            patch("spektralia.gate", new=MagicMock()),
+            patch("asyncio.run", return_value=self._gate_block("Blocked: rule(API_KEY_GENERIC)")),
+        ):
+            result = self.mod.handle(
+                {
+                    "tool_name": "Bash",
+                    "tool_input": {"command": "curl api.example.com"},
+                }
+            )
         assert self._is_deny(result)
 
     def test_non_strict_tool_continues(self):
         # Read/Grep/Glob are not in strict scan set — pass through
-        result = self.mod.handle({
-            "tool_name": "Read",
-            "tool_input": {"file_path": "/etc/hosts"},
-        })
+        result = self.mod.handle(
+            {
+                "tool_name": "Read",
+                "tool_input": {"file_path": "/etc/hosts"},
+            }
+        )
         assert result == {}
 
     def test_exception_blocks(self):
-        with patch("spektralia.gate", new=MagicMock()), \
-             patch("asyncio.run", side_effect=RuntimeError("boom")):
-            result = self.mod.handle({
-                "tool_name": "Bash",
-                "tool_input": {"command": "ls"},
-            })
+        with (
+            patch("spektralia.gate", new=MagicMock()),
+            patch("asyncio.run", side_effect=RuntimeError("boom")),
+        ):
+            result = self.mod.handle(
+                {
+                    "tool_name": "Bash",
+                    "tool_input": {"command": "ls"},
+                }
+            )
         assert self._is_deny(result)
 
 
 # ---------------------------------------------------------------------------
 # PostToolUse
 # ---------------------------------------------------------------------------
+
 
 class TestPostToolUse:
     def setup_method(self):
@@ -221,6 +257,7 @@ class TestPostToolUse:
 # ---------------------------------------------------------------------------
 # SessionStart
 # ---------------------------------------------------------------------------
+
 
 class TestSessionStart:
     def setup_method(self):
@@ -265,13 +302,16 @@ class TestSessionStart:
 # Stop
 # ---------------------------------------------------------------------------
 
+
 class TestStop:
     def setup_method(self):
         self.mod = load_hook("stop")
 
     def test_always_continues(self):
-        with patch("spektralia.config.Settings.from_env") as mock_settings, \
-             patch("spektralia.audit.AuditChain") as mock_chain:
+        with (
+            patch("spektralia.config.Settings.from_env"),
+            patch("spektralia.audit.AuditChain") as mock_chain,
+        ):
             mock_chain.return_value.emit = MagicMock()
             mock_chain.return_value.close = MagicMock()
             result = self.mod.handle({})
@@ -287,6 +327,7 @@ class TestStop:
 # ---------------------------------------------------------------------------
 # I/O wiring tests (subprocess)
 # ---------------------------------------------------------------------------
+
 
 class TestHookIoWiring:
     """Verify each hook reads JSON from stdin and writes JSON to stdout."""

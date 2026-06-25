@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Claude Code PreToolUse hook — block secrets in tool arguments."""
+
 from __future__ import annotations
 
 import asyncio
 import json
 import re
 import sys
-
 
 _TOKEN_RE = re.compile(r"\[REDACTED:[A-Z_]+:[0-9a-f]{6}\]")
 
@@ -56,8 +56,7 @@ def handle(payload: dict) -> dict:
 
     # Check 2: fresh sensitive content
     try:
-        from spektralia import gate
-        from spektralia import SensitiveDataError
+        from spektralia import SensitiveDataError, gate
         from spektralia.config import Settings
     except Exception as e:
         return _deny(f"hook_import_error: {type(e).__name__}")

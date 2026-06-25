@@ -1,10 +1,10 @@
 """Assert no known secret value appears in exception messages or tracebacks."""
-import traceback
-import pytest
-from spektralia.errors import SensitiveDataError
-from spektralia.scanner import scan
-from spektralia.sanitizer import sanitize
 
+import traceback
+
+from spektralia.errors import SensitiveDataError
+from spektralia.sanitizer import sanitize
+from spektralia.scanner import scan
 
 _KNOWN_SECRETS = [
     "AKIAIOSFODNN7EXAMPLE",
@@ -33,20 +33,20 @@ def test_detection_repr_has_no_value():
 
 def test_sanitized_token_map_repr_hides_value():
     from spektralia.scanner import Detection
+
     text = "AKIAIOSFODNN7EXAMPLE"
     det = Detection(label="AWS_KEY", start=0, end=20)
     sanitized = sanitize(text, [det])
-    for token, secret in sanitized._token_map.items():
+    for _token, secret in sanitized._token_map.items():
         assert "AKIAIOSFODNN7EXAMPLE" not in repr(secret)
         assert "AKIAIOSFODNN7EXAMPLE" not in str(secret)
 
 
 def test_exception_traceback_has_no_value():
-    from spektralia.scanner import Detection
     for secret in _KNOWN_SECRETS:
         text = f"test {secret} test"
         dets = scan(text)
-        sanitized = sanitize(text, dets)
+        sanitize(text, dets)
         try:
             raise SensitiveDataError(reason="test", labels=("test",))
         except SensitiveDataError:

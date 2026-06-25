@@ -1,7 +1,6 @@
 import json
-import pytest
-from pathlib import Path
-from spektralia.audit import AuditChain, StdoutSink, AppendOnlyFileSink
+
+from spektralia.audit import AppendOnlyFileSink, AuditChain, StdoutSink
 
 
 def test_chain_integrity_100_records(tmp_path):
@@ -9,7 +8,7 @@ def test_chain_integrity_100_records(tmp_path):
     sink = AppendOnlyFileSink(sink_path)
     chain = AuditChain(tmp_path, sink=sink)
 
-    for i in range(100):
+    for _i in range(100):
         chain.emit(
             "pass",
             labels=[],
@@ -36,9 +35,16 @@ def test_mutating_record_detected(tmp_path):
     sink = AppendOnlyFileSink(sink_path)
     chain = AuditChain(tmp_path, sink=sink)
 
-    for i in range(5):
-        chain.emit("pass", labels=[], categories=[], confidence=0.0,
-                   pattern_hash="x", model_digest="y", prompt_hash="z")
+    for _i in range(5):
+        chain.emit(
+            "pass",
+            labels=[],
+            categories=[],
+            confidence=0.0,
+            pattern_hash="x",
+            model_digest="y",
+            prompt_hash="z",
+        )
     chain.close()
 
     records = []
@@ -55,12 +61,19 @@ def test_mutating_record_detected(tmp_path):
 
 def test_chain_survives_restart(tmp_path):
     """New chain anchors to previous session's last hash."""
-    for session in range(2):
+    for _session in range(2):
         sink_path = tmp_path / "audit.jsonl"
         sink = AppendOnlyFileSink(sink_path)
         chain = AuditChain(tmp_path, sink=sink)
-        chain.emit("pass", labels=[], categories=[], confidence=0.0,
-                   pattern_hash="x", model_digest="y", prompt_hash="z")
+        chain.emit(
+            "pass",
+            labels=[],
+            categories=[],
+            confidence=0.0,
+            pattern_hash="x",
+            model_digest="y",
+            prompt_hash="z",
+        )
         chain.close()
 
     records = []
@@ -75,8 +88,15 @@ def test_chain_survives_restart(tmp_path):
 
 def test_audit_state_written(tmp_path):
     chain = AuditChain(tmp_path, sink=StdoutSink())
-    chain.emit("pass", labels=[], categories=[], confidence=0.0,
-               pattern_hash="x", model_digest="y", prompt_hash="z")
+    chain.emit(
+        "pass",
+        labels=[],
+        categories=[],
+        confidence=0.0,
+        pattern_hash="x",
+        model_digest="y",
+        prompt_hash="z",
+    )
     state_path = tmp_path / "audit.state"
     assert state_path.exists()
     data = json.loads(state_path.read_text())
@@ -89,18 +109,19 @@ def test_choose_sink_falls_back_to_file_when_journald_fails(tmp_path, monkeypatc
 
     File sink is preferred over syslog so audit-verify always has a log to read.
     """
-    from spektralia.audit import _choose_sink, AppendOnlyFileSink
+    from spektralia.audit import AppendOnlyFileSink, _choose_sink
 
     # JournaldSink always fails in test environments without systemd — no patch needed.
     sink = _choose_sink(tmp_path)
-    assert isinstance(sink, AppendOnlyFileSink), \
-        f"Expected AppendOnlyFileSink when JournaldSink fails, got {type(sink)}"
+    assert isinstance(
+        sink, AppendOnlyFileSink
+    ), f"Expected AppendOnlyFileSink when JournaldSink fails, got {type(sink)}"
     assert (tmp_path / "audit.jsonl").exists() or True  # file is created on first write
 
 
 def test_choose_sink_falls_back_to_syslog_when_file_fails(tmp_path, monkeypatch):
     """_choose_sink falls through to SyslogSink when file creation also fails."""
-    from spektralia.audit import _choose_sink, SyslogSink
+    from spektralia.audit import SyslogSink, _choose_sink
 
     def fail_file_init(self, path):
         raise PermissionError("cannot write audit.jsonl")
@@ -111,6 +132,7 @@ def test_choose_sink_falls_back_to_syslog_when_file_fails(tmp_path, monkeypatch)
         def __init__(self):
             syslog_constructed.append(True)
             import logging.handlers
+
             self._handler = logging.handlers.MemoryHandler(capacity=100)
             self._logger = logging.getLogger("spektralia.audit.test")
             self._logger.addHandler(self._handler)

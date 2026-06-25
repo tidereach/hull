@@ -8,14 +8,15 @@ the budgets defined in SPEC.md §20.3.
 Run from repo root:
     .venv/bin/python scripts/latency_bench.py
 """
+
 from __future__ import annotations
 
+import json
 import math
 import os
 import sys
 import tempfile
 import time
-import json
 
 # --- Env setup before any spektralia imports ---
 # Use a throwaway state dir so audit events don't pollute ~/.spektralia
@@ -31,14 +32,15 @@ os.environ["SPEKTRALIA_OLLAMA_URL"] = "http://127.0.0.1:11434"
 os.environ["SPEKTRALIA_CLASSIFIER_MODE"] = "fast"
 
 # Add hook dir to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "integrations", "claude_code_hooks"))
+sys.path.insert(
+    0, os.path.join(os.path.dirname(__file__), "..", "integrations", "claude_code_hooks")
+)
 
 import httpx
 import respx
-
-from user_prompt_submit import handle as ump_handle
-from pre_tool_use import handle as ptu_handle
 from post_tool_use import handle as ptou_handle
+from pre_tool_use import handle as ptu_handle
+from user_prompt_submit import handle as ump_handle
 
 # ---------------------------------------------------------------------------
 # Mock Ollama base URL
@@ -56,7 +58,7 @@ _LOREM = (
     "pariatur Excepteur sint occaecat cupidatat non proident sunt in culpa qui officia "
     "deserunt mollit anim id est laborum "
 )
-_PAYLOAD_TEXT = (_LOREM * (10 * 1024 // len(_LOREM) + 1))[:10 * 1024]
+_PAYLOAD_TEXT = (_LOREM * (10 * 1024 // len(_LOREM) + 1))[: 10 * 1024]
 
 # Claude Code hook payloads
 _UMP_PAYLOAD = {"prompt": _PAYLOAD_TEXT}
@@ -66,6 +68,7 @@ _PTOU_PAYLOAD = {"output": _PAYLOAD_TEXT}
 # ---------------------------------------------------------------------------
 # Mock response builders
 # ---------------------------------------------------------------------------
+
 
 def _ollama_classify_response() -> dict:
     """Valid classifier response: not sensitive."""
@@ -79,9 +82,7 @@ def _setup_respx_mocks(router: respx.MockRouter) -> None:
         return_value=httpx.Response(200, json={"version": "0.1.0"})
     )
     # fetch_model_digest hits /api/tags
-    router.get(f"{MOCK_BASE}/api/tags").mock(
-        return_value=httpx.Response(200, json={"models": []})
-    )
+    router.get(f"{MOCK_BASE}/api/tags").mock(return_value=httpx.Response(200, json={"models": []}))
     # classify() calls /api/generate twice (two framings in strict mode)
     router.post(f"{MOCK_BASE}/api/generate").mock(
         return_value=httpx.Response(200, json=_ollama_classify_response())
@@ -95,14 +96,14 @@ def _setup_respx_mocks(router: respx.MockRouter) -> None:
 N = 20
 BUDGETS = {
     "UserPromptSubmit": 500.0,
-    "PreToolUse":       300.0,
-    "PostToolUse":      200.0,
+    "PreToolUse": 300.0,
+    "PostToolUse": 200.0,
 }
 
 HOOKS = [
     ("UserPromptSubmit", ump_handle, _UMP_PAYLOAD),
-    ("PreToolUse",       ptu_handle, _PTU_PAYLOAD),
-    ("PostToolUse",      ptou_handle, _PTOU_PAYLOAD),
+    ("PreToolUse", ptu_handle, _PTU_PAYLOAD),
+    ("PostToolUse", ptou_handle, _PTOU_PAYLOAD),
 ]
 
 
@@ -116,6 +117,7 @@ def _run_hook_bench(name: str, handle_fn, payload: dict) -> list[float]:
         try:
             import spektralia.gate as _gate_mod
             import spektralia.ollama_trust as _trust_mod
+
             _gate_mod._default_gate = None
             _trust_mod.reset_pin()
         except Exception:
