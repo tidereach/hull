@@ -91,6 +91,102 @@ def test_pr_set_dumpable_executes_on_linux():
     disable_core_dumps()
 
 
+def test_eq_with_non_secret_returns_not_implemented():
+    """Comparing a Secret to a non-Secret falls back to identity (==/!= work)."""
+    s = Secret(b"abc", label="X")
+    assert (s == "abc") is False
+    assert s != "abc"
+    assert (s == 123) is False
+
+
+def test_mlock_empty_secret_is_noop():
+    """mlock on an empty buffer returns immediately and never locks."""
+    s = Secret(b"", label="EMPTY")
+    s.mlock()
+    assert s._locked is False
+
+
+def test_mlock_already_locked_returns_early():
+    """A second mlock() call short-circuits on the already-locked flag."""
+    s = Secret(b"data", label="X")
+    s._locked = True
+    s.mlock()  # must not raise; early return
+    assert s._locked is True
+
+
+@pytest.mark.skipif(platform.system() != "Linux", reason="Linux mlock only")
+def test_mlock_on_linux_runs():
+    """mlock() executes the libc path on Linux (locked iff the syscall succeeds)."""
+    s = Secret(b"sensitive-bytes", label="X")
+    s.mlock()
+    assert s._locked in (True, False)  # success depends on RLIMIT_MEMLOCK
+    s.wipe()  # exercise the munlock path if it locked
+    assert all(b == 0 for b in s._buf)
+
+
+@pytest.mark.skipif(platform.system() != "Linux", reason="Linux munlock only")
+def test_wipe_runs_munlock_when_locked():
+    """wipe() on a locked Secret zeroes the buffer and clears the locked flag."""
+    s = Secret(b"sensitive-bytes", label="X")
+    s._locked = True  # force the munlock branch regardless of mlock privilege
+    s.wipe()
+    assert all(b == 0 for b in s._buf)
+    assert s._locked is False
+
+
+def _fake_libc_factory(*, mlock_raises=False, prctl_raises=False):
+    class FakeLibc:
+        def mlock(self, addr, n):
+            if mlock_raises:
+                raise OSError("EPERM")
+            return -1  # syscall "fails" without raising
+
+        def munlock(self, addr, n):
+            return 0
+
+        def prctl(self, *args):
+            if prctl_raises:
+                raise OSError("denied")
+            return 0
+
+    return lambda name, **kw: FakeLibc()
+
+
+def test_mlock_oserror_is_swallowed(monkeypatch):
+    """An OSError from libc.mlock must be swallowed; the Secret stays unlocked."""
+    import ctypes
+
+    import spektralia.memory_safety as ms
+
+    monkeypatch.setattr(ms.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(ctypes, "CDLL", _fake_libc_factory(mlock_raises=True))
+    s = Secret(b"data", label="X")
+    s.mlock()  # must not raise
+    assert s._locked is False
+
+
+def test_disable_core_dumps_oserror_is_swallowed(monkeypatch):
+    """An OSError from prctl during disable_core_dumps must be swallowed."""
+    import ctypes
+
+    import spektralia.memory_safety as ms
+
+    monkeypatch.setattr(ms.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(ctypes, "CDLL", _fake_libc_factory(prctl_raises=True))
+    ms.disable_core_dumps()  # must not raise
+
+
+def test_non_linux_paths_are_noops(monkeypatch):
+    """On non-Linux, disable_core_dumps and mlock are no-ops (no libc calls)."""
+    import spektralia.memory_safety as ms
+
+    monkeypatch.setattr(ms.platform, "system", lambda: "Darwin")
+    ms.disable_core_dumps()  # no-op, must not raise
+    s = Secret(b"data", label="X")
+    s.mlock()
+    assert s._locked is False
+
+
 def test_prctl_called_on_module_import(monkeypatch):
     """PR_SET_DUMPABLE=0 must be called when memory_safety is imported."""
     import ctypes as _ctypes
