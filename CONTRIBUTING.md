@@ -23,6 +23,8 @@ Run hooks on all files:
 pre-commit run --all-files
 ```
 
+See `README.md` Quick start -> Pre-commit hooks for the `python -m pre_commit` fallback and `--no-verify` guidance.
+
 Hooks include:
 - **Ruff**: Fast Python linting (E, W, F, I, B, C4, UP rules)
 - **Black**: Code formatting
