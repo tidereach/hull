@@ -10,9 +10,9 @@ import sys
 
 _TOKEN_RE = re.compile(r"\[REDACTED:[A-Z_]+:[0-9a-f]{6}\]")
 
-# Tools whose arguments are scanned strictly. Task is required to prevent
+# Tools whose arguments are scanned strictly. Agent is required to prevent
 # subagent prompt laundering past UserPromptSubmit.
-_STRICT_SCAN_TOOLS = frozenset({"Task", "Bash", "Write", "Edit"})
+_STRICT_SCAN_TOOLS = frozenset({"Agent", "Bash", "Write", "Edit"})
 
 
 def _extract_text(tool_input: dict) -> str:
@@ -25,6 +25,16 @@ def _extract_text(tool_input: dict) -> str:
     return " ".join(parts)
 
 
+def _deny(reason: str) -> dict:
+    return {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        }
+    }
+
+
 def handle(payload: dict) -> dict:
     tool_name = payload.get("tool_name", "")
     tool_input = payload.get("tool_input", {})
@@ -32,51 +42,51 @@ def handle(payload: dict) -> dict:
     # Default-deny: block MCP tools outright — new servers enroll automatically.
     # Claude Code names MCP tools as mcp__<server>__<tool>.
     if tool_name.startswith("mcp__"):
-        return {
-            "action": "block",
-            "reason": f"MCP tool '{tool_name}' blocked by default-deny policy",
-        }
+        return _deny(f"MCP tool '{tool_name}' blocked by default-deny policy")
 
     # Only scan argument-carrying tools
     if tool_name not in _STRICT_SCAN_TOOLS:
-        return {"action": "continue"}
+        return {}
 
     text = _extract_text(tool_input)
 
     # Check 1: REDACTED token reference in args → cross-turn leak
     if _TOKEN_RE.search(text):
-        return {
-            "action": "block",
-            "reason": "Token reference detected in tool args — possible cross-turn leak",
-        }
+        return _deny("Token reference detected in tool args — possible cross-turn leak")
 
     # Check 2: fresh sensitive content
     try:
-        from spektralia import gate, SensitiveDataError
+        from spektralia import gate
+        from spektralia import SensitiveDataError
         from spektralia.config import Settings
+    except Exception as e:
+        return _deny(f"hook_import_error: {type(e).__name__}")
 
+    try:
         settings = Settings.from_env()
         settings.classifier_mode = "strict"
 
         result = asyncio.run(gate(text, settings))
         if result.blocked:
-            return {"action": "block", "reason": result.block_reason}
-        return {"action": "continue"}
+            return _deny(result.block_reason)
+        return {}
 
     except SensitiveDataError as e:
-        return {"action": "block", "reason": str(e)}
+        return _deny(str(e))
     except Exception as e:
-        return {"action": "block", "reason": f"hook_error: {type(e).__name__}"}
+        return _deny(f"hook_error: {type(e).__name__}")
 
 
 def main() -> None:
     try:
         payload = json.loads(sys.stdin.read())
     except Exception:
-        print(json.dumps({"action": "block", "reason": "hook_input_parse_error"}))
+        print(json.dumps(_deny("hook_input_parse_error")))
         sys.exit(0)
 
-    print(json.dumps(handle(payload)))
+    result = handle(payload)
+    if result:
+        print(json.dumps(result))
 
 
 if __name__ == "__main__":
