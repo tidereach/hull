@@ -79,6 +79,11 @@ against this class of attack in practice.
 
 ## What this gate does NOT detect
 
+Several gaps below — destructive actions that carry no sensitive content, and the
+side effects of subprocesses the gate never sees — are exactly what a sandbox and a
+policy layer close. See [docs/ENDPOINT_STACK.md](ENDPOINT_STACK.md) for how Spektralia
+composes with Fence and Prempti into a layered endpoint stack.
+
 **Contextual PII in prose.** Names, postal addresses, and free-text identifiers that
 are not capturable by pattern matching are not detected. Named-Entity Recognition
 (NER) using a local model (e.g., spaCy) is a v2 roadmap item. Deployers handling
