@@ -1,6 +1,6 @@
 import re
-import pytest
-from spektralia.sanitizer import sanitize, _restore
+
+from spektralia.sanitizer import _restore, sanitize
 from spektralia.scanner import Detection
 
 
@@ -39,11 +39,12 @@ def test_no_detection_returns_original():
 
 def test_token_map_stores_secret():
     from spektralia.memory_safety import Secret
+
     text = "key: AKIAIOSFODNN7EXAMPLE"
     det = Detection(label="AWS_KEY", start=5, end=24)
     result = sanitize(text, [det])
     assert result._token_map
-    for token, secret in result._token_map.items():
+    for _token, secret in result._token_map.items():
         assert isinstance(secret, Secret)
         assert repr(secret) == "<Secret:AWS_KEY:redacted>"
 
@@ -68,22 +69,21 @@ def test_restore_removes_from_map():
 
 
 def test_detection_has_no_value():
-    text = "AKIAIOSFODNN7EXAMPLE"
     det = Detection(label="AWS_KEY", start=0, end=20)
     assert not hasattr(det, "value")
 
 
 def test_restore_not_in_public_api():
     import spektralia
+
     assert not hasattr(spektralia, "_restore"), "_restore must not be in public __init__"
     assert not hasattr(spektralia, "restore"), "restore must not be in public __init__"
 
 
 def test_restore_jsonpath_scoped():
     """Token at $.user.email restores; identical token at $.body does not."""
-    from spektralia.sanitizer import sanitize, _restore
     from spektralia.memory_safety import Secret
-    from spektralia.sanitizer import Sanitized
+    from spektralia.sanitizer import Sanitized, _restore
 
     token = "[REDACTED:EMAIL:abcdef]"
     token2 = "[REDACTED:EMAIL:aabbcc]"
@@ -103,7 +103,7 @@ def test_restore_jsonpath_scoped():
     assert "alice@example.com" in result["user"]["email"]
     assert token2 in result["body"]  # body token NOT restored
     assert token not in s3._token_map  # consumed
-    assert token2 in s3._token_map    # not consumed
+    assert token2 in s3._token_map  # not consumed
 
 
 def test_restore_flat_string_with_dollar_path():

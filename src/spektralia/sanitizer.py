@@ -94,7 +94,7 @@ def _parse_path(path: str) -> list[str | int]:
             j = i + 1
             while j < len(remainder) and remainder[j] not in (".", "["):
                 j += 1
-            seg = remainder[i + 1:j]
+            seg = remainder[i + 1 : j]
             if seg == "*":
                 segments.append("*")
             else:
@@ -105,7 +105,7 @@ def _parse_path(path: str) -> list[str | int]:
             j = i + 1
             while j < len(remainder) and remainder[j] != "]":
                 j += 1
-            inner = remainder[i + 1:j]
+            inner = remainder[i + 1 : j]
             if inner == "*":
                 segments.append("*")
             else:
@@ -118,7 +118,7 @@ def _parse_path(path: str) -> list[str | int]:
     return segments
 
 
-def _replace_tokens_in_str(value: str, token_map: dict[str, "Secret"]) -> tuple[str, list[str]]:
+def _replace_tokens_in_str(value: str, token_map: dict[str, Secret]) -> tuple[str, list[str]]:
     """Replace all tokens found in value. Returns (new_str, list_of_consumed_tokens)."""
     consumed = []
     for token in list(token_map.keys()):
@@ -133,7 +133,7 @@ def _path_matches(current_path: list[str | int], segments: list[str | int]) -> b
     """Check if current_path matches the given segment pattern (supports '*' wildcard)."""
     if len(current_path) != len(segments):
         return False
-    for cur, seg in zip(current_path, segments):
+    for cur, seg in zip(current_path, segments, strict=False):
         if seg == "*":
             continue  # wildcard matches any key/index
         if cur != seg:
@@ -143,7 +143,7 @@ def _path_matches(current_path: list[str | int], segments: list[str | int]) -> b
 
 def _restore_recursive_v2(
     obj: dict | list | str,
-    token_map: dict[str, "Secret"],
+    token_map: dict[str, Secret],
     path_segments_list: list[list[str | int]],
     current_path: list[str | int],
 ) -> dict | list | str:
@@ -162,14 +162,14 @@ def _restore_recursive_v2(
     elif isinstance(obj, dict):
         new_dict = {}
         for key, val in obj.items():
-            child_path = current_path + [key]
+            child_path = [*current_path, key]
             new_dict[key] = _restore_recursive_v2(val, token_map, path_segments_list, child_path)
         return new_dict
 
     elif isinstance(obj, list):
         new_list = []
         for idx, val in enumerate(obj):
-            child_path = current_path + [idx]
+            child_path = [*current_path, idx]
             new_list.append(_restore_recursive_v2(val, token_map, path_segments_list, child_path))
         return new_list
 

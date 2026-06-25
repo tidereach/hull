@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Claude Code PostToolUse hook — rule-only scan of tool output before it enters context."""
+
 from __future__ import annotations
 
 import json

@@ -1,5 +1,6 @@
 import base64
 import json
+
 from spektralia.decode import decode_and_rescan
 
 

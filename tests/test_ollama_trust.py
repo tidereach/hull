@@ -1,4 +1,5 @@
 """Tests for ollama_trust.py — UDS trust checks and TCP pin verification."""
+
 from __future__ import annotations
 
 import os
@@ -132,8 +133,8 @@ def test_build_client_raises_on_untrusted_uds(sock_dir):
 @respx.mock
 def test_tcp_pin_change_raises(monkeypatch):
     """When the TCP listener PID changes, _pin_tcp must raise RuntimeError."""
-    from spektralia.ollama_trust import _pin_tcp, reset_pin
     import spektralia.ollama_trust as ot
+    from spektralia.ollama_trust import _pin_tcp, reset_pin
 
     reset_pin()
 
@@ -166,8 +167,8 @@ def test_tcp_pin_change_raises(monkeypatch):
 @respx.mock
 def test_tcp_binary_hash_mismatch_raises(monkeypatch):
     """When the binary SHA-256 changes, _pin_tcp must raise RuntimeError."""
-    from spektralia.ollama_trust import _pin_tcp, reset_pin
     import spektralia.ollama_trust as ot
+    from spektralia.ollama_trust import _pin_tcp, reset_pin
 
     reset_pin()
 
@@ -196,8 +197,8 @@ def test_tcp_binary_hash_mismatch_raises(monkeypatch):
 @respx.mock
 def test_tcp_version_change_raises(monkeypatch):
     """When the Ollama version string changes, _pin_tcp must raise RuntimeError."""
-    from spektralia.ollama_trust import _pin_tcp, reset_pin
     import spektralia.ollama_trust as ot
+    from spektralia.ollama_trust import _pin_tcp, reset_pin
 
     reset_pin()
 
@@ -225,8 +226,8 @@ def test_tcp_version_change_raises(monkeypatch):
 @respx.mock
 def test_tcp_stable_pin_does_not_raise(monkeypatch):
     """Multiple calls with the same PID/hash/version must not raise."""
-    from spektralia.ollama_trust import _pin_tcp, reset_pin
     import spektralia.ollama_trust as ot
+    from spektralia.ollama_trust import _pin_tcp, reset_pin
 
     reset_pin()
 

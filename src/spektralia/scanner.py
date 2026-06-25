@@ -4,7 +4,7 @@ import re as _re
 from dataclasses import dataclass
 
 from .normalize import NormalizeResult, normalize, whitespace_collapsed_shadow
-from .patterns import PATTERNS, Pattern, match_pattern
+from .patterns import PATTERNS, match_pattern
 
 
 @dataclass(frozen=True)
@@ -12,8 +12,8 @@ class Detection:
     """A detected sensitive span. Value is never stored here."""
 
     label: str
-    start: int   # offset in original text
-    end: int     # offset in original text
+    start: int  # offset in original text
+    end: int  # offset in original text
 
     @property
     def span(self) -> tuple[int, int]:
@@ -59,7 +59,7 @@ def _dedupe(detections: list[Detection]) -> list[Detection]:
     return always + result
 
 
-_UNICODE_EMAIL_RE = _re.compile(r'\b[a-zA-Z0-9._%+\-]+@(\S+)')
+_UNICODE_EMAIL_RE = _re.compile(r"\b[a-zA-Z0-9._%+\-]+@(\S+)")
 _EMAIL_PAT = next(p for p in PATTERNS if p.label == "EMAIL")
 
 
@@ -71,9 +71,17 @@ def _scan_idna_emails(text: str) -> list[Detection]:
         if domain.isascii():
             continue
         try:
-            encoded = ".".join(lbl.encode("idna").decode("ascii") for lbl in domain.split(".") if lbl)
+            encoded = ".".join(
+                lbl.encode("idna").decode("ascii") for lbl in domain.split(".") if lbl
+            )
             if match_pattern(_EMAIL_PAT, f"x@{encoded}"):
-                detections.append(Detection(label="EMAIL", start=m.start(), end=m.start() + len(m.group(0).rstrip(".,;:!?"))))
+                detections.append(
+                    Detection(
+                        label="EMAIL",
+                        start=m.start(),
+                        end=m.start() + len(m.group(0).rstrip(".,;:!?")),
+                    )
+                )
         except (UnicodeError, ValueError):
             pass
     return detections
@@ -94,7 +102,7 @@ def scan(text: str) -> list[Detection]:
 
     for pat in PATTERNS:
         # Scan original text
-        for start, end, matched in match_pattern(pat, text):
+        for start, end, _matched in match_pattern(pat, text):
             if start == -1:
                 # REGEX_TIMEOUT — treat as block signal
                 all_detections.append(Detection(label="REGEX_TIMEOUT", start=0, end=len(text)))
@@ -103,7 +111,7 @@ def scan(text: str) -> list[Detection]:
 
         # Scan normalized form (if different from original)
         if norm_result.normalized != text:
-            for start, end, matched in match_pattern(pat, norm_result.normalized):
+            for start, end, _matched in match_pattern(pat, norm_result.normalized):
                 if start == -1:
                     all_detections.append(Detection(label="REGEX_TIMEOUT", start=0, end=len(text)))
                     continue
@@ -114,7 +122,7 @@ def scan(text: str) -> list[Detection]:
 
         # Scan whitespace-collapsed shadow
         if shadow != text:
-            for start, end, matched in match_pattern(pat, shadow):
+            for start, end, _matched in match_pattern(pat, shadow):
                 if start == -1:
                     all_detections.append(Detection(label="REGEX_TIMEOUT", start=0, end=len(text)))
                     continue
@@ -123,7 +131,7 @@ def scan(text: str) -> list[Detection]:
                 all_detections.append(Detection(label=pat.label, start=orig_start, end=orig_end))
 
     # Emit obfuscation char detections
-    for orig_i, ch, reason in norm_result.removals:
+    for orig_i, _ch, _reason in norm_result.removals:
         all_detections.append(Detection(label="OBFUSCATION_CHAR", start=orig_i, end=orig_i + 1))
 
     # IDN email shadow: detect emails with unicode (non-ASCII) domains

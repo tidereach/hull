@@ -1,6 +1,5 @@
 import subprocess
 import sys
-from pathlib import Path
 from unittest.mock import patch
 
 from spektralia.integrity import (
@@ -10,7 +9,6 @@ from spektralia.integrity import (
     get_or_create_hook_key,
     verify_installed,
 )
-from spektralia.patterns import PATTERNS
 
 
 def test_pattern_hash_is_deterministic():
@@ -40,7 +38,8 @@ def test_pattern_hash_changes_with_pattern_change(monkeypatch):
 
     # Temporarily add a fake pattern
     from spektralia.patterns import Pattern
-    new_patterns = patterns_mod.PATTERNS + [Pattern(label="FAKE_TEST", regex=r"faketest123")]
+
+    new_patterns = [*patterns_mod.PATTERNS, Pattern(label="FAKE_TEST", regex=r"faketest123")]
     monkeypatch.setattr(patterns_mod, "PATTERNS", new_patterns)
     monkeypatch.setattr(integrity_mod, "PATTERNS", new_patterns)
 
@@ -52,6 +51,7 @@ def test_pattern_hash_changes_with_pattern_change(monkeypatch):
 # verify_installed
 # ---------------------------------------------------------------------------
 
+
 class TestVerifyInstalled:
     def test_missing_lock_returns_problem(self, tmp_path):
         problems = verify_installed(tmp_path / "requirements.lock")
@@ -61,10 +61,13 @@ class TestVerifyInstalled:
         # Build a minimal lock file matching a package we know is installed
         result = subprocess.run(
             [sys.executable, "-m", "pip", "freeze"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         # Pick the first pinned package
-        pinned = [l.strip() for l in result.stdout.splitlines() if "==" in l and not l.startswith("-e")]
+        pinned = [
+            l.strip() for l in result.stdout.splitlines() if "==" in l and not l.startswith("-e")
+        ]
         if not pinned:
             return  # nothing to check in this environment
         lock_path = tmp_path / "requirements.lock"
@@ -89,9 +92,11 @@ class TestVerifyInstalled:
 # hook identity (ASI-07)
 # ---------------------------------------------------------------------------
 
+
 class TestHookIdentity:
     def test_token_is_64_hex_when_key_available(self, monkeypatch):
         import spektralia.integrity as integrity_mod
+
         fake_key = b"\x01" * 32
         monkeypatch.setattr(integrity_mod, "get_or_create_hook_key", lambda: fake_key)
         token = compute_hook_token("test-session")
@@ -100,12 +105,14 @@ class TestHookIdentity:
 
     def test_token_empty_when_keyring_unavailable(self, monkeypatch):
         import spektralia.integrity as integrity_mod
+
         monkeypatch.setattr(integrity_mod, "get_or_create_hook_key", lambda: b"")
         token = compute_hook_token("test-session")
         assert token == ""
 
     def test_different_sessions_produce_different_tokens(self, monkeypatch):
         import spektralia.integrity as integrity_mod
+
         fake_key = b"\x02" * 32
         monkeypatch.setattr(integrity_mod, "get_or_create_hook_key", lambda: fake_key)
         t1 = compute_hook_token("session-a")

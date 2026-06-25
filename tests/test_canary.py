@@ -1,4 +1,4 @@
-from spektralia.canary import run_canary, _CORPUS
+from spektralia.canary import _CORPUS, run_canary
 from spektralia.scanner import scan
 
 

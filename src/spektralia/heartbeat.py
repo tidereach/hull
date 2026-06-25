@@ -4,8 +4,8 @@ import time
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .audit import AuditChain
     from .anomaly import AnomalyDetector
+    from .audit import AuditChain
     from .canary import CanaryResult
 
 
@@ -14,7 +14,7 @@ class HeartbeatEmitter:
 
     def __init__(
         self,
-        chain: "AuditChain",
+        chain: AuditChain,
         pattern_hash: str,
         model_digest: str,
         prompt_hash: str,
@@ -32,8 +32,8 @@ class HeartbeatEmitter:
 
     def tick(
         self,
-        anomaly: "AnomalyDetector",
-        last_canary: "CanaryResult | None" = None,
+        anomaly: AnomalyDetector,
+        last_canary: CanaryResult | None = None,
         sink_type: str = "unknown",
     ) -> bool:
         """Call after each gate() invocation. Emits heartbeat if due.

@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import ctypes
-import mmap
 import platform
-import sys
-
 
 _PR_SET_DUMPABLE = 4
 

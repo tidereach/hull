@@ -8,12 +8,11 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any
 
 import httpx
 
-from .patterns import PATTERNS
 from .classifier import PROMPT_HASH
+from .patterns import PATTERNS
 
 _KEYRING_SERVICE = "spektralia"
 _KEYRING_KEY = "hook_identity_key"
@@ -23,12 +22,14 @@ def compute_pattern_hash() -> str:
     """SHA-256 of sorted pattern table (label, regex, validator name, priority)."""
     table = []
     for p in sorted(PATTERNS, key=lambda x: x.label):
-        table.append({
-            "label": p.label,
-            "regex": p.regex,
-            "validator": p.validator.__qualname__ if p.validator else None,
-            "priority": p.priority,
-        })
+        table.append(
+            {
+                "label": p.label,
+                "regex": p.regex,
+                "validator": p.validator.__qualname__ if p.validator else None,
+                "priority": p.priority,
+            }
+        )
     serialized = json.dumps(table, sort_keys=True)
     return hashlib.sha256(serialized.encode()).hexdigest()
 
@@ -39,7 +40,9 @@ def fetch_model_digest(client: httpx.Client, model_name: str) -> str:
         resp = client.get("/api/tags")
         resp.raise_for_status()
         for m in resp.json().get("models", []):
-            if m.get("name") == model_name or m.get("name", "").startswith(model_name.split(":")[0]):
+            if m.get("name") == model_name or m.get("name", "").startswith(
+                model_name.split(":")[0]
+            ):
                 digest = m.get("digest", "")
                 return digest
     except Exception:
@@ -70,6 +73,7 @@ def verify_installed(lock_path: Path) -> list[str]:
     def _normalize(name: str) -> str:
         # PEP 508: -, _, and . are equivalent; names are case-insensitive
         import re
+
         return re.sub(r"[-_.]+", "-", name).lower()
 
     installed: dict[str, str] = {}
@@ -92,9 +96,7 @@ def verify_installed(lock_path: Path) -> list[str]:
             if pkg_key not in installed:
                 problems.append(f"{pkg}=={expected_ver}: not installed")
             elif installed[pkg_key] != expected_ver:
-                problems.append(
-                    f"{pkg}: installed {installed[pkg_key]}, expected {expected_ver}"
-                )
+                problems.append(f"{pkg}: installed {installed[pkg_key]}, expected {expected_ver}")
 
     return problems
 
@@ -119,6 +121,7 @@ def get_or_create_hook_key() -> bytes:
     """
     try:
         import keyring  # type: ignore[import]
+
         stored = keyring.get_password(_KEYRING_SERVICE, _KEYRING_KEY)
         if stored:
             return bytes.fromhex(stored)

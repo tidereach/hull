@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -120,6 +119,7 @@ class JournaldSink(AuditSink):
     def __init__(self) -> None:
         try:
             from systemd import journal
+
             self._journal = journal
         except ImportError:
             raise RuntimeError("systemd.journal not available")
@@ -137,6 +137,7 @@ class SyslogSink(AuditSink):
 
     def __init__(self, address: str = "/dev/log") -> None:
         import logging.handlers
+
         handler = logging.handlers.SysLogHandler(
             address=address,
             facility=logging.handlers.SysLogHandler.LOG_USER,
@@ -327,10 +328,15 @@ class AuditChain:
         log_path = self._state_dir / "audit.jsonl"
         if not log_path.exists():
             return 0
-        cutoff_ns = int(datetime.datetime(
-            cutoff_dt.year, cutoff_dt.month, cutoff_dt.day,
-            tzinfo=datetime.timezone.utc,
-        ).timestamp() * 1e9)
+        cutoff_ns = int(
+            datetime.datetime(
+                cutoff_dt.year,
+                cutoff_dt.month,
+                cutoff_dt.day,
+                tzinfo=datetime.UTC,
+            ).timestamp()
+            * 1e9
+        )
         kept: list[str] = []
         removed = 0
         with open(log_path) as fh:

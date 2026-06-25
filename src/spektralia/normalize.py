@@ -3,7 +3,6 @@ from __future__ import annotations
 import unicodedata
 from dataclasses import dataclass
 
-
 # Zero-width and invisible characters
 _ZERO_WIDTH = frozenset(
     "​‌‍⁠﻿᠎"  # ZWS, ZWNJ, ZWJ, WJ, BOM, MVS
@@ -13,9 +12,10 @@ _ZERO_WIDTH = frozenset(
 # Bidi override characters
 _BIDI = frozenset(
     "‪‫‬‭‮"  # LRE, RLE, PDF, LRO, RLO
-    "⁦⁧⁨⁩"        # LRI, RLI, FSI, PDI
-    "؜"                           # ALM
+    "⁦⁧⁨⁩"  # LRI, RLI, FSI, PDI
+    "؜"  # ALM
 )
+
 
 # Variation selectors U+FE00–FE0F and tag chars U+E0000–E007F
 def _is_variation_or_tag(c: str) -> bool:
@@ -27,16 +27,48 @@ def _is_variation_or_tag(c: str) -> bool:
 # Only unambiguous single-char mappings
 _HOMOGLYPHS: dict[str, str] = {
     # Cyrillic
-    "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "х": "x",
-    "А": "A", "В": "B", "Е": "E", "К": "K", "М": "M", "Н": "H",
-    "О": "O", "Р": "P", "С": "C", "Т": "T", "Х": "X",
+    "а": "a",
+    "е": "e",
+    "о": "o",
+    "р": "p",
+    "с": "c",
+    "х": "x",
+    "А": "A",
+    "В": "B",
+    "Е": "E",
+    "К": "K",
+    "М": "M",
+    "Н": "H",
+    "О": "O",
+    "Р": "P",
+    "С": "C",
+    "Т": "T",
+    "Х": "X",
     # Greek
-    "α": "a", "β": "b", "ε": "e", "ο": "o", "ρ": "p", "τ": "t",
-    "υ": "u", "χ": "x", "Α": "A", "Β": "B", "Ε": "E", "Η": "H",
-    "Ι": "I", "Κ": "K", "Μ": "M", "Ν": "N", "Ο": "O", "Ρ": "P",
-    "Τ": "T", "Υ": "Y", "Χ": "X",
+    "α": "a",
+    "β": "b",
+    "ε": "e",
+    "ο": "o",
+    "ρ": "p",
+    "τ": "t",
+    "υ": "u",
+    "χ": "x",
+    "Α": "A",
+    "Β": "B",
+    "Ε": "E",
+    "Η": "H",
+    "Ι": "I",
+    "Κ": "K",
+    "Μ": "M",
+    "Ν": "N",
+    "Ο": "O",
+    "Ρ": "P",
+    "Τ": "T",
+    "Υ": "Y",
+    "Χ": "X",
     # Armenian
-    "Ա": "U", "Տ": "S",
+    "Ա": "U",
+    "Տ": "S",
 }
 
 _HOMOGLYPH_TABLE = str.maketrans(_HOMOGLYPHS)

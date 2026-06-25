@@ -1,4 +1,3 @@
-import pytest
 from spektralia.patterns import PATTERNS, match_pattern
 
 
@@ -83,9 +82,15 @@ class TestAwsKey:
 
 class TestJWT:
     def test_valid_jwt(self):
-        import base64, json as _json
+        import base64
+        import json as _json
+
         pat = _get("JWT")
-        header = base64.urlsafe_b64encode(_json.dumps({"alg":"HS256","typ":"JWT"}).encode()).decode().rstrip("=")
+        header = (
+            base64.urlsafe_b64encode(_json.dumps({"alg": "HS256", "typ": "JWT"}).encode())
+            .decode()
+            .rstrip("=")
+        )
         payload = base64.urlsafe_b64encode(b"{}").decode().rstrip("=")
         sig = "abc123"
         token = f"{header}.{payload}.{sig}"
@@ -149,10 +154,11 @@ class TestReDoSTimeout:
         # A 10k-char string that could trigger ReDoS — should return REGEX_TIMEOUT or []
         # The important thing is it doesn't hang
         import time
+
         pat = _get("API_KEY_GENERIC")
         evil = "api_key=" + "a" * 5000
         t0 = time.monotonic()
-        r = match_pattern(pat, evil)
+        match_pattern(pat, evil)
         elapsed = time.monotonic() - t0
         # Must complete within 2 seconds regardless of match result
         assert elapsed < 2.0
@@ -160,6 +166,7 @@ class TestReDoSTimeout:
     def test_regex_timeout_sentinel_returned(self, monkeypatch):
         # Verify that when timeout fires, match_pattern returns the REGEX_TIMEOUT sentinel
         import spektralia.patterns as p_mod
+
         monkeypatch.setattr(p_mod, "_TIMEOUT_MS", 0.001)
         pat = _get("API_KEY_GENERIC")
         r = match_pattern(pat, "api_key=" + "a" * 5000)

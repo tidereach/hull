@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Claude Code Stop hook — emit session_end audit roll-up."""
+
 from __future__ import annotations
 
 import json
@@ -8,8 +9,8 @@ import sys
 
 def handle(payload: dict) -> dict:
     try:
-        from spektralia.config import Settings
         from spektralia.audit import AuditChain
+        from spektralia.config import Settings
 
         s = Settings.from_env()
         chain = AuditChain(s.state_dir)

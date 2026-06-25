@@ -38,16 +38,18 @@ def test_positive(path):
     expected_label = _label_from_filename(path)
     detections = scan(text)
     labels = [d.label for d in detections]
-    assert any(expected_label in l for l in labels), \
-        f"{path.name}: expected label containing {expected_label!r}, got {labels}"
+    assert any(
+        expected_label in l for l in labels
+    ), f"{path.name}: expected label containing {expected_label!r}, got {labels}"
 
 
 @pytest.mark.parametrize("path", _all_files("negative"), ids=lambda p: p.stem)
 def test_negative(path):
     text = path.read_text()
     detections = scan(text)
-    assert detections == [], \
-        f"{path.name}: expected no detections, got {[d.label for d in detections]}"
+    assert (
+        detections == []
+    ), f"{path.name}: expected no detections, got {[d.label for d in detections]}"
 
 
 _INJECTION_XFAIL = {
@@ -58,15 +60,17 @@ _INJECTION_XFAIL = {
 @pytest.mark.parametrize(
     "path",
     [
-        pytest.param(
-            p,
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason=_INJECTION_XFAIL[p.stem],
-            ),
+        (
+            pytest.param(
+                p,
+                marks=pytest.mark.xfail(
+                    strict=True,
+                    reason=_INJECTION_XFAIL[p.stem],
+                ),
+            )
+            if p.stem in _INJECTION_XFAIL
+            else p
         )
-        if p.stem in _INJECTION_XFAIL
-        else p
         for p in _all_files("injection")
     ],
     ids=lambda p: p.stem,
@@ -74,5 +78,4 @@ _INJECTION_XFAIL = {
 def test_injection(path):
     text = path.read_text()
     detections = scan(text)
-    assert detections, \
-        f"{path.name}: expected ≥1 detection, got none"
+    assert detections, f"{path.name}: expected ≥1 detection, got none"

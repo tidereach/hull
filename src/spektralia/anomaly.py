@@ -6,7 +6,6 @@ from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -69,7 +68,9 @@ class AnomalyDetector:
             if rate > threshold and count >= 3:
                 self._should_freeze = True
                 self._freeze_reason = f"{counter}_rate_high ({rate:.2f})"
-                logger.critical("anomaly: %s rate %.2f > %.2f — auto-freeze", counter, rate, threshold)
+                logger.critical(
+                    "anomaly: %s rate %.2f > %.2f — auto-freeze", counter, rate, threshold
+                )
                 return True
 
         return False
@@ -98,7 +99,7 @@ class AnomalyDetector:
 
     def counters(self) -> dict[str, int]:
         self._prune()
-        result = {c: 0 for c in self._COUNTERS}
+        result = dict.fromkeys(self._COUNTERS, 0)
         for e in self._events:
             if e.name in result:
                 result[e.name] += 1

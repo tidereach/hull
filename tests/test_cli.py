@@ -1,13 +1,11 @@
 """Tests for the spektralia CLI subcommands."""
+
 from __future__ import annotations
 
 import json
 import time
 from io import StringIO
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from spektralia.cli import (
     cmd_audit_purge,
@@ -20,8 +18,8 @@ from spektralia.cli import (
     cmd_self_test,
     cmd_stats,
     cmd_unfreeze,
-    cmd_verify_integrity,
     cmd_verify_installed,
+    cmd_verify_integrity,
 )
 
 
@@ -37,6 +35,7 @@ def _args(**kwargs):
 # scan
 # ---------------------------------------------------------------------------
 
+
 class TestCmdScan:
     def test_clean_input_exits_0(self, tmp_path, capsys, monkeypatch):
         monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
@@ -46,9 +45,11 @@ class TestCmdScan:
         result_mock.classifier_result = None
         result_mock.blocked = False
 
-        with patch("sys.stdin", StringIO("hello world")), \
-             patch("spektralia.gate.gate", new=MagicMock()), \
-             patch("asyncio.run", return_value=result_mock):
+        with (
+            patch("sys.stdin", StringIO("hello world")),
+            patch("spektralia.gate.gate", new=MagicMock()),
+            patch("asyncio.run", return_value=result_mock),
+        ):
             code = cmd_scan(_args(explain=False))
         assert code == 0
         out = capsys.readouterr().out
@@ -57,9 +58,15 @@ class TestCmdScan:
     def test_sensitive_input_exits_2(self, tmp_path, capsys, monkeypatch):
         monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
         from spektralia.errors import SensitiveDataError
-        with patch("sys.stdin", StringIO("alice@example.com")), \
-             patch("spektralia.gate.gate", new=MagicMock()), \
-             patch("asyncio.run", side_effect=SensitiveDataError(reason="rule(EMAIL)", labels=("EMAIL",))):
+
+        with (
+            patch("sys.stdin", StringIO("alice@example.com")),
+            patch("spektralia.gate.gate", new=MagicMock()),
+            patch(
+                "asyncio.run",
+                side_effect=SensitiveDataError(reason="rule(EMAIL)", labels=("EMAIL",)),
+            ),
+        ):
             code = cmd_scan(_args(explain=False))
         assert code == 2
         err = capsys.readouterr().err
@@ -74,9 +81,11 @@ class TestCmdScan:
         result_mock.blocked = True
         result_mock.block_reason = "rule(EMAIL)"
 
-        with patch("sys.stdin", StringIO("alice@example.com")), \
-             patch("spektralia.gate.gate", new=MagicMock()), \
-             patch("asyncio.run", return_value=result_mock):
+        with (
+            patch("sys.stdin", StringIO("alice@example.com")),
+            patch("spektralia.gate.gate", new=MagicMock()),
+            patch("asyncio.run", return_value=result_mock),
+        ):
             code = cmd_scan(_args(explain=False))
         assert code == 2
         err = capsys.readouterr().err
@@ -100,9 +109,11 @@ class TestCmdScan:
         result_mock.classifier_result = None
         result_mock.blocked = False
 
-        with patch("sys.stdin", StringIO("alice@example.com")), \
-             patch("spektralia.gate.gate", new=MagicMock()), \
-             patch("asyncio.run", return_value=result_mock):
+        with (
+            patch("sys.stdin", StringIO("alice@example.com")),
+            patch("spektralia.gate.gate", new=MagicMock()),
+            patch("asyncio.run", return_value=result_mock),
+        ):
             code = cmd_scan(_args(explain=True))
         assert code == 0
         err = capsys.readouterr().err
@@ -112,6 +123,7 @@ class TestCmdScan:
 # ---------------------------------------------------------------------------
 # freeze / unfreeze / stats
 # ---------------------------------------------------------------------------
+
 
 class TestFreezeCommands:
     def test_freeze_creates_file(self, tmp_path, capsys, monkeypatch):
@@ -151,10 +163,11 @@ class TestFreezeCommands:
 # audit-verify
 # ---------------------------------------------------------------------------
 
+
 class TestCmdAuditVerify:
     def test_valid_chain_exits_0(self, tmp_path, capsys, monkeypatch):
         monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
-        from spektralia.audit import AuditChain, AppendOnlyFileSink
+        from spektralia.audit import AppendOnlyFileSink, AuditChain
 
         log_path = tmp_path / "audit.jsonl"
         sink = AppendOnlyFileSink(log_path)
@@ -174,7 +187,7 @@ class TestCmdAuditVerify:
 
     def test_tampered_record_exits_1(self, tmp_path, capsys, monkeypatch):
         monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
-        from spektralia.audit import AuditChain, AppendOnlyFileSink
+        from spektralia.audit import AppendOnlyFileSink, AuditChain
 
         log_path_pre = tmp_path / "audit.jsonl"
         sink = AppendOnlyFileSink(log_path_pre)
@@ -199,10 +212,11 @@ class TestCmdAuditVerify:
 # audit-rotate
 # ---------------------------------------------------------------------------
 
+
 class TestCmdAuditRotate:
     def test_rotate_removes_old_records(self, tmp_path, capsys, monkeypatch):
         monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
-        from spektralia.audit import AuditChain, AppendOnlyFileSink
+        from spektralia.audit import AppendOnlyFileSink, AuditChain
 
         log_path = tmp_path / "audit.jsonl"
         sink = AppendOnlyFileSink(log_path)
@@ -231,7 +245,7 @@ class TestCmdAuditRotate:
 
     def test_rotate_no_old_records(self, tmp_path, capsys, monkeypatch):
         monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
-        from spektralia.audit import AuditChain, AppendOnlyFileSink
+        from spektralia.audit import AppendOnlyFileSink, AuditChain
 
         log_path = tmp_path / "audit.jsonl"
         sink = AppendOnlyFileSink(log_path)
@@ -252,11 +266,13 @@ class TestCmdAuditRotate:
 # audit-purge
 # ---------------------------------------------------------------------------
 
+
 class TestCmdAuditPurge:
     def test_purge_removes_old_records(self, tmp_path, capsys, monkeypatch):
         monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
         import datetime
-        from spektralia.audit import AuditChain, AppendOnlyFileSink
+
+        from spektralia.audit import AppendOnlyFileSink, AuditChain
 
         log_path = tmp_path / "audit.jsonl"
         sink = AppendOnlyFileSink(log_path)
@@ -267,7 +283,9 @@ class TestCmdAuditPurge:
         # Backdate the written record to 2020-01-01
         lines = log_path.read_text().splitlines()
         old_data = json.loads(lines[0])
-        old_data["wall_ns"] = int(datetime.datetime(2020, 1, 1, tzinfo=datetime.timezone.utc).timestamp() * 1e9)
+        old_data["wall_ns"] = int(
+            datetime.datetime(2020, 1, 1, tzinfo=datetime.UTC).timestamp() * 1e9
+        )
         lines[0] = json.dumps(old_data)
         log_path.write_text("\n".join(lines) + "\n")
 
@@ -292,6 +310,7 @@ class TestCmdAuditPurge:
 # verify-integrity
 # ---------------------------------------------------------------------------
 
+
 class TestCmdVerifyIntegrity:
     def test_prints_hashes(self, tmp_path, capsys, monkeypatch):
         monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
@@ -304,6 +323,7 @@ class TestCmdVerifyIntegrity:
 # ---------------------------------------------------------------------------
 # self-test
 # ---------------------------------------------------------------------------
+
 
 class TestCmdSelfTest:
     def test_passing_canary_exits_0(self, capsys):
@@ -329,6 +349,7 @@ class TestCmdSelfTest:
 # scan-config
 # ---------------------------------------------------------------------------
 
+
 class TestCmdScanConfig:
     def test_no_sensitive_content_exits_0(self, tmp_path, capsys, monkeypatch):
         monkeypatch.chdir(tmp_path)
@@ -350,19 +371,24 @@ class TestCmdScanConfig:
 # hook-check
 # ---------------------------------------------------------------------------
 
+
 class TestCmdHookCheck:
     def test_all_hooks_present_exits_0(self, tmp_path, capsys):
         claude_dir = tmp_path / ".claude"
         claude_dir.mkdir()
         settings_path = claude_dir / "settings.json"
-        settings_path.write_text(json.dumps({
-            "hooks": {
-                "UserPromptSubmit": [],
-                "PreToolUse": [],
-                "PostToolUse": [],
-                "SessionStart": [],
-            }
-        }))
+        settings_path.write_text(
+            json.dumps(
+                {
+                    "hooks": {
+                        "UserPromptSubmit": [],
+                        "PreToolUse": [],
+                        "PostToolUse": [],
+                        "SessionStart": [],
+                    }
+                }
+            )
+        )
         with patch("pathlib.Path.home", return_value=tmp_path):
             code = cmd_hook_check(_args())
         assert code == 0
@@ -389,14 +415,18 @@ class TestCmdHookCheck:
         project_dir = tmp_path / "myproject"
         project_dir.mkdir()
         (project_dir / ".claude").mkdir()
-        (project_dir / ".claude" / "settings.json").write_text(json.dumps({
-            "hooks": {
-                "UserPromptSubmit": [],
-                "PreToolUse": [],
-                "PostToolUse": [],
-                "SessionStart": [],
-            }
-        }))
+        (project_dir / ".claude" / "settings.json").write_text(
+            json.dumps(
+                {
+                    "hooks": {
+                        "UserPromptSubmit": [],
+                        "PreToolUse": [],
+                        "PostToolUse": [],
+                        "SessionStart": [],
+                    }
+                }
+            )
+        )
         home_dir = tmp_path / "home"
         home_dir.mkdir()
         monkeypatch.chdir(project_dir)
@@ -416,6 +446,7 @@ class TestCmdHookCheck:
 # ---------------------------------------------------------------------------
 # verify-installed
 # ---------------------------------------------------------------------------
+
 
 class TestCmdVerifyInstalled:
     def test_no_lock_file_exits_1(self, tmp_path, capsys, monkeypatch):

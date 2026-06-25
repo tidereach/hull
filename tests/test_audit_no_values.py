@@ -1,8 +1,6 @@
 """Assert no known secret value ever appears in audit records."""
-import json
-import pytest
-from spektralia.audit import AuditChain, AppendOnlyFileSink
 
+from spektralia.audit import AppendOnlyFileSink, AuditChain
 
 _KNOWN_SECRETS = [
     "AKIAIOSFODNN7EXAMPLE",

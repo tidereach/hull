@@ -5,13 +5,11 @@ import logging
 import os
 import platform
 import re
-import socket
 import stat
 from pathlib import Path
 from typing import Any
 
 import httpx
-
 
 logger = logging.getLogger(__name__)
 

@@ -4,16 +4,15 @@ import hashlib
 import json
 import logging
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Literal
 
 import httpx
 
-
 logger = logging.getLogger(__name__)
 
 
-class SensitiveCategory(str, Enum):
+class SensitiveCategory(StrEnum):
     PII = "PII"
     CREDENTIALS = "CREDENTIALS"
     INTERNAL_INFRA = "INTERNAL_INFRA"

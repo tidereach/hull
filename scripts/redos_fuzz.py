@@ -12,6 +12,7 @@ Exit codes:
 REGEX_TIMEOUT in the result means the guard *fired* (this is good, not a
 failure).  A hung call means the guard is absent or broken.
 """
+
 from __future__ import annotations
 
 import sys
@@ -24,7 +25,7 @@ from spektralia.patterns import PATTERNS, match_pattern
 # the specialised inputs target email/CC anchors that short-circuit on the
 # generic input before reaching pathological backtracking depth.
 ADVERSARIAL_INPUTS: dict[str, str] = {
-    "EMAIL":       "a" * 500 + "@" + "b" * 500 + "." + "c" * 500,
+    "EMAIL": "a" * 500 + "@" + "b" * 500 + "." + "c" * 500,
     "CREDIT_CARD": "4" + "1" * 500,
 }
 _GENERIC = "a" * 10_000 + "!"

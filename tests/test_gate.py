@@ -9,18 +9,19 @@ These tests verify the core gate invariants:
 - anomaly auto-freeze on repeated classifier unavailable
 - GateResult Detection objects do not expose raw values
 """
+
 from __future__ import annotations
 
 import json
-import pytest
-import respx
-import httpx
 from unittest.mock import patch
 
-from spektralia.gate import Gate
+import httpx
+import pytest
+import respx
+
 from spektralia.config import Settings
 from spektralia.errors import SensitiveDataError
-
+from spektralia.gate import Gate
 
 MOCK_BASE = "http://127.0.0.1:11434"
 
@@ -28,7 +29,11 @@ MOCK_BASE = "http://127.0.0.1:11434"
 def _cr(sensitive: bool, confidence: float, categories: list[str] | None = None) -> dict:
     """Build mock Ollama /api/generate response body."""
     cats = categories if categories is not None else (["PII"] if sensitive else [])
-    return {"response": json.dumps({"sensitive": sensitive, "confidence": confidence, "categories": cats})}
+    return {
+        "response": json.dumps(
+            {"sensitive": sensitive, "confidence": confidence, "categories": cats}
+        )
+    }
 
 
 def _gate(tmp_path, **kwargs) -> Gate:
@@ -49,14 +54,17 @@ def _mock_client() -> httpx.Client:
 # Test 1: rule_hit blocks regardless of classifier saying safe
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 @respx.mock
 async def test_rule_hit_blocks_when_classifier_says_safe(tmp_path):
     """rule_hit=True must block even if classifier returns not-sensitive."""
-    respx.post(f"{MOCK_BASE}/api/generate").mock(side_effect=[
-        httpx.Response(200, json=_cr(False, 0.05, [])),
-        httpx.Response(200, json=_cr(False, 0.02, [])),
-    ])
+    respx.post(f"{MOCK_BASE}/api/generate").mock(
+        side_effect=[
+            httpx.Response(200, json=_cr(False, 0.05, [])),
+            httpx.Response(200, json=_cr(False, 0.02, [])),
+        ]
+    )
     g = _gate(tmp_path)
     with patch.object(g, "_get_client", return_value=_mock_client()):
         with pytest.raises(SensitiveDataError) as exc_info:
@@ -68,14 +76,17 @@ async def test_rule_hit_blocks_when_classifier_says_safe(tmp_path):
 # Test 2: classifier_high blocks with no rule hit
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 @respx.mock
 async def test_classifier_high_blocks_without_rule_hit(tmp_path):
     """classifier_high=True must block even with no regex detection."""
-    respx.post(f"{MOCK_BASE}/api/generate").mock(side_effect=[
-        httpx.Response(200, json=_cr(True, 0.95, ["CONFIDENTIAL"])),
-        httpx.Response(200, json=_cr(True, 0.90, ["CONFIDENTIAL"])),
-    ])
+    respx.post(f"{MOCK_BASE}/api/generate").mock(
+        side_effect=[
+            httpx.Response(200, json=_cr(True, 0.95, ["CONFIDENTIAL"])),
+            httpx.Response(200, json=_cr(True, 0.90, ["CONFIDENTIAL"])),
+        ]
+    )
     g = _gate(tmp_path, sensitivity_threshold=0.7)
     with patch.object(g, "_get_client", return_value=_mock_client()):
         with pytest.raises(SensitiveDataError):
@@ -85,6 +96,7 @@ async def test_classifier_high_blocks_without_rule_hit(tmp_path):
 # ---------------------------------------------------------------------------
 # Test 3: Freeze state → block
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_freeze_blocks_all_calls(tmp_path):
@@ -101,6 +113,7 @@ async def test_freeze_blocks_all_calls(tmp_path):
 # Test 4: max_input_chars → deterministic block
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_max_input_chars_blocks(tmp_path):
     """Input exceeding max_input_chars must raise SensitiveDataError without classifier."""
@@ -113,6 +126,7 @@ async def test_max_input_chars_blocks(tmp_path):
 # ---------------------------------------------------------------------------
 # Test 5: Soft mode mutation-until-pass detector blocks after N repeated overrides
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_soft_mode_mutation_pattern_blocks(tmp_path):
@@ -142,7 +156,9 @@ async def test_soft_mode_mutation_pattern_blocks(tmp_path):
             for _ in range(3):
                 g._cache.invalidate_all()
                 result = await g.gate(safe_text)
-                assert result.blocked is True, "soft mode should warn, not hard-block, before 4th call"
+                assert (
+                    result.blocked is True
+                ), "soft mode should warn, not hard-block, before 4th call"
             # 4th call: same categories → mutation pattern → hard block
             g._cache.invalidate_all()
             with pytest.raises(SensitiveDataError) as exc_info:
@@ -161,6 +177,7 @@ async def test_soft_mode_mutation_pattern_blocks(tmp_path):
 # Test 6: Anomaly auto-freeze after repeated classifier_unavailable
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_anomaly_auto_freeze_on_classifier_unavailable(tmp_path):
     """When classifier is unavailable too many times, gate should auto-freeze."""
@@ -172,9 +189,7 @@ async def test_anomaly_auto_freeze_on_classifier_unavailable(tmp_path):
     )
     # Make classifier always fail (connection refused)
     with respx.mock:
-        respx.post(f"{MOCK_BASE}/api/generate").mock(
-            side_effect=httpx.ConnectError("refused")
-        )
+        respx.post(f"{MOCK_BASE}/api/generate").mock(side_effect=httpx.ConnectError("refused"))
         with patch.object(g, "_get_client", return_value=_mock_client()):
             # Each call should raise SensitiveDataError (fail-closed)
             # After enough failures, should_freeze becomes True
@@ -194,13 +209,17 @@ async def test_anomaly_auto_freeze_on_classifier_unavailable(tmp_path):
 # Test 7: Detection dataclass does not expose raw matched text
 # ---------------------------------------------------------------------------
 
+
 def test_detection_has_no_value_attribute():
     """Detection dataclass must not expose raw matched text as a 'value' attribute."""
     from spektralia.scanner import scan
+
     dets = scan("Contact alice@example.com today")
     assert dets, "expected at least one Detection for email input"
     for det in dets:
         assert hasattr(det, "label"), "Detection must have label"
         assert hasattr(det, "start"), "Detection must have start"
         assert hasattr(det, "end"), "Detection must have end"
-        assert not hasattr(det, "value"), "Detection must not have a 'value' attribute (raw text must not be stored)"
+        assert not hasattr(
+            det, "value"
+        ), "Detection must not have a 'value' attribute (raw text must not be stored)"

@@ -3,12 +3,10 @@ from __future__ import annotations
 import base64
 import json
 import re as _re
-import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 import regex
-
 
 _TIMEOUT_MS = 100
 
@@ -42,12 +40,12 @@ def _mod11_no(value: str) -> bool:
         return False
     w1 = [3, 7, 6, 1, 8, 9, 4, 5, 2]
     w2 = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2]
-    k1 = 11 - (sum(d * w for d, w in zip(digits[:9], w1)) % 11)
+    k1 = 11 - (sum(d * w for d, w in zip(digits[:9], w1, strict=False)) % 11)
     if k1 == 11:
         k1 = 0
     if k1 == 10 or k1 != digits[9]:
         return False
-    k2 = 11 - (sum(d * w for d, w in zip(digits[:10], w2)) % 11)
+    k2 = 11 - (sum(d * w for d, w in zip(digits[:10], w2, strict=False)) % 11)
     if k2 == 11:
         k2 = 0
     if k2 == 10 or k2 != digits[10]:
@@ -75,10 +73,7 @@ PATTERNS: list[Pattern] = [
     ),
     Pattern(
         label="IP_ADDR",
-        regex=(
-            r"\b(?:25[0-5]|2[0-4]\d|1?\d?\d)"
-            r"(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}\b"
-        ),
+        regex=(r"\b(?:25[0-5]|2[0-4]\d|1?\d?\d)" r"(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}\b"),
         priority=20,
     ),
     Pattern(
@@ -165,9 +160,7 @@ def _compile(pat: Pattern) -> regex.Pattern:
     return regex.compile(pat.regex, regex.IGNORECASE | regex.MULTILINE)
 
 
-_COMPILED: dict[str, regex.Pattern] = {
-    p.label: _compile(p) for p in PATTERNS
-}
+_COMPILED: dict[str, regex.Pattern] = {p.label: _compile(p) for p in PATTERNS}
 
 
 def match_pattern(pat: Pattern, text: str) -> list[tuple[int, int, str]]:

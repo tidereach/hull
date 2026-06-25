@@ -4,8 +4,6 @@ import asyncio
 import logging
 import threading
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
 
 import httpx
 
@@ -21,9 +19,8 @@ from .errors import SensitiveDataError
 from .heartbeat import HeartbeatEmitter
 from .integrity import compute_pattern_hash, fetch_model_digest, get_integrity_report
 from .ollama_trust import build_client
-from .sanitizer import Sanitized, sanitize
+from .sanitizer import sanitize
 from .scanner import Detection, scan
-
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +108,9 @@ class Gate:
             )
             self._cache.invalidate_all()
 
-    def _emit(self, action: str, detections: list[Detection], cr: ClassifierResult | None, **extra) -> None:
+    def _emit(
+        self, action: str, detections: list[Detection], cr: ClassifierResult | None, **extra
+    ) -> None:
         labels = [d.label for d in detections]
         categories = cr.categories if cr else []
         confidence = cr.confidence if cr else 0.0
@@ -247,7 +246,9 @@ class Gate:
                 min_confidence=cr.min_confidence,
             )
 
-        classifier_high = cr is not None and cr.sensitive and cr.confidence >= s.sensitivity_threshold
+        classifier_high = (
+            cr is not None and cr.sensitive and cr.confidence >= s.sensitivity_threshold
+        )
 
         # Rule/classifier disagreement
         if rule_hit and cr and not cr.sensitive:
@@ -281,23 +282,29 @@ class Gate:
                     blocked=True,
                     block_reason=_format_block_reason(rule_labels, cr),
                 )
-                self._cache.set(cache_key, {
-                    "blocked": True,
-                    "reason": result.block_reason,
-                    "labels": list(rule_labels),
-                    "categories": list(cr.categories if cr else []),
-                })
+                self._cache.set(
+                    cache_key,
+                    {
+                        "blocked": True,
+                        "reason": result.block_reason,
+                        "labels": list(rule_labels),
+                        "categories": list(cr.categories if cr else []),
+                    },
+                )
                 return result
 
             # Hard block
             block_reason = _format_block_reason(rule_labels, cr)
             self._emit("block", detections, cr, reason=block_reason)
-            self._cache.set(cache_key, {
-                "blocked": True,
-                "reason": block_reason,
-                "labels": list(rule_labels),
-                "categories": list(cr.categories if cr else []),
-            })
+            self._cache.set(
+                cache_key,
+                {
+                    "blocked": True,
+                    "reason": block_reason,
+                    "labels": list(rule_labels),
+                    "categories": list(cr.categories if cr else []),
+                },
+            )
             raise SensitiveDataError(
                 reason=block_reason,
                 labels=tuple(rule_labels),
@@ -307,10 +314,13 @@ class Gate:
 
         # Pass
         self._emit("pass", detections, cr)
-        self._cache.set(cache_key, {
-            "blocked": False,
-            "sanitized_text": sanitized.text,
-        })
+        self._cache.set(
+            cache_key,
+            {
+                "blocked": False,
+                "sanitized_text": sanitized.text,
+            },
+        )
 
         self._heartbeat.tick(self._anomaly, self._last_canary)
 
