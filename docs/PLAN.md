@@ -289,6 +289,7 @@ Items deferred from v1 scope. Add to this list whenever a task surfaces a candid
 Items deferred beyond v2 scope.
 
 - **Quickstart setup script** — a `scripts/setup.sh` (or `spektralia setup` CLI subcommand) that installs the venv, pulls the Ollama model, and wires Claude Code hooks in one step for end-users. `--dev` flag additionally installs dev dependencies, seeds the canary corpus, runs the full test suite, and verifies hook-check, so a developer has a fully exercised environment after a single command.
+- **Network-isolated Ollama deployment** — run Ollama in a container/sandbox with no outbound route (Docker network default-deny, or a UDS-only deployment) so a compromised model or binary cannot exfiltrate scanned content. Spektralia trusts the Ollama process (UDS owner/mode, TCP PID/binary/version pin, model-digest pin) but does not constrain its egress; a malicious subprocess connection is invisible to all three hook layers. This is the **execution-plane** concern already delegated to Fence/cplt — see [ENDPOINT_STACK.md](ENDPOINT_STACK.md) ("Fence allowlist the stack requires") and [SANDBOX_ALTERNATIVES.md](SANDBOX_ALTERNATIVES.md). v3 work: document the recommended Ollama topology (container + egress-deny + socket mount) and optionally extend `spektralia check-sandbox` to assert Ollama's network access is actually restricted — not to build a network enforcer into Spektralia itself.
 
 ---
 
