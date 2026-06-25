@@ -8,7 +8,6 @@ dist/
 build/
 .pytest_cache/
 *.egg
-SBOM.json
 .spektralia/
 .spektralia.toml
 settings.local.json
