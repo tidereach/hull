@@ -91,10 +91,10 @@ spektralia hook-check             # assert Claude Code hooks installed correctly
 spektralia check-ollama           # ping configured Ollama endpoint
 
 # SBOM / supply chain
-make sbom    # regenerate SBOM.json (--output-reproducible + strips file:// from externalReferences)
+make sbom    # regenerate SBOM.json from requirements.lock (reproducible; lockfile-based)
 make verify  # verify-integrity + verify-installed
 make test    # .venv/bin/pytest -q
-make lock    # re-pin requirements.lock with hashes (runs pip-compile --generate-hashes)
+make lock    # re-pin requirements.lock with hashes (uv pip compile --python-version 3.11 --generate-hashes)
 ```
 
 ---
@@ -167,9 +167,10 @@ spektralia hook-check   # verify all hooks are wired correctly
   `~/.claude/settings.json` and `.claude/settings.json` (project root) are both scanned;
   hooks may live in either or both files.
 
-- **`--output-reproducible` does not strip `file://` paths.** `cyclonedx-py environment --output-reproducible`
-  still embeds the local checkout path in `externalReferences` for editable installs. Use `make sbom` (which
-  post-processes with Python to strip `file://` entries); never run `cyclonedx-py` directly for committed SBOMs.
+- **SBOM is generated from `requirements.lock`, not the active environment.** `make sbom` runs
+  `cyclonedx-py requirements --output-reproducible -o SBOM.json requirements.lock`. Never run
+  `cyclonedx-py environment` for committed SBOMs — it captures dev extras and transitive deps that
+  differ between machines.
 
 - **`recheck` is not on PyPI.** `pip install recheck` fails — no such package. The nightly `redos-fuzz.yml` CI
   workflow uses pure-Python timeout assertion instead: runs each pattern against adversarial input and asserts the
