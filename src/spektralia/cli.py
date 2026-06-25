@@ -68,6 +68,19 @@ def cmd_check_ollama(args: argparse.Namespace) -> int:
         return 1
 
 
+def cmd_check_sandbox(args: argparse.Namespace) -> int:
+    from .config import Settings
+    from .sandbox import check_sandbox
+
+    s = Settings.from_env()
+    ok, msg = check_sandbox(s)
+    if ok:
+        print(f"OK: {msg}")
+        return 0
+    print(f"FAIL: {msg}", file=sys.stderr)
+    return 1
+
+
 def cmd_verify_integrity(args: argparse.Namespace) -> int:
     from .config import Settings
     from .integrity import get_integrity_report
@@ -261,6 +274,7 @@ def main() -> None:
     p_scan.add_argument("--explain", action="store_true")
 
     sub.add_parser("check-ollama")
+    sub.add_parser("check-sandbox")
     sub.add_parser("verify-integrity")
     sub.add_parser("verify-installed")
     sub.add_parser("self-test")
@@ -285,6 +299,7 @@ def main() -> None:
     commands = {
         "scan": cmd_scan,
         "check-ollama": cmd_check_ollama,
+        "check-sandbox": cmd_check_sandbox,
         "verify-integrity": cmd_verify_integrity,
         "verify-installed": cmd_verify_installed,
         "self-test": cmd_self_test,

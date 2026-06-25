@@ -11,6 +11,7 @@ from spektralia.cli import (
     cmd_audit_purge,
     cmd_audit_rotate,
     cmd_audit_verify,
+    cmd_check_sandbox,
     cmd_freeze,
     cmd_hook_check,
     cmd_scan,
@@ -441,6 +442,28 @@ class TestCmdHookCheck:
         assert project_settings in out
         home_settings = str(home_dir / ".claude" / "settings.json")
         assert home_settings not in out
+
+
+# ---------------------------------------------------------------------------
+# check-sandbox
+# ---------------------------------------------------------------------------
+
+
+class TestCmdCheckSandbox:
+    def test_default_none_exits_0(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
+        monkeypatch.delenv("SPEKTRALIA_SANDBOX_BACKEND", raising=False)
+        code = cmd_check_sandbox(_args())
+        assert code == 0
+        assert "no sandbox configured" in capsys.readouterr().out
+
+    def test_configured_backend_missing_binary_exits_1(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
+        monkeypatch.setenv("SPEKTRALIA_SANDBOX_BACKEND", "cplt")
+        monkeypatch.setattr("spektralia.sandbox.shutil.which", lambda _name: None)
+        code = cmd_check_sandbox(_args())
+        assert code == 1
+        assert "not on PATH" in capsys.readouterr().err
 
 
 # ---------------------------------------------------------------------------

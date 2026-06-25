@@ -56,6 +56,9 @@ def handle(payload: dict) -> dict:
         (["spektralia", "self-test"], "self-test"),
         (["spektralia", "hook-check"], "hook-check"),
         (["spektralia", "verify-installed"], "verify-installed"),
+        # Cross-layer integrity: assert the configured execution-plane sandbox (Fence or
+        # cplt) is present. No-op when sandbox_backend="none" (the default).
+        (["spektralia", "check-sandbox"], "check-sandbox"),
     ]
 
     for cmd, name in checks:

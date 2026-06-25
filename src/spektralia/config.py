@@ -59,6 +59,11 @@ class Settings:
     # Memory
     mlock_secrets: bool = False
 
+    # Sandbox (execution-plane neighbor: Fence or cplt) — see docs/SANDBOX_ALTERNATIVES.md
+    sandbox_backend: Literal["none", "fence", "cplt"] = "none"
+    sandbox_config_paths: tuple[str, ...] = ()
+    sandbox_config_hash: str | None = None
+
     # Internal path
     state_dir: Path = field(default_factory=lambda: Path.home() / ".spektralia")
 
@@ -81,6 +86,11 @@ class Settings:
                 "heartbeat_every_n_calls",
                 "anomaly_window_seconds",
                 "classifier_timeout_seconds",
+                # Sandbox backend selection governs the execution-plane neighbor, not
+                # the content-scan verdict, so it must NOT enter config_hash()/the cache key.
+                "sandbox_backend",
+                "sandbox_config_paths",
+                "sandbox_config_hash",
                 "_non_policy",
             }
         ),
@@ -108,6 +118,9 @@ class Settings:
         for fname in ("freeze_path", "state_dir"):
             if fname in toml_data:
                 toml_data[fname] = Path(toml_data[fname])
+        # tomllib yields a list for sandbox_config_paths; the dataclass field is a tuple
+        if "sandbox_config_paths" in toml_data:
+            toml_data["sandbox_config_paths"] = tuple(toml_data["sandbox_config_paths"])
 
         env: dict[str, object] = {}
         mapping: dict[str, tuple[str, Callable[[str], object]]] = {
@@ -126,6 +139,8 @@ class Settings:
             ),
             "SPEKTRALIA_CLASSIFIER_TIMEOUT_SECONDS": ("classifier_timeout_seconds", float),
             "SPEKTRALIA_STATE_DIR": ("state_dir", Path),
+            "SPEKTRALIA_SANDBOX_BACKEND": ("sandbox_backend", str),
+            "SPEKTRALIA_SANDBOX_CONFIG_HASH": ("sandbox_config_hash", str),
         }
         for env_key, (attr, coerce) in mapping.items():
             val = os.environ.get(env_key)
@@ -150,6 +165,8 @@ class Settings:
         for fname in ("freeze_path", "state_dir"):
             if fname in data:
                 data[fname] = Path(data[fname])
+        if "sandbox_config_paths" in data:
+            data["sandbox_config_paths"] = tuple(data["sandbox_config_paths"])
         return cls(**data)
 
     def config_hash(self) -> str:
