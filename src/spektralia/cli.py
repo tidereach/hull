@@ -81,6 +81,33 @@ def cmd_check_sandbox(args: argparse.Namespace) -> int:
     return 1
 
 
+def cmd_check_prempti(args: argparse.Namespace) -> int:
+    from .config import Settings
+    from .prempti import check_prempti
+
+    s = Settings.from_env()
+    ok, msg = check_prempti(s)
+    if ok:
+        print(f"OK: {msg}")
+        return 0
+    print(f"FAIL: {msg}", file=sys.stderr)
+    return 1
+
+
+def cmd_install_hooks(args: argparse.Namespace) -> int:
+    from .install import install_hooks
+
+    scope = "global" if getattr(args, "global_scope", False) else "project"
+    try:
+        target = install_hooks(scope)
+    except (OSError, ValueError) as e:
+        print(f"FAIL: {e}", file=sys.stderr)
+        return 1
+    print(f"OK: wrote Spektralia hooks to {target}")
+    # Self-verify: install is only successful if hook-check accepts the result.
+    return cmd_hook_check(args)
+
+
 def cmd_verify_integrity(args: argparse.Namespace) -> int:
     from .config import Settings
     from .integrity import get_integrity_report
@@ -275,6 +302,14 @@ def main() -> None:
 
     sub.add_parser("check-ollama")
     sub.add_parser("check-sandbox")
+    sub.add_parser("check-prempti")
+    p_install = sub.add_parser("install-hooks")
+    p_install.add_argument(
+        "--global",
+        dest="global_scope",
+        action="store_true",
+        help="install into ~/.claude/settings.json (default: project .claude/settings.json)",
+    )
     sub.add_parser("verify-integrity")
     sub.add_parser("verify-installed")
     sub.add_parser("self-test")
@@ -300,6 +335,8 @@ def main() -> None:
         "scan": cmd_scan,
         "check-ollama": cmd_check_ollama,
         "check-sandbox": cmd_check_sandbox,
+        "check-prempti": cmd_check_prempti,
+        "install-hooks": cmd_install_hooks,
         "verify-integrity": cmd_verify_integrity,
         "verify-installed": cmd_verify_installed,
         "self-test": cmd_self_test,

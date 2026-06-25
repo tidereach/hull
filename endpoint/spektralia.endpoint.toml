@@ -1,0 +1,36 @@
+# Activated Spektralia config for the full endpoint stack.
+#
+# This is the operator-facing counterpart to the repo-root `spektralia.toml` (which stays
+# at the non-breaking defaults so Spektralia's own dev/test workflow is unaffected). To
+# bring up the endpoint, merge the keys below into your real config — either the repo-root
+# `spektralia.toml`, `~/.spektralia/config.toml`, or via the SPEKTRALIA_* env vars shown.
+#
+# Once active, `spektralia check-sandbox` and `spektralia check-prempti` (run automatically
+# at SessionStart) become fail-closed: a missing cplt/premptictl binary, an absent Prempti
+# socket, or a drifted config-hash pin blocks the session. See docs/ENDPOINT_STACK.md.
+
+[spektralia]
+# --- Data plane (classifier) ---
+ollama_url   = "http://127.0.0.1:11434"
+ollama_model = "llama3.1:8b"
+
+# --- Execution plane (cplt) ---
+# env: SPEKTRALIA_SANDBOX_BACKEND=cplt
+sandbox_backend = "cplt"
+# Defaults to (".cplt.toml", "~/.config/cplt/config.toml") when unset; listed explicitly
+# here so the hash pin (if you enable one) is unambiguous.
+sandbox_config_paths = [".cplt.toml", "~/.config/cplt/config.toml"]
+# Optional, high-assurance only. Detect-only when unset. To pin, run
+# `spektralia check-sandbox`, copy the printed hash, and set it here (or
+# SPEKTRALIA_SANDBOX_CONFIG_HASH=<sha256>). Rotation = re-read and re-set.
+# sandbox_config_hash = "<sha256>"
+
+# --- Control plane (Prempti) ---
+# env: SPEKTRALIA_PREMPTI_BACKEND=prempti
+prempti_backend = "prempti"
+# The Prempti service's Unix socket; check-prempti asserts it is a live socket.
+# env: SPEKTRALIA_PREMPTI_SOCKET=/run/prempti.sock
+prempti_socket = "~/.prempti/prempti.sock"
+prempti_config_paths = [".prempti.toml", "~/.prempti/rules.yaml"]
+# Optional hash pin, same detect-only-by-default lifecycle as the sandbox pin.
+# prempti_config_hash = "<sha256>"

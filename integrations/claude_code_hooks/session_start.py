@@ -59,6 +59,9 @@ def handle(payload: dict) -> dict:
         # Cross-layer integrity: assert the configured execution-plane sandbox (Fence or
         # cplt) is present. No-op when sandbox_backend="none" (the default).
         (["spektralia", "check-sandbox"], "check-sandbox"),
+        # Cross-layer integrity: assert the configured control-plane service (Prempti) is
+        # up. No-op when prempti_backend="none" (the default).
+        (["spektralia", "check-prempti"], "check-prempti"),
     ]
 
     for cmd, name in checks:

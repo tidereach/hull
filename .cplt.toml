@@ -1,0 +1,46 @@
+# cplt — per-repo execution-plane policy for the Spektralia endpoint stack.
+#
+# This is the EXECUTION plane of the layered endpoint described in
+# docs/ENDPOINT_STACK.md and docs/SANDBOX_ALTERNATIVES.md. cplt reads this file from
+# git HEAD (committed, content-pinned), so changes are tamper-proof and team-reviewed.
+#
+#   [deny]    — applied automatically, no opt-in; can only tighten restrictions.
+#   [propose] — requires endpoint approval via `cplt trust accept --all`.
+#
+# Spektralia does not read this file at runtime. `spektralia check-sandbox` only hashes
+# it when sandbox_backend="cplt" is set (see endpoint/spektralia.endpoint.toml); pinning
+# is opt-in because this file is designed to evolve. cplt already denies ~/.ssh, ~/.aws,
+# ~/.kube, .env*, .pem and .key by default — the entries below are project-specific
+# additions on top of those defaults.
+
+[deny]
+# Belt-and-suspenders over cplt's built-in credential denials. Do NOT deny anything under
+# ~/.spektralia: the hash-chained audit log, audit.state, and FREEZE all live there and the
+# agent (via the hooks) must write them every session — the chain is what provides tamper-
+# evidence, not a sandbox read-deny. ~/.spektralia is granted writable in the global config.
+paths = [
+    "~/secrets",
+    "~/.vault-token",
+]
+# Unrelated service credentials the agent has no reason to touch. ANTHROPIC_API_KEY and
+# SPEKTRALIA_* are deliberately NOT denied — Claude Code needs its own API auth and the hooks
+# need their Ollama/state config, or the stack cannot function.
+env = [
+    "AWS_SECRET_ACCESS_KEY",
+    "VAULT_TOKEN",
+    "DATABASE_URL",
+]
+
+[propose]
+# Control-plane guards. In the three-tool stack Prempti owns intent policy, but cplt's
+# built-in git/gh guards are kept as a redundant OR-to-block layer (see
+# docs/SANDBOX_ALTERNATIVES.md "The overlap seam"). Approve with `cplt trust accept --all`.
+gh_guard = true
+git_push_prevention = true
+
+[propose.allow]
+# Ollama is a host service the agent reaches over loopback; Spektralia's classifier fails
+# closed without it. Default-deny network otherwise. The writable ~/.spektralia path (audit
+# log, FREEZE, audit.state dir) is granted in the global config — see
+# endpoint/cplt-global-config.toml — because write-allow is a machine-level grant.
+localhost = [11434]   # Ollama TCP. If you run Ollama over a UDS instead, drop this.

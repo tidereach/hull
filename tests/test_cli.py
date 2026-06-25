@@ -15,9 +15,11 @@ from spektralia.cli import (
     cmd_audit_rotate,
     cmd_audit_verify,
     cmd_check_ollama,
+    cmd_check_prempti,
     cmd_check_sandbox,
     cmd_freeze,
     cmd_hook_check,
+    cmd_install_hooks,
     cmd_scan,
     cmd_scan_config,
     cmd_self_test,
@@ -469,6 +471,52 @@ class TestCmdCheckSandbox:
         code = cmd_check_sandbox(_args())
         assert code == 1
         assert "not on PATH" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# check-prempti
+# ---------------------------------------------------------------------------
+
+
+class TestCmdCheckPrempti:
+    def test_default_none_exits_0(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
+        monkeypatch.delenv("SPEKTRALIA_PREMPTI_BACKEND", raising=False)
+        code = cmd_check_prempti(_args())
+        assert code == 0
+        assert "no control plane configured" in capsys.readouterr().out
+
+    def test_configured_backend_missing_binary_exits_1(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
+        monkeypatch.setenv("SPEKTRALIA_PREMPTI_BACKEND", "prempti")
+        monkeypatch.setattr("spektralia.prempti.shutil.which", lambda _name: None)
+        code = cmd_check_prempti(_args())
+        assert code == 1
+        assert "not on PATH" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# install-hooks
+# ---------------------------------------------------------------------------
+
+
+class TestCmdInstallHooks:
+    def test_project_install_and_self_verify_exits_0(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        code = cmd_install_hooks(_args(global_scope=False))
+        out = capsys.readouterr().out
+        assert code == 0
+        assert "wrote Spektralia hooks" in out
+        # Self-verification ran hook-check against the freshly written settings.
+        assert "all required hooks present" in out
+        assert (tmp_path / ".claude" / "settings.json").is_file()
+
+    def test_install_failure_exits_1(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        with patch("spektralia.install.install_hooks", side_effect=OSError("denied")):
+            code = cmd_install_hooks(_args(global_scope=False))
+        assert code == 1
+        assert "FAIL" in capsys.readouterr().err
 
 
 # ---------------------------------------------------------------------------

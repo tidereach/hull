@@ -230,7 +230,11 @@ Adding layers narrows the gap; it does not close it. Honest residual exposure:
   (wired into the `SessionStart` preflight) asserts the configured execution-plane wrapper
   (`fence` or `cplt`) is on `PATH` and optionally pins its config hash the way Spektralia pins its
   pattern, prompt, and model digests — see [docs/SANDBOX_ALTERNATIVES.md](SANDBOX_ALTERNATIVES.md).
-  **Still roadmap:** the equivalent assertion that the Prempti service is up.
+  The control-plane half is now implemented too: **`spektralia check-prempti`** (also wired into the
+  `SessionStart` preflight) asserts the Prempti service is up — `premptictl` on `PATH`, a live IPC
+  socket if `prempti_socket` is set, and an optional detect-only config-hash pin — `none` by default
+  so existing installs are unaffected. A ready-to-deploy bundle wiring all three planes together
+  lives in [`endpoint/`](../endpoint/README.md).
 
 ---
 

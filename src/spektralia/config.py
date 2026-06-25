@@ -64,6 +64,12 @@ class Settings:
     sandbox_config_paths: tuple[str, ...] = ()
     sandbox_config_hash: str | None = None
 
+    # Control plane (intent policy: Prempti / Falco) — see docs/ENDPOINT_STACK.md
+    prempti_backend: Literal["none", "prempti"] = "none"
+    prempti_socket: str | None = None
+    prempti_config_paths: tuple[str, ...] = ()
+    prempti_config_hash: str | None = None
+
     # Internal path
     state_dir: Path = field(default_factory=lambda: Path.home() / ".spektralia")
 
@@ -91,6 +97,11 @@ class Settings:
                 "sandbox_backend",
                 "sandbox_config_paths",
                 "sandbox_config_hash",
+                # Control-plane (Prempti) selection is infrastructure, not content policy.
+                "prempti_backend",
+                "prempti_socket",
+                "prempti_config_paths",
+                "prempti_config_hash",
                 "_non_policy",
             }
         ),
@@ -118,9 +129,10 @@ class Settings:
         for fname in ("freeze_path", "state_dir"):
             if fname in toml_data:
                 toml_data[fname] = Path(toml_data[fname])
-        # tomllib yields a list for sandbox_config_paths; the dataclass field is a tuple
-        if "sandbox_config_paths" in toml_data:
-            toml_data["sandbox_config_paths"] = tuple(toml_data["sandbox_config_paths"])
+        # tomllib yields a list for *_config_paths; the dataclass fields are tuples
+        for fname in ("sandbox_config_paths", "prempti_config_paths"):
+            if fname in toml_data:
+                toml_data[fname] = tuple(toml_data[fname])
 
         env: dict[str, object] = {}
         mapping: dict[str, tuple[str, Callable[[str], object]]] = {
@@ -141,6 +153,9 @@ class Settings:
             "SPEKTRALIA_STATE_DIR": ("state_dir", Path),
             "SPEKTRALIA_SANDBOX_BACKEND": ("sandbox_backend", str),
             "SPEKTRALIA_SANDBOX_CONFIG_HASH": ("sandbox_config_hash", str),
+            "SPEKTRALIA_PREMPTI_BACKEND": ("prempti_backend", str),
+            "SPEKTRALIA_PREMPTI_SOCKET": ("prempti_socket", str),
+            "SPEKTRALIA_PREMPTI_CONFIG_HASH": ("prempti_config_hash", str),
         }
         for env_key, (attr, coerce) in mapping.items():
             val = os.environ.get(env_key)
@@ -165,8 +180,9 @@ class Settings:
         for fname in ("freeze_path", "state_dir"):
             if fname in data:
                 data[fname] = Path(data[fname])
-        if "sandbox_config_paths" in data:
-            data["sandbox_config_paths"] = tuple(data["sandbox_config_paths"])
+        for fname in ("sandbox_config_paths", "prempti_config_paths"):
+            if fname in data:
+                data[fname] = tuple(data[fname])
         return cls(**data)
 
     def config_hash(self) -> str:

@@ -110,3 +110,34 @@ def test_from_toml_overrides(isolated):
     toml_path.write_text('[spektralia]\nmode = "soft"\n')
     s = Settings.from_toml(toml_path, mode="strict")
     assert s.mode == "strict"
+
+
+def test_prempti_env_vars(isolated, monkeypatch):
+    monkeypatch.setenv("SPEKTRALIA_PREMPTI_BACKEND", "prempti")
+    monkeypatch.setenv("SPEKTRALIA_PREMPTI_SOCKET", "/run/prempti.sock")
+    monkeypatch.setenv("SPEKTRALIA_PREMPTI_CONFIG_HASH", "abc123")
+    s = Settings.from_env()
+    assert s.prempti_backend == "prempti"
+    assert s.prempti_socket == "/run/prempti.sock"
+    assert s.prempti_config_hash == "abc123"
+
+
+def test_prempti_config_paths_toml_coerced_to_tuple(isolated):
+    (isolated / ".spektralia.toml").write_text(
+        '[spektralia]\nprempti_backend = "prempti"\n'
+        'prempti_config_paths = [".prempti.toml", "~/.prempti/rules.yaml"]\n'
+    )
+    s = Settings.from_env()
+    assert isinstance(s.prempti_config_paths, tuple)
+    assert s.prempti_config_paths == (".prempti.toml", "~/.prempti/rules.yaml")
+
+
+def test_sandbox_and_prempti_not_in_config_hash(isolated):
+    """Infrastructure backends must not change the content-policy config hash / cache key."""
+    base = Settings()
+    flipped = Settings(
+        sandbox_backend="cplt",
+        prempti_backend="prempti",
+        prempti_socket="/run/prempti.sock",
+    )
+    assert base.config_hash() == flipped.config_hash()

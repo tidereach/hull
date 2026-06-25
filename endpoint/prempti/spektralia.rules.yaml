@@ -1,0 +1,77 @@
+# Prempti (Falco) control-plane rules for the Spektralia endpoint stack.
+#
+# Prempti is the CONTROL plane of docs/ENDPOINT_STACK.md: a Falco rule engine over Claude
+# Code hook events (PreToolUse) that returns deny / ask / allow on the ACTION the agent
+# intends — before Spektralia scans the args' content, and before cplt contains the
+# side-effects. In the stack, Prempti runs FIRST (cheap, deterministic, LLM-free); the
+# combined verdict is OR-to-block (any layer can deny; none can unilaterally pass).
+#
+# Copy to ~/.prempti/rules.yaml (or point prempti at it) on the endpoint. These are a
+# minimal starting set — extend per your policy. Prempti maps Falco `priority` /
+# the `prempti_verdict` tag to its deny/ask/allow decision.
+
+- required_engine_version: 0.31.0
+
+# --- git/gh guards (redundant with cplt's built-in guards by design; OR-to-block) ---
+
+- rule: Block git push to protected remote
+  desc: >
+    Deny any tool call that pushes git history. The execution-plane sandbox also guards
+    this; keeping it here means the control plane denies the INTENT before dispatch.
+  condition: >
+    tool.name = "Bash" and
+    (tool.command contains "git push" or tool.command contains "git remote add")
+  output: "Blocked git push intent (cmd=%tool.command session=%session.id)"
+  priority: CRITICAL
+  tags: [prempti_verdict_deny, git, exfiltration]
+
+- rule: Ask before gh repo or release mutation
+  desc: Surface gh write operations (repo create, release, secret) for explicit approval.
+  condition: >
+    tool.name = "Bash" and tool.command startswith "gh " and
+    (tool.command contains " repo " or tool.command contains " release " or
+     tool.command contains " secret ")
+  output: "gh mutation intent needs approval (cmd=%tool.command)"
+  priority: WARNING
+  tags: [prempti_verdict_ask, gh]
+
+# --- sensitive-path intent (complements Spektralia's PostToolUse content scan) ---
+
+- rule: Block reads of credential paths
+  desc: >
+    Deny tool calls whose arguments reference well-known credential locations. Spektralia
+    catches secrets that surface into context at PostToolUse; this denies the read intent.
+  condition: >
+    (tool.name in ("Read", "Bash", "Grep", "Glob")) and
+    (tool.args contains ".aws/credentials" or
+     tool.args contains ".ssh/id_" or
+     tool.args contains ".kube/config" or
+     tool.args contains ".env" or
+     tool.args contains ".vault-token")
+  output: "Blocked credential-path access intent (args=%tool.args)"
+  priority: CRITICAL
+  tags: [prempti_verdict_deny, credentials]
+
+# --- excessive agency / persistence ---
+
+- rule: Block reverse shell and pipe-to-shell intent
+  desc: Deny classic exfiltration / persistence one-liners at the intent layer.
+  condition: >
+    tool.name = "Bash" and
+    (tool.command contains "| sh" or tool.command contains "| bash" or
+     tool.command contains "/dev/tcp/" or tool.command contains "nc -e" or
+     tool.command contains "ncat -e")
+  output: "Blocked pipe-to-shell / reverse-shell intent (cmd=%tool.command)"
+  priority: CRITICAL
+  tags: [prempti_verdict_deny, persistence]
+
+# --- default posture ---
+
+- rule: Allow other tool calls
+  desc: >
+    Default-allow at the control plane. Spektralia (content) and cplt (side-effects) remain
+    in force on everything that passes here; this rule documents the explicit baseline.
+  condition: evt.type = "PreToolUse"
+  output: "Allowed tool intent (tool=%tool.name)"
+  priority: INFORMATIONAL
+  tags: [prempti_verdict_allow]

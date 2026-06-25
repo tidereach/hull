@@ -27,7 +27,7 @@ Five hooks gate every I/O surface in a Claude Code session: the user prompt, too
 
 | Hook | File | Classifier mode | Effect |
 |------|------|-----------------|--------|
-| `SessionStart` | `session_start.py` | — | Runs `verify-integrity`, `self-test`, `hook-check`, `verify-installed`, `check-sandbox`; blocks session if any fail |
+| `SessionStart` | `session_start.py` | — | Runs `verify-integrity`, `self-test`, `hook-check`, `verify-installed`, `check-sandbox`, `check-prempti`; blocks session if any fail |
 | `UserPromptSubmit` | `user_prompt_submit.py` | strict | Scans + sanitizes the typed prompt; substitutes sanitized text; blocks on rule hit or classifier high |
 | `PreToolUse` | `pre_tool_use.py` | strict | MCP tools → default-deny block; `Task`/`Bash`/`Write`/`Edit` → scan args for token refs and fresh secrets |
 | `PostToolUse` | `post_tool_use.py` | fast | Scans tool output before it enters Claude's context; substitutes sanitized version |
@@ -46,6 +46,8 @@ Five hooks gate every I/O surface in a Claude Code session: the user prompt, too
 **Classifier mode per hook.** `UserPromptSubmit` and `PreToolUse` use strict mode (two-framing consensus, slower). `PostToolUse` uses fast mode (single framing) to keep per-call latency under 200ms on 10KB outputs.
 
 **Execution-plane sandbox check.** `SessionStart` runs `check-sandbox`. It is a no-op until you opt in by setting `sandbox_backend` (`fence` or `cplt`) in `.spektralia.toml` / `~/.spektralia/config.toml` or `SPEKTRALIA_SANDBOX_BACKEND`. Once set, a missing wrapper on `PATH` (or a drifted `SPEKTRALIA_SANDBOX_CONFIG_HASH` pin) blocks the session — fail-closed. See [`docs/SANDBOX_ALTERNATIVES.md`](../../docs/SANDBOX_ALTERNATIVES.md).
+
+**Control-plane service check.** `SessionStart` also runs `check-prempti`, the control-plane analog. No-op until you set `prempti_backend = "prempti"` (or `SPEKTRALIA_PREMPTI_BACKEND`). Once set, a missing `premptictl` on `PATH`, an absent `prempti_socket`, or a drifted config-hash pin blocks the session — fail-closed. The full three-plane bring-up is in [`endpoint/`](../../endpoint/README.md).
 
 ## Token map lifecycle
 

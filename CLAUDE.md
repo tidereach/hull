@@ -47,6 +47,9 @@ src/spektralia/
   audit.py             hash-chained, persistent, sink abstraction
   gate.py              orchestration, soft mode, --explain
   errors.py            SensitiveDataError
+  sandbox.py           check-sandbox: execution-plane (fence|cplt) preflight
+  prempti.py           check-prempti: control-plane (Prempti/Falco) preflight
+  install.py           install-hooks: merge hooks into .claude/settings.json
   cli.py               versioned subcommands
 
 docs/
@@ -54,12 +57,20 @@ docs/
   THREATS.md           threat model — in-scope, out-of-scope, what gate does NOT detect
 
 integrations/claude_code_hooks/
-  session_start.py     verify-integrity + self-test + hook-check
+  session_start.py     verify-integrity + self-test + hook-check + check-sandbox + check-prempti
   user_prompt_submit.py
   pre_tool_use.py      Task, Bash, Write, Edit + default-deny MCP
   post_tool_use.py     Read, Bash, Grep, Glob, MCP results
   stop.py
   settings.example.json
+
+endpoint/                          deployable three-plane stack bundle (see endpoint/README.md)
+  README.md            one-command bring-up: data + control + execution planes
+  spektralia.endpoint.toml   activated [spektralia] config (sandbox + prempti keys)
+  cplt-global-config.toml    machine-level cplt grants (~/.config/cplt/config.toml)
+  prempti/spektralia.rules.yaml   sample Falco/Prempti control-plane rules
+.cplt.toml             committed per-repo cplt deny/propose policy
+scripts/run-claude-sandboxed.sh    launcher: preflight + `cplt -- claude` (agent inside sandbox)
 ```
 
 ---
@@ -91,6 +102,11 @@ spektralia scan-config            # lint CLAUDE.md files for sensitive content
 spektralia hook-check             # assert Claude Code hooks installed correctly
 spektralia check-ollama           # ping configured Ollama endpoint
 spektralia check-sandbox          # assert configured execution-plane sandbox (fence|cplt) is present
+spektralia check-prempti          # assert configured control-plane service (prempti) is up
+spektralia install-hooks          # write+merge Claude Code hooks into .claude/settings.json (--global for ~)
+
+# Endpoint stack (see endpoint/README.md)
+scripts/run-claude-sandboxed.sh   # launch Claude Code inside cplt with stack preflights
 
 # SBOM / supply chain
 make sbom    # regenerate SBOM.json from requirements.lock (reproducible; lockfile-based)

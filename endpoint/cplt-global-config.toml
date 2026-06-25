@@ -1,0 +1,35 @@
+# cplt global config — copy to ~/.config/cplt/config.toml on the endpoint.
+#
+# Machine-level half of the cplt policy. The committed repo-root `.cplt.toml` holds the
+# per-repo deny/propose rules; this file holds the grants that are properties of the
+# workstation, not the project: which agent cplt wraps, and the writable paths / loopback
+# ports the stack requires (docs/SANDBOX_ALTERNATIVES.md "The cplt allowlist the stack
+# requires").
+
+[sandbox]
+# cplt wraps this agent. scripts/run-claude-sandboxed.sh relies on it being "claude".
+agent = "claude"
+validate = true          # run cplt's own startup validation
+scratch_dir = true       # per-session temp dir
+# Pass through what the stack needs; inherit_env = true would be too broad.
+pass_env = [
+    "SPEKTRALIA_OLLAMA_URL",
+    "SPEKTRALIA_OLLAMA_MODEL",
+    "SPEKTRALIA_SANDBOX_BACKEND",
+    "SPEKTRALIA_PREMPTI_BACKEND",
+    "SPEKTRALIA_PREMPTI_SOCKET",
+]
+
+[proxy]
+enabled   = true
+log_level = "blocked"    # audit denied egress; pairs with Spektralia's audit chain
+
+[allow]
+# Ollama (Spektralia's classifier) over loopback. Without it the gate fails closed.
+localhost = [11434]
+# Writable state outside the project tree: the hash-chained audit log, audit.state, and
+# the FREEZE file all live under ~/.spektralia, and the agent writes them every session.
+# This grant is the directory write the audit chain needs; nothing under it is deny-listed.
+write = ["~/.spektralia"]
+# If you retain Prempti, its IPC socket dir must be reachable across the sandbox boundary.
+read = ["~/.prempti"]
