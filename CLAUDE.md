@@ -24,7 +24,7 @@ Every action produces a hash-chained audit event. A canary corpus runs at startu
 
 ---
 
-## File layout (target)
+## File layout
 
 ```
 src/spektralia/
@@ -71,6 +71,7 @@ integrations/claude_code_hooks/
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .[dev]
+pre-commit install   # wire git hooks (ruff, black, mypy, end-of-file-fixer, check-yaml)
 
 # Run tests
 .venv/bin/pytest -q
@@ -120,7 +121,9 @@ regex          # ReDoS-safe patterns with per-call timeout
 keyring        # optional: TOML HMAC verification
 ```
 
-Dev: `pytest pytest-asyncio respx cyclonedx-bom pip-tools`
+Dev: `pytest pytest-asyncio respx cyclonedx-bom`
+
+Toolchain (install separately — not pip packages): `uv` (for `make lock`), `pre-commit` (for git hooks)
 
 Ollama: `ollama pull llama3.1:8b`
 
@@ -171,6 +174,11 @@ spektralia hook-check   # verify all hooks are wired correctly
   `cyclonedx-py requirements --output-reproducible -o SBOM.json requirements.lock`. Never run
   `cyclonedx-py environment` for committed SBOMs — it captures dev extras and transitive deps that
   differ between machines.
+
+- **`uv` is not a pip package — install it separately before running `make lock`.** `pip install uv`
+  works, or use the official installer. `pip-compile` (pip-tools) does not support `--python-version`
+  in v7.x, so the lock target uses `uv pip compile --python-version 3.11` to include conditional
+  deps (e.g. `typing-extensions`) that only apply to Python < 3.13.
 
 - **`recheck` is not on PyPI.** `pip install recheck` fails — no such package. The nightly `redos-fuzz.yml` CI
   workflow uses pure-Python timeout assertion instead: runs each pattern against adversarial input and asserts the
