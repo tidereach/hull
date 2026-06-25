@@ -39,7 +39,7 @@ src/spektralia/
   sanitizer.py         random-suffix tokens, private _restore
   classifier.py        Ollama format=json, two framings, fast mode
   ollama_trust.py      UDS preferred; TCP with PID/exe pin fallback
-  cache.py             LRU keyed on sha256(text + config_hash)
+  cache.py             LRU keyed on sha256(sanitized_text + config_hash + pattern_hash + model_digest + prompt_hash)
   canary.py            corpus self-test, drift → auto-freeze
   integrity.py         pattern hash, model digest, dep lockfile check
   anomaly.py           rolling counters, auto-freeze, freeze file
@@ -48,6 +48,10 @@ src/spektralia/
   gate.py              orchestration, soft mode, --explain
   errors.py            SensitiveDataError
   cli.py               versioned subcommands
+
+docs/
+  COMPLIANCE.md        GDPR/Datatilsynet/PCI-DSS/HIPAA/OWASP ASI Top 10 coverage
+  THREATS.md           threat model — in-scope, out-of-scope, what gate does NOT detect
 
 integrations/claude_code_hooks/
   session_start.py     verify-integrity + self-test + hook-check
@@ -84,8 +88,10 @@ spektralia scan-config            # lint CLAUDE.md files for sensitive content
 spektralia hook-check             # assert Claude Code hooks installed correctly
 spektralia check-ollama           # ping configured Ollama endpoint
 
-# SBOM
-.venv/bin/cyclonedx-py environment -o SBOM.json  # regenerates SBOM.json
+# SBOM / supply chain
+make sbom    # regenerate SBOM.json (--output-reproducible + strips file:// from externalReferences)
+make verify  # verify-integrity + verify-installed
+make lock    # re-pin requirements.lock with hashes (runs pip-compile --generate-hashes)
 ```
 
 ---
@@ -111,7 +117,7 @@ regex          # ReDoS-safe patterns with per-call timeout
 keyring        # optional: TOML HMAC verification
 ```
 
-Dev: `pytest pytest-asyncio respx cyclonedx-bom`
+Dev: `pytest pytest-asyncio respx cyclonedx-bom pip-tools`
 
 Ollama: `ollama pull llama3.1:8b`
 
@@ -119,39 +125,21 @@ Ollama: `ollama pull llama3.1:8b`
 
 ## Claude Code hook integration
 
-Spektralia gates prompts via Claude Code hooks. Copy `integrations/claude_code_hooks/settings.example.json` into your project's `.claude/settings.json` (or merge into `~/.claude/settings.json` for global use), replacing `/path/to/spektralia` with the repo root.
+Copy `integrations/claude_code_hooks/settings.example.json` into `.claude/settings.json`
+(project) or `~/.claude/settings.json` (global); replace `/path/to/spektralia` with the repo root.
 
-```json
-"hooks": {
-  "UserPromptSubmit": [{"hooks": [{"type": "command",
-    "command": "python /path/to/spektralia/integrations/claude_code_hooks/user_prompt_submit.py"}]}],
-  "PreToolUse":       [{"matcher": ".*", "hooks": [{"type": "command",
-    "command": "python /path/to/spektralia/integrations/claude_code_hooks/pre_tool_use.py"}]}],
-  "PostToolUse":      [{"matcher": ".*", "hooks": [{"type": "command",
-    "command": "python /path/to/spektralia/integrations/claude_code_hooks/post_tool_use.py"}]}],
-  "SessionStart":     [{"hooks": [{"type": "command",
-    "command": "python /path/to/spektralia/integrations/claude_code_hooks/session_start.py"}]}],
-  "Stop":             [{"hooks": [{"type": "command",
-    "command": "python /path/to/spektralia/integrations/claude_code_hooks/stop.py"}]}]
-}
-```
+| Hook | Effect |
+|------|--------|
+| `UserPromptSubmit` | Scans + sanitizes user prompt; blocks or substitutes |
+| `PreToolUse` | Blocks sensitive data in Task/Bash/Write/Edit args; default-deny MCP |
+| `PostToolUse` | Scans tool output before it re-enters context |
+| `SessionStart` | Runs `verify-integrity` + canary self-test + `hook-check` |
+| `Stop` | Emits session-end audit event |
 
-**What each hook does:**
-
-| Hook | File | Effect |
-|------|------|--------|
-| `UserPromptSubmit` | `user_prompt_submit.py` | Scans + sanitizes the user prompt before it reaches Claude; blocks or substitutes sanitized text |
-| `PreToolUse` | `pre_tool_use.py` | Blocks Task/Bash/Write/Edit calls whose args contain sensitive data; default-deny on unrecognised MCP tools |
-| `PostToolUse` | `post_tool_use.py` | Scans Read/Bash/Grep/Glob/MCP results before they re-enter context |
-| `SessionStart` | `session_start.py` | Runs `verify-integrity` + canary self-test + `hook-check` at session open |
-| `Stop` | `stop.py` | Emits a session-end audit event |
-
-The `PreToolUse(Task)` hook is **required** — without it a parent agent can launder sensitive context into a subagent prompt and bypass `UserPromptSubmit`.
-
-Verify hooks are wired correctly with:
+**`PreToolUse(Task)` is required** — without it a parent agent can launder context into a subagent prompt and bypass `UserPromptSubmit`.
 
 ```bash
-spektralia hook-check
+spektralia hook-check   # verify all hooks are wired correctly
 ```
 
 ---
@@ -175,6 +163,14 @@ spektralia hook-check
 - **`spektralia hook-check` checks both global and project settings.**
   `~/.claude/settings.json` and `.claude/settings.json` (project root) are both scanned;
   hooks may live in either or both files.
+
+- **`--output-reproducible` does not strip `file://` paths.** `cyclonedx-py environment --output-reproducible`
+  still embeds the local checkout path in `externalReferences` for editable installs. Use `make sbom` (which
+  post-processes with Python to strip `file://` entries); never run `cyclonedx-py` directly for committed SBOMs.
+
+- **`recheck` is not on PyPI.** `pip install recheck` fails — no such package. The nightly `redos-fuzz.yml` CI
+  workflow uses pure-Python timeout assertion instead: runs each pattern against adversarial input and asserts the
+  `regex` module's 100 ms timeout guard fires (returns `REGEX_TIMEOUT`); hangs >500 ms mean the guard is broken.
 
 ---
 

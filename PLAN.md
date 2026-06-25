@@ -2,7 +2,7 @@
 
 A local pre-cloud sensitivity gate. Two layers of deterministic detection (regex + entropy), normalization to strip obfuscation, sanitization to typed placeholders, a small local Ollama classifier as second signal, then a block/pass decision delivered through hash-chained tamper-evident audit. Built to be embedded in Claude Code (or any agent) via hooks. Built to be hostile to its own users only when the alternative is leaking secrets.
 
-> **Status (2026-06-25):** Phase 1 complete (109 tests passing, all deterministic-core modules built). Phase 2 complete (165 tests passing; all carry-overs closed; `test_gate.py`, `test_ollama_trust.py`, cache-invalidation matrix, SyslogSink all green). Phase 3 code complete (215 tests passing; CLI all subcommands including `audit-rotate`/`audit-purge`; all five hooks refactored with `handle()` for testability; MCP default-deny fixed to `mcp__` prefix; `test_hooks.py`/`test_cli.py` passing; hooks README written). **Manual e2e against a real Claude Code config + real Ollama still required before Phase 3 can be marked done.** Phase 4 in progress — Makefile, SBOM.json, docs/COMPLIANCE.md, docs/THREATS.md, README disclaimer, scripts/latency_bench.py, and GitHub Actions ci.yml/latency.yml complete; redos-fuzz workflow and pyproject.toml recheck dep pending user decision on ReDoS tool.
+> **Status (2026-06-25):** Phase 1 complete (109 tests passing, all deterministic-core modules built). Phase 2 complete (165 tests passing; all carry-overs closed; `test_gate.py`, `test_ollama_trust.py`, cache-invalidation matrix, SyslogSink all green). Phase 3 code complete (215 tests passing; CLI all subcommands including `audit-rotate`/`audit-purge`; all five hooks refactored with `handle()` for testability; MCP default-deny fixed to `mcp__` prefix; `test_hooks.py`/`test_cli.py` passing; hooks README written). **Manual e2e against a real Claude Code config + real Ollama still required before Phase 3 can be marked done.** Phase 4 complete (225 tests passing; Makefile, SBOM.json, docs/COMPLIANCE.md, docs/THREATS.md, README §13.5 disclaimer, scripts/latency_bench.py, scripts/redos_fuzz.py, GitHub Actions ci.yml/latency.yml/redos-fuzz.yml all done; PR #3 open).
 
 > **Related files:** `SPEC.md` (full 22-chapter spec), `RATIONALE.md` (design arguments from v2/v3/v4 proposals), `README.md` (key decisions by phase with spec §§ references).
 
@@ -202,21 +202,21 @@ These are real bugs in code already on disk. Fix them as part of Phase 2's norma
 
 ---
 
-### Phase 4 — Supply chain + docs + CI ⏳ (in progress)
+### Phase 4 — Supply chain + docs + CI ✅ (complete, PR #3)
 
 - ✅ `requirements.lock` via `pip-compile --generate-hashes` (pre-existing)
-- ✅ `make sbom` target + committed `SBOM.json` (reproducible via `--output-reproducible`)
+- ✅ `make sbom` target + committed `SBOM.json` (reproducible; strips `file://` via Python post-process)
 - ✅ `docs/COMPLIANCE.md`, `docs/THREATS.md`
 - ✅ README with verbatim disclaimer paragraph from spec §13.5
 - ✅ CI: `verify-installed` gate, per-hook latency budgets (`ci.yml`, `latency.yml`)
-- ⏳ CI: nightly ReDoS fuzz — pending ReDoS tool selection (`recheck` unavailable on PyPI)
-- ⏳ `scripts/redos_fuzz.py` — same blocker
-- ⏳ `pyproject.toml` + `requirements.lock` regeneration — same blocker
+- ✅ CI: nightly ReDoS fuzz (`redos-fuzz.yml`) — pure-Python timeout assertion approach (`recheck` unavailable on PyPI; `regex` module's 100 ms guard verified directly)
+- ✅ `scripts/redos_fuzz.py` — 16 patterns, exit 1 if any call exceeds 500 ms wall-clock
+- ✅ `scripts/latency_bench.py` — p95 per hook vs spec budgets (UMP ≤500 ms, PTU ≤300 ms, PTOU ≤200 ms)
 
 **Exit criteria:**
 - ✅ `make sbom` regenerates without diff churn
-- ⏳ `pip install --require-hashes -r requirements.lock` succeeds in a clean venv (verify once recheck blocker resolved)
-- ⏳ Nightly ReDoS fuzz job dry-run (pending tool selection)
+- ✅ `pip install --require-hashes -r requirements.lock` succeeds in clean venv
+- ✅ Nightly ReDoS fuzz dry-run: all 16 patterns complete within 500 ms, exit 0
 
 ---
 
