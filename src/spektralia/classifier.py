@@ -110,7 +110,7 @@ def _call_ollama(
     }
     resp = client.post("/api/generate", json=payload, timeout=timeout)
     resp.raise_for_status()
-    return resp.json().get("response", "")
+    return str(resp.json().get("response", ""))
 
 
 def classify(

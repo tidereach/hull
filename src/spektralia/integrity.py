@@ -43,7 +43,7 @@ def fetch_model_digest(client: httpx.Client, model_name: str) -> str:
             if m.get("name") == model_name or m.get("name", "").startswith(
                 model_name.split(":")[0]
             ):
-                digest = m.get("digest", "")
+                digest = str(m.get("digest", ""))
                 return digest
     except Exception:
         pass
@@ -120,7 +120,7 @@ def get_or_create_hook_key() -> bytes:
     if keyring is unavailable — callers treat that as unauthenticated.
     """
     try:
-        import keyring  # type: ignore[import]
+        import keyring
 
         stored = keyring.get_password(_KEYRING_SERVICE, _KEYRING_KEY)
         if stored:
