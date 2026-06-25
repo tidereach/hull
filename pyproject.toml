@@ -119,9 +119,10 @@ exclude_lines = [
     "class .*\\bProtocol\\):",
     "@(abc\\.)?abstractmethod",
 ]
-# Ratcheted 78 -> 81 after closing heartbeat/gate/decode/config gaps (suite ~82%).
-# Security-critical modules now well-covered: gate ~89%, classifier ~88%, sanitizer ~91%.
-# Follow-up coverage targets (still low): ollama_trust, memory_safety, cli, integrity, audit.
+# Ratcheted 78 -> 81 -> 85 -> 90 as coverage gaps closed (suite ~92.5%). Well-covered:
+# integrity/heartbeat 100%, audit/cli ~99%, ollama_trust ~92%, memory_safety ~93%,
+# sanitizer ~91%, gate ~89%.
+# Follow-up coverage targets (still lowest): patterns, scanner, anomaly.
 # coverage.py has no native per-module floor; raise the global floor as those land.
-fail_under = 81
+fail_under = 90
 precision = 2
