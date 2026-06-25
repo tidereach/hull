@@ -7,10 +7,14 @@ import time
 from io import StringIO
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+import spektralia.cli as cli
 from spektralia.cli import (
     cmd_audit_purge,
     cmd_audit_rotate,
     cmd_audit_verify,
+    cmd_check_ollama,
     cmd_freeze,
     cmd_hook_check,
     cmd_scan,
@@ -20,6 +24,7 @@ from spektralia.cli import (
     cmd_unfreeze,
     cmd_verify_installed,
     cmd_verify_integrity,
+    main,
 )
 
 
@@ -455,3 +460,145 @@ class TestCmdVerifyInstalled:
         # With no requirements.lock, verify_installed returns problems
         # (or exits 1 — either is valid; just test it doesn't crash)
         assert code in (0, 1)
+
+    def test_clean_deps_exits_0(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "requirements.lock").write_text("httpx==0.27.0\n")
+        with patch("spektralia.integrity.verify_installed", return_value=[]):
+            code = cmd_verify_installed(_args())
+        assert code == 0
+        assert "OK" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# check-ollama
+# ---------------------------------------------------------------------------
+
+
+class TestCmdCheckOllama:
+    def test_success_exits_0(self, capsys, monkeypatch):
+        monkeypatch.setenv("SPEKTRALIA_STATE_DIR", "/tmp")
+        client = MagicMock()
+        client.get.return_value.json.return_value = {"version": "1.2.3"}
+        with patch("spektralia.ollama_trust.build_client", return_value=client):
+            code = cmd_check_ollama(_args())
+        assert code == 0
+        assert "1.2.3" in capsys.readouterr().out
+
+    def test_failure_exits_1(self, capsys, monkeypatch):
+        monkeypatch.setenv("SPEKTRALIA_STATE_DIR", "/tmp")
+        with patch(
+            "spektralia.ollama_trust.build_client",
+            side_effect=RuntimeError("ollama_socket_untrusted"),
+        ):
+            code = cmd_check_ollama(_args())
+        assert code == 1
+        assert "FAIL" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# scan --explain with classifier result
+# ---------------------------------------------------------------------------
+
+
+class TestExplainClassifier:
+    def test_explain_prints_classifier_line(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
+        cr = MagicMock()
+        cr.sensitive = True
+        cr.confidence = 0.91
+        cr.categories = ["PII"]
+        result_mock = MagicMock()
+        result_mock.sanitized_text = "[REDACTED:EMAIL:abc123]"
+        result_mock.detections = []
+        result_mock.classifier_result = cr
+        result_mock.blocked = False
+
+        with (
+            patch("sys.stdin", StringIO("alice@example.com")),
+            patch("spektralia.gate.gate", new=MagicMock()),
+            patch("asyncio.run", return_value=result_mock),
+        ):
+            code = cmd_scan(_args(explain=True))
+        assert code == 0
+        err = capsys.readouterr().err
+        assert "Classifier:" in err
+        assert "0.91" in err
+
+
+# ---------------------------------------------------------------------------
+# audit-verify error path / scan-config OSError / hook-check bad JSON
+# ---------------------------------------------------------------------------
+
+
+class TestCliErrorPaths:
+    def test_audit_verify_missing_file_exits_1(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
+        code = cmd_audit_verify(_args(path=str(tmp_path / "nope.jsonl")))
+        assert code == 1
+        assert "Error" in capsys.readouterr().err
+
+    def test_scan_config_unreadable_file_swallowed(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "CLAUDE.md").write_text("safe")
+        from pathlib import Path as _P
+
+        def boom(self, *a, **k):
+            raise OSError("unreadable")
+
+        monkeypatch.setattr(_P, "read_text", boom)
+        code = cmd_scan_config(_args())
+        assert code == 0  # OSError swallowed, no issues found
+
+    def test_hook_check_invalid_json_exits_1(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        claude_dir = tmp_path / ".claude"
+        claude_dir.mkdir()
+        (claude_dir / "settings.json").write_text("{not valid json")
+        home_dir = tmp_path / "home"
+        home_dir.mkdir()
+        with patch("pathlib.Path.home", return_value=home_dir):
+            code = cmd_hook_check(_args())
+        assert code == 1
+        assert "Error reading" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# main() dispatch
+# ---------------------------------------------------------------------------
+
+
+class TestMain:
+    def test_no_command_prints_help_exits_1(self, capsys, monkeypatch):
+        monkeypatch.setattr("sys.argv", ["spektralia"])
+        with pytest.raises(SystemExit) as exc:
+            main()
+        assert exc.value.code == 1
+
+    def test_dispatches_to_handler(self, monkeypatch):
+        called = {}
+
+        def stub(args):
+            called["yes"] = True
+            return 0
+
+        monkeypatch.setattr(cli, "cmd_stats", stub)
+        monkeypatch.setattr("sys.argv", ["spektralia", "stats"])
+        with pytest.raises(SystemExit) as exc:
+            main()
+        assert exc.value.code == 0
+        assert called.get("yes") is True
+
+    def test_handler_exit_code_propagates(self, monkeypatch):
+        monkeypatch.setattr(cli, "cmd_self_test", lambda args: 3)
+        monkeypatch.setattr("sys.argv", ["spektralia", "self-test"])
+        with pytest.raises(SystemExit) as exc:
+            main()
+        assert exc.value.code == 3
+
+    def test_version_flag_exits_0(self, capsys, monkeypatch):
+        monkeypatch.setattr("sys.argv", ["spektralia", "--version"])
+        with pytest.raises(SystemExit) as exc:
+            main()
+        assert exc.value.code == 0
+        assert "spektralia" in capsys.readouterr().out
