@@ -102,6 +102,7 @@ class AppendOnlyFileSink(AuditSink):
                 raise PermissionError(f"Audit log {path} is not owned by current user")
 
         self._fh = open(path, "a", buffering=1)  # line-buffered
+        os.chmod(path, 0o600)  # enforce regardless of umask (Ubuntu default is 0002)
 
     def write(self, record: AuditRecord) -> None:
         line = json.dumps(record.to_dict()) + "\n"
@@ -118,7 +119,7 @@ class JournaldSink(AuditSink):
 
     def __init__(self) -> None:
         try:
-            from systemd import journal
+            from systemd import journal  # type: ignore[import-not-found]
 
             self._journal = journal
         except ImportError:
@@ -163,7 +164,7 @@ def _choose_sink(state_dir: Path) -> AuditSink:
     via `tail ~/.spektralia/audit.jsonl` always work.
     """
     try:
-        sink = JournaldSink()
+        sink: AuditSink = JournaldSink()
         logger.info("audit: using journald sink")
         return sink
     except Exception:
@@ -205,7 +206,7 @@ class AuditChain:
             try:
                 data = json.loads(self._state_path.read_text())
                 self._seq = data.get("seq", 0)
-                return data.get("last_hash", "0" * 64)
+                return str(data.get("last_hash", "0" * 64))
             except Exception:
                 return "0" * 64
         return "0" * 64

@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import tomllib
+from collections.abc import Callable
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Literal
@@ -108,8 +109,8 @@ class Settings:
             if fname in toml_data:
                 toml_data[fname] = Path(toml_data[fname])
 
-        env = {}
-        mapping = {
+        env: dict[str, object] = {}
+        mapping: dict[str, tuple[str, Callable[[str], object]]] = {
             "SPEKTRALIA_OLLAMA_URL": ("ollama_url", str),
             "SPEKTRALIA_OLLAMA_SOCKET": ("ollama_socket", str),
             "SPEKTRALIA_OLLAMA_MODEL": ("ollama_model", str),
