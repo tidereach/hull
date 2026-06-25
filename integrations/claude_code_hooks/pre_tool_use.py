@@ -10,9 +10,11 @@ import sys
 
 _TOKEN_RE = re.compile(r"\[REDACTED:[A-Z_]+:[0-9a-f]{6}\]")
 
-# Tools whose arguments are scanned strictly. Agent is required to prevent
-# subagent prompt laundering past UserPromptSubmit.
-_STRICT_SCAN_TOOLS = frozenset({"Agent", "Bash", "Write", "Edit"})
+# Tools whose arguments are scanned strictly. The subagent-spawn tool is required
+# to prevent subagent prompt laundering past UserPromptSubmit (SPEC §18). SPEC names
+# it "Task", but some Claude Code versions name it "Agent" — scan both to fail closed
+# across versions (scanning a non-existent tool name is a harmless no-op).
+_STRICT_SCAN_TOOLS = frozenset({"Task", "Agent", "Bash", "Write", "Edit"})
 
 
 def _extract_text(tool_input: dict) -> str:

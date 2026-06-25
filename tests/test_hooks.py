@@ -144,37 +144,45 @@ class TestPreToolUse:
         )
         assert self._is_deny(result)
 
-    def test_agent_with_secret_blocks(self):
+    def test_subagent_tool_names_in_strict_scan_set(self):
+        # Regression guard for SPEC §18 / PLAN.md §308: the subagent-spawn tool MUST
+        # be scanned or a parent agent can launder context into a subagent prompt and
+        # bypass UserPromptSubmit. SPEC names it "Task"; some Claude Code versions name
+        # it "Agent". Scan both so a future "cleanup" can't drop the deployed one.
+        assert {"Task", "Agent"} <= self.mod._STRICT_SCAN_TOOLS
+
+    def test_task_with_secret_blocks(self):
+        # SPEC §456: PreToolUse(Task) blocks a subagent prompt containing a secret.
         with (
             patch("spektralia.gate", new=MagicMock()),
             patch("asyncio.run", return_value=self._gate_block("Blocked: rule(EMAIL)")),
         ):
             result = self.mod.handle(
                 {
-                    "tool_name": "Agent",
+                    "tool_name": "Task",
                     "tool_input": {"prompt": "some sensitive subagent prompt"},
                 }
             )
         assert self._is_deny(result)
 
-    def test_agent_with_token_reference_blocks(self):
+    def test_task_with_token_reference_blocks(self):
         result = self.mod.handle(
             {
-                "tool_name": "Agent",
+                "tool_name": "Task",
                 "tool_input": {"prompt": "use " + _TOKEN_REF + " for auth"},
             }
         )
         assert self._is_deny(result)
         assert "token reference" in self._deny_reason(result).lower()
 
-    def test_agent_clean_passes(self):
+    def test_task_clean_passes(self):
         with (
             patch("spektralia.gate", new=MagicMock()),
             patch("asyncio.run", return_value=self._gate_pass()),
         ):
             result = self.mod.handle(
                 {
-                    "tool_name": "Agent",
+                    "tool_name": "Task",
                     "tool_input": {"prompt": "print hello world"},
                 }
             )
@@ -362,7 +370,7 @@ class TestHookIoWiring:
         result = self._run_hook(
             "pre_tool_use",
             {
-                "tool_name": "Agent",
+                "tool_name": "Task",
                 "tool_input": {"prompt": "use " + _TOKEN_REF_IO + " for auth"},
             },
         )
@@ -391,3 +399,106 @@ class TestHookIoWiring:
         )
         result = json.loads(proc.stdout)
         assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
+# ---------------------------------------------------------------------------
+# Import-failure / venv-unavailable fail-closed paths (PLAN.md §306, bug #3)
+# ---------------------------------------------------------------------------
+
+
+class TestHookImportFailureFailsClosed:
+    """When the spektralia package can't be imported (e.g. venv missing), every
+    content-scanning hook must fail closed (block/deny), never crash through."""
+
+    def test_pre_tool_use_import_error_denies(self):
+        mod = load_hook("pre_tool_use")
+        with patch.dict(sys.modules, {"spektralia": None}):
+            result = mod.handle({"tool_name": "Bash", "tool_input": {"command": "ls"}})
+        assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+        assert "hook_import_error" in result["hookSpecificOutput"]["permissionDecisionReason"]
+
+    def test_user_prompt_submit_import_error_blocks(self):
+        mod = load_hook("user_prompt_submit")
+        with patch.dict(sys.modules, {"spektralia": None}):
+            result = mod.handle({"prompt": "hello world"})
+        assert result["decision"] == "block"
+        assert "hook_import_error" in result["reason"]
+
+    def test_post_tool_use_import_error_blocks(self):
+        mod = load_hook("post_tool_use")
+        with patch.dict(sys.modules, {"spektralia.scanner": None}):
+            result = mod.handle({"output": "some tool output"})
+        assert result["decision"] == "block"
+        assert "hook_error" in result["reason"]
+
+
+# ---------------------------------------------------------------------------
+# Output-shape contracts (PLAN.md §307, bug #4)
+# ---------------------------------------------------------------------------
+
+
+class TestHookOutputContracts:
+    """Pin the exact JSON shape each hook emits so a future drift in the
+    Claude Code hook protocol surface is caught."""
+
+    def test_pre_tool_use_deny_shape(self):
+        mod = load_hook("pre_tool_use")
+        result = mod.handle({"tool_name": "mcp__x__y", "tool_input": {}})
+        assert set(result.keys()) == {"hookSpecificOutput"}
+        hso = result["hookSpecificOutput"]
+        assert set(hso.keys()) == {
+            "hookEventName",
+            "permissionDecision",
+            "permissionDecisionReason",
+        }
+        assert hso["hookEventName"] == "PreToolUse"
+        assert hso["permissionDecision"] == "deny"
+        assert isinstance(hso["permissionDecisionReason"], str)
+
+    def test_pre_tool_use_allow_shape(self):
+        mod = load_hook("pre_tool_use")
+        # Non-strict tool → allow is the empty dict (no stdout written)
+        result = mod.handle({"tool_name": "Read", "tool_input": {"file_path": "/x"}})
+        assert result == {}
+
+    def test_post_tool_use_block_shape(self):
+        mod = load_hook("post_tool_use")
+        det = MagicMock()
+        det.label = "EMAIL"
+        with patch("spektralia.scanner.scan", return_value=[det]):
+            result = mod.handle({"output": "flagged"})
+        assert set(result.keys()) == {"decision", "reason"}
+        assert result["decision"] == "block"
+        assert isinstance(result["reason"], str)
+
+    def test_user_prompt_submit_block_shape(self):
+        mod = load_hook("user_prompt_submit")
+        result = mod.handle({"prompt": "x", "attachments": [{"type": "image"}]})
+        assert set(result.keys()) == {"decision", "reason"}
+        assert result["decision"] == "block"
+        assert isinstance(result["reason"], str)
+
+    def test_session_start_continue_shape(self):
+        mod = load_hook("session_start")
+        with (
+            patch.object(mod, "_run_check", return_value=(True, "OK")),
+            patch.object(mod, "_emit_hook_identity", return_value=None),
+        ):
+            result = mod.handle({})
+        assert result == {"action": "continue"}
+
+    def test_session_start_block_shape(self):
+        mod = load_hook("session_start")
+        with (
+            patch.object(mod, "_run_check", return_value=(False, "failed")),
+            patch.object(mod, "_emit_hook_identity", return_value=None),
+        ):
+            result = mod.handle({})
+        assert set(result.keys()) == {"action", "reason"}
+        assert result["action"] == "block"
+
+    def test_stop_continue_shape(self):
+        mod = load_hook("stop")
+        with patch("spektralia.config.Settings.from_env", side_effect=Exception("x")):
+            result = mod.handle({})
+        assert result == {"action": "continue"}

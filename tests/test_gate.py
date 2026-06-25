@@ -223,3 +223,164 @@ def test_detection_has_no_value_attribute():
         assert not hasattr(
             det, "value"
         ), "Detection must not have a 'value' attribute (raw text must not be stored)"
+
+
+# ---------------------------------------------------------------------------
+# Test 8: REGEX_TIMEOUT sentinel fails closed before the classifier
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_regex_timeout_fails_closed(tmp_path):
+    """A REGEX_TIMEOUT detection must hard-block before any classifier call."""
+    from spektralia.scanner import Detection
+
+    g = _gate(tmp_path)
+    with patch("spektralia.gate.scan", return_value=[Detection("REGEX_TIMEOUT", 0, 0)]):
+        with pytest.raises(SensitiveDataError) as exc_info:
+            await g.gate("anything at all")
+    assert "REGEX_TIMEOUT" in exc_info.value.reason
+
+
+# ---------------------------------------------------------------------------
+# Test 9: classifier raising — fail-open passes, fail-closed blocks (gate.py:206-222)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_classifier_exception_fail_closed_blocks(tmp_path):
+    """If classify() itself raises and fail_open is off, block with classifier_unavailable."""
+    g = _gate(tmp_path, fail_open=False)
+    with (
+        patch.object(g, "_get_client", return_value=_mock_client()),
+        patch("spektralia.gate.classify", side_effect=RuntimeError("boom")),
+    ):
+        with pytest.raises(SensitiveDataError) as exc_info:
+            await g.gate("plain harmless text with no secrets")
+    assert "classifier_unavailable" in exc_info.value.reason
+
+
+@pytest.mark.asyncio
+async def test_classifier_exception_fail_open_passes(tmp_path):
+    """If classify() raises but fail_open is on, a clean payload passes (cr is None)."""
+    g = _gate(tmp_path, fail_open=True)
+    with (
+        patch.object(g, "_get_client", return_value=_mock_client()),
+        patch("spektralia.gate.classify", side_effect=RuntimeError("boom")),
+    ):
+        result = await g.gate("plain harmless text with no secrets")
+    assert result.blocked is False
+    assert result.classifier_result is None
+
+
+# ---------------------------------------------------------------------------
+# Test 10: thread-safe lock path + pass branch + heartbeat tick (gate.py:132-138,316-327)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_thread_safe_pass_path(tmp_path):
+    """thread_safe=True acquires the lock; a clean classifier-safe payload passes."""
+    respx.post(f"{MOCK_BASE}/api/generate").mock(
+        side_effect=[
+            httpx.Response(200, json=_cr(False, 0.05, [])),
+            httpx.Response(200, json=_cr(False, 0.02, [])),
+        ]
+    )
+    g = _gate(tmp_path, thread_safe=True, sensitivity_threshold=0.7)
+    assert g._lock is not None
+    with patch.object(g, "_get_client", return_value=_mock_client()):
+        result = await g.gate("just some plain harmless prose")
+    assert result.blocked is False
+    assert result.sanitized_text == "just some plain harmless prose"
+
+
+# ---------------------------------------------------------------------------
+# Test 11: cache hit returns the cached block without re-calling the classifier
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_cache_hit_returns_cached_block(tmp_path):
+    """A second identical (no-rule, classifier-high) call is served from cache.
+
+    Sanitized text is unchanged for rule-free input, so the cache key is stable
+    across calls and the second call must not hit the classifier again."""
+    route = respx.post(f"{MOCK_BASE}/api/generate").mock(
+        side_effect=[
+            httpx.Response(200, json=_cr(True, 0.95, ["CONFIDENTIAL"])),
+            httpx.Response(200, json=_cr(True, 0.92, ["CONFIDENTIAL"])),
+        ]
+    )
+    g = _gate(tmp_path, sensitivity_threshold=0.7)
+    text = "our internal strategic roadmap for the next fiscal year"
+    with patch.object(g, "_get_client", return_value=_mock_client()):
+        with pytest.raises(SensitiveDataError):
+            await g.gate(text)
+        # Second call: cache hit → raises from cache, no further classifier calls.
+        with pytest.raises(SensitiveDataError):
+            await g.gate(text)
+    assert route.call_count == 2, "classifier should only run on the first (uncached) call"
+
+
+# ---------------------------------------------------------------------------
+# Test 12: framing disagreement is recorded as its own audit event (gate.py:236-247)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_framing_disagreement_recorded(tmp_path):
+    """When the two framings disagree beyond threshold, an anomaly event is recorded."""
+    respx.post(f"{MOCK_BASE}/api/generate").mock(
+        side_effect=[
+            httpx.Response(200, json=_cr(True, 0.95, ["PII"])),
+            httpx.Response(200, json=_cr(False, 0.05, [])),
+        ]
+    )
+    g = _gate(tmp_path, sensitivity_threshold=0.7, framing_disagreement_threshold=0.3)
+    with patch.object(g, "_get_client", return_value=_mock_client()):
+        with pytest.raises(SensitiveDataError):
+            await g.gate("some text that triggers no regex pattern")
+    counters = g._anomaly.counters()
+    assert counters.get("framing_disagreement", 0) >= 1
+
+
+# ---------------------------------------------------------------------------
+# Test 13: rule/classifier disagreement recorded when rule fires but classifier safe
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_rule_classifier_disagreement_recorded(tmp_path):
+    """rule_hit with a not-sensitive classifier verdict records a disagreement event."""
+    respx.post(f"{MOCK_BASE}/api/generate").mock(
+        side_effect=[
+            httpx.Response(200, json=_cr(False, 0.05, [])),
+            httpx.Response(200, json=_cr(False, 0.02, [])),
+        ]
+    )
+    g = _gate(tmp_path, rule_classifier_disagreement_rate_threshold=1.0)
+    with patch.object(g, "_get_client", return_value=_mock_client()):
+        with pytest.raises(SensitiveDataError):
+            await g.gate("reach me at alice@example.com")
+    counters = g._anomaly.counters()
+    assert counters.get("rule_classifier_disagreement", 0) >= 1
+
+
+# ---------------------------------------------------------------------------
+# Test 14: gate_sync() refuses to run inside a live event loop (gate.py:362-373)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.filterwarnings("ignore::RuntimeWarning")
+@pytest.mark.asyncio
+async def test_gate_sync_inside_running_loop_raises():
+    """gate_sync() must raise RuntimeError when called from within a running loop."""
+    from spektralia.gate import gate_sync
+
+    with pytest.raises(RuntimeError):
+        gate_sync("hello world")
