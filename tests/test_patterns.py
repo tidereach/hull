@@ -1,4 +1,11 @@
-from spektralia.patterns import PATTERNS, match_pattern
+from spektralia.patterns import (
+    PATTERNS,
+    Pattern,
+    _jwt_header_valid,
+    _luhn,
+    _mod11_no,
+    match_pattern,
+)
 
 
 def _get(label):
@@ -171,3 +178,103 @@ class TestReDoSTimeout:
         pat = _get("API_KEY_GENERIC")
         r = match_pattern(pat, "api_key=" + "a" * 5000)
         assert r == [(-1, -1, "REGEX_TIMEOUT")]
+
+
+# ---------------------------------------------------------------------------
+# Validators (unit-tested directly — their edge branches are unreachable
+# through match_pattern because the regex constrains the input shape)
+# ---------------------------------------------------------------------------
+
+
+class TestLuhnValidator:
+    def test_too_few_digits_rejected(self):
+        assert _luhn("123") is False  # < 13 digits
+
+    def test_valid_number_with_doubling_over_nine(self):
+        # 5555555555554444 is Luhn-valid; doubling 5 -> 10 -> 1 hits the d -= 9 branch
+        assert _luhn("5555555555554444") is True
+
+    def test_invalid_checksum_rejected(self):
+        assert _luhn("5555555555554445") is False
+
+
+_MOD11_W1 = [3, 7, 6, 1, 8, 9, 4, 5, 2]
+_MOD11_W2 = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2]
+
+
+class TestMod11Validator:
+    """Norwegian fødselsnummer MOD-11 double checksum."""
+
+    def _valid_fnr(self, *, want_k1_eleven=False, want_k2_eleven=False) -> str:
+        """Construct a checksum-valid 11-digit fnr, optionally exercising the
+        k == 11 -> 0 control-digit branch for k1 or k2."""
+        for n in range(5000):
+            d = [int(c) for c in f"{n:09d}"]
+            k1 = 11 - (sum(a * b for a, b in zip(d, _MOD11_W1)) % 11)
+            k1_eleven = k1 == 11
+            if k1 == 11:
+                k1 = 0
+            if k1 == 10:
+                continue
+            d10 = [*d, k1]
+            k2 = 11 - (sum(a * b for a, b in zip(d10, _MOD11_W2)) % 11)
+            k2_eleven = k2 == 11
+            if k2 == 11:
+                k2 = 0
+            if k2 == 10:
+                continue
+            if want_k1_eleven and not k1_eleven:
+                continue
+            if want_k2_eleven and not k2_eleven:
+                continue
+            return "".join(str(x) for x in [*d10, k2])
+        raise AssertionError("no valid fnr found in search range")
+
+    def test_wrong_length_rejected(self):
+        assert _mod11_no("123") is False
+
+    def test_valid_fnr_accepted(self):
+        assert _mod11_no(self._valid_fnr()) is True
+
+    def test_k1_control_from_eleven_branch(self):
+        assert _mod11_no(self._valid_fnr(want_k1_eleven=True)) is True
+
+    def test_k2_control_from_eleven_branch(self):
+        assert _mod11_no(self._valid_fnr(want_k2_eleven=True)) is True
+
+    def test_wrong_first_control_digit_rejected(self):
+        d = list(self._valid_fnr())
+        d[9] = str((int(d[9]) + 1) % 10)
+        assert _mod11_no("".join(d)) is False
+
+    def test_wrong_second_control_digit_rejected(self):
+        d = list(self._valid_fnr())
+        d[10] = str((int(d[10]) + 1) % 10)
+        assert _mod11_no("".join(d)) is False
+
+
+class TestJwtHeaderValidator:
+    def test_wrong_part_count_rejected(self):
+        assert _jwt_header_valid("only.two") is False
+
+    def test_undecodable_header_rejected(self):
+        # '!!!' is not valid base64url → b64decode raises → caught → False
+        assert _jwt_header_valid("!!!.payload.sig") is False
+
+    def test_valid_header_accepted(self):
+        import base64
+        import json
+
+        header = (
+            base64.urlsafe_b64encode(json.dumps({"alg": "HS256"}).encode()).decode().rstrip("=")
+        )
+        assert _jwt_header_valid(f"{header}.e30.sig") is True
+
+
+class TestMatchPatternDynamicCompile:
+    def test_uncached_pattern_compiled_on_demand(self):
+        # A Pattern whose label is not in the prebuilt _COMPILED cache exercises
+        # the lazy-compile fallback in match_pattern.
+        pat = Pattern(label="ZZZ_NOT_CACHED", regex=r"zebra\d+")
+        r = match_pattern(pat, "see zebra42 over there")
+        assert any("zebra42" in m for *_, m in r)
