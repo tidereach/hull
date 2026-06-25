@@ -215,17 +215,19 @@ def cmd_scan_config(args: argparse.Namespace) -> int:
 def cmd_hook_check(args: argparse.Namespace) -> int:
     """Check Claude Code hooks are installed (global or project settings)."""
     candidates = [
-        Path(".claude") / "settings.json",
+        (Path(".claude") / "settings.json").resolve(),
         Path.home() / ".claude" / "settings.json",
     ]
-    found_hooks: set[str] = set()
+    hook_sources: dict[str, str] = {}  # hook_name -> settings file it was found in
     checked: list[str] = []
     for settings_path in candidates:
         if not settings_path.exists():
             continue
         try:
             data = json.loads(settings_path.read_text())
-            found_hooks |= set(data.get("hooks", {}).keys())
+            for hook_name in data.get("hooks", {}).keys():
+                if hook_name not in hook_sources:
+                    hook_sources[hook_name] = str(settings_path)
             checked.append(str(settings_path))
         except Exception as e:
             print(f"Error reading {settings_path}: {e}", file=sys.stderr)
@@ -234,11 +236,12 @@ def cmd_hook_check(args: argparse.Namespace) -> int:
         print("FAIL: no settings.json found in .claude/ or ~/.claude/", file=sys.stderr)
         return 1
     required = {"UserPromptSubmit", "PreToolUse", "PostToolUse", "SessionStart"}
-    missing = required - found_hooks
+    missing = required - set(hook_sources.keys())
     if missing:
         print(f"FAIL: missing hooks: {missing}", file=sys.stderr)
         return 1
-    print(f"OK: all required hooks present (checked: {', '.join(checked)})")
+    sources = sorted(set(hook_sources[h] for h in required))
+    print(f"OK: all required hooks present (configured in: {', '.join(sources)})")
     return 0
 
 
