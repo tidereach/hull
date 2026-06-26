@@ -1,23 +1,23 @@
 # Claude Code Hooks — Agent Instructions
 
-This directory contains the five Python scripts that plug Spektralia into Claude Code's hook system. Read this before touching any file here.
+This integration directory plugs Spektralia into Claude Code's hook system. Hook scripts live in `hooks/`; the settings template and this file live here. Read this before touching any file in this tree.
 
 ## What lives here
 
 | File | Hook event | Role |
 |------|-----------|------|
-| `session_start.py` | `SessionStart` | Integrity checks at session open; blocks session on failure |
-| `user_prompt_submit.py` | `UserPromptSubmit` | Scans + sanitizes the typed prompt (strict mode) |
-| `pre_tool_use.py` | `PreToolUse` | MCP default-deny; scans `Task`/`Bash`/`Write`/`Edit` args (strict) |
-| `post_tool_use.py` | `PostToolUse` | Scans tool output before it enters context (fast mode) |
-| `stop.py` | `Stop` | Emits `session_end` audit roll-up |
+| `hooks/session_start.py` | `SessionStart` | Integrity checks at session open; blocks session on failure |
+| `hooks/user_prompt_submit.py` | `UserPromptSubmit` | Scans + sanitizes the typed prompt (strict mode) |
+| `hooks/pre_tool_use.py` | `PreToolUse` | MCP default-deny; scans `Task`/`Bash`/`Write`/`Edit` args (strict) |
+| `hooks/post_tool_use.py` | `PostToolUse` | Scans tool output before it enters context (fast mode) |
+| `hooks/stop.py` | `Stop` | Emits `session_end` audit roll-up |
 | `settings.example.json` | — | Template; copy to `.claude/settings.json` or run `spektralia install-hooks` |
 
 ## Critical invariants — do NOT break these
 
 - **Fail-closed everywhere.** Every hook wraps its body in `try/except`. A crash or unexpected exception must exit with `{"action": "block", "reason": "..."}`, never silently. This is a hard security requirement (SPEC §18).
 - **`PreToolUse` must scan `Task` AND `Agent`.** SPEC §18 names the subagent-spawn tool `"Task"`, but some Claude Code versions use `"Agent"`. Both names must remain in `_STRICT_SCAN_TOOLS` or subagent prompt laundering bypasses `UserPromptSubmit`.
-- **Own-source exclusion must stay.** `pre_tool_use.py` and `post_tool_use.py` skip files under `_OWN_SOURCE_SEGMENTS` (`/src/spektralia/`, `/integrations/claude_code_hooks/`). Removing this exclusion causes self-scan false positives.
+- **Own-source exclusion must stay.** `pre_tool_use.py` and `post_tool_use.py` skip files under `_OWN_SOURCE_SEGMENTS` (`/src/spektralia/`, `/integrations/claude/hooks/`). Removing this exclusion causes self-scan false positives.
 - **MCP default-deny is unconditional.** The `mcp__` prefix check in `pre_tool_use.py` has no allowlist. Do not add one without explicit authorization and an audit event.
 - **JSON output shape.** Each hook must return a valid Claude Code hook response. The accepted shapes are: `{"action": "block", "reason": "..."}` to block, or `{"action": "continue"}` / `{}` / `{"output": "..."}` to pass. Wrong shapes fail silently or cause crashes — add a contract test for any new hook.
 
