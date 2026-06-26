@@ -43,6 +43,16 @@ Respond ONLY with valid JSON matching: {"sensitive": bool, "confidence": float 0
 Valid categories: PII, CREDENTIALS, INTERNAL_INFRA, FINANCIAL, HEALTH, CONFIDENTIAL, PROMPT_INJECTION
 """
 
+_VALID_CATEGORIES = [
+    "PII",
+    "CREDENTIALS",
+    "INTERNAL_INFRA",
+    "FINANCIAL",
+    "HEALTH",
+    "CONFIDENTIAL",
+    "PROMPT_INJECTION",
+]
+
 _JSON_SCHEMA = {
     "type": "object",
     "properties": {
@@ -50,7 +60,8 @@ _JSON_SCHEMA = {
         "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
         "categories": {
             "type": "array",
-            "items": {"type": "string"},
+            # enum constraint is defense-in-depth; not all Ollama builds enforce it
+            "items": {"type": "string", "enum": _VALID_CATEGORIES},
         },
     },
     "required": ["sensitive", "confidence", "categories"],
@@ -89,12 +100,19 @@ def _parse_response(raw: str) -> tuple[bool, float, list[str]]:
         confidence = 1.0
 
     raw_cats = data.get("categories", [])
-    categories = [c for c in raw_cats if isinstance(c, str) and c in _KNOWN_CATEGORIES]
+    # Case-normalize: model may return lowercase even when enum constraint is present.
+    # Keep uppercased value so callers always see canonical form.
+    categories = [
+        c.upper() for c in raw_cats if isinstance(c, str) and c.upper() in _KNOWN_CATEGORIES
+    ]
 
     if sensitive and not categories:
         # raw is the Ollama response body — it does not contain the scanned input text,
         # so logging it here does not leak secrets.
         logger.debug("classifier returned sensitive=True with empty categories; raw=%s", raw)
+        # Use CONFIDENTIAL as the generic "sensitive but unspecified" signal rather than
+        # returning an empty list, which gives callers no actionable diagnostic.
+        categories = [SensitiveCategory.CONFIDENTIAL.value]
 
     return sensitive, confidence, categories
 
