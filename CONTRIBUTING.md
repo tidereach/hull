@@ -70,7 +70,15 @@ pip-audit
 
 # Verify SBOM and installed package hashes
 spektralia verify-installed
+
+# Install production dependencies with hash enforcement (mirrors CI)
+pip install --require-hashes -r requirements.lock
+
+# Regenerate the lock file with hashes (requires uv)
+make lock
 ```
+
+`requirements.lock` is built by `uv pip compile --python-version 3.11 --generate-hashes`. CI enforces `pip install --require-hashes -r requirements.lock` in both the `security` and `test` jobs so any hash mismatch or missing entry fails the build.
 
 ### Makefile Targets
 
