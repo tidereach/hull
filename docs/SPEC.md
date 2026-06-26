@@ -152,7 +152,18 @@ Plus: **whitespace-collapsed shadow scan.** Sanitizer constructs a second shadow
 
 `find_high_entropy(text, min_len=20, threshold=4.5)`. Tokenization: split on whitespace + punctuation (not byte windows). Entropy computed on codepoints after NFKC.
 
-Negative allowlist (skip these tokens): UUIDv4, git SHAs (40-hex), known base64-image markers, file paths.
+### Negative allowlist
+
+Tokens matching the allowlist are skipped (never flagged), so benign high-entropy-looking strings don't false-positive as secrets:
+
+| Matcher (constant) | Pattern | Exempts | Example |
+|---|---|---|---|
+| `_UUID_RE` | `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$` (case-insensitive) | UUIDv4 and similar | `550e8400-e29b-41d4-a716-446655440000` |
+| `_GIT_SHA_RE` | `^[0-9a-f]{40}$` (case-insensitive) | 40-hex git object SHAs | `4b825dc642cb6eb9a060e54bf8d69288fbee4904` |
+| `_BASE64_IMAGE_RE` | `^data:image/` (case-insensitive) | base64-image data URIs | `data:image/png;base64,iVBORw0KGgo…` |
+| `_FILE_PATH_RE` | `^[/~\\]` or `^\w:[/\\]` | absolute, `~`, and Windows paths | `/home/user/.copilot/session-state/<uuid>/plan.md` |
+
+**How the allowlist is matched — invariant.** A token is split on whitespace + punctuation and entropy is computed on the *punctuation-stripped* form (`clean = _TOKEN_SPLIT.sub("", token)`, which removes `/ \ : -` and similar). The allowlist is therefore evaluated against **both** the original token and the stripped form — `_is_allowlisted(token) or _is_allowlisted(clean)`. This is load-bearing: the path and UUID matchers anchor on leading `/`, `~`, `:`, `\`, which the strip removes, so checking only the stripped form silently disables file-path exemption — an absolute `file_path` like `/home/user/.copilot/session-state/<uuid>/plan.md` loses its leading `/`, fails the path matcher, and its mixed-alphabet entropy clears 4.5 → false `SECRET_HIGH_ENTROPY`. This is exactly the regression fixed in issue #22; any new allowlist matcher must tolerate being run on both forms.
 
 Yields `Detection(label="SECRET_HIGH_ENTROPY", ...)`.
 
