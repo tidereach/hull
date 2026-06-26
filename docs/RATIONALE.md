@@ -80,7 +80,7 @@ Before scanning, input is NFKC-normalized AND folded through a homoglyph map (Cy
 
 ### Layer 1.75 — entropy (`entropy.py`)
 
-`find_high_entropy(text, min_len=20, threshold=4.5)` operates on tokens split by whitespace + punctuation (not byte windows). Skips tokens that match the negative allowlist (UUIDv4, git SHA, common base64-image markers, file paths). Documents the explicit byte-vs-codepoint choice (codepoints, post-NFKC). Yields `Detection(label="SECRET_HIGH_ENTROPY", ...)`.
+`find_high_entropy(text, min_len=20, threshold=4.5)` operates on tokens split by whitespace + punctuation (not byte windows). Skips tokens that match the negative allowlist (UUIDv4, git SHA, common base64-image markers, file paths). Because entropy is computed on the punctuation-stripped token, the allowlist is matched against **both** the raw and stripped forms — anchored matchers like file paths (which key on a leading `/`, `~`, `:`, `\`) would otherwise be defeated by tokenization (the #22 false positive); see [SPEC §6](SPEC.md) for the matcher table. Documents the explicit byte-vs-codepoint choice (codepoints, post-NFKC). Yields `Detection(label="SECRET_HIGH_ENTROPY", ...)`.
 
 ### Layer 2 — sanitization (`sanitizer.py`)
 
