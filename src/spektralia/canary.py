@@ -61,6 +61,24 @@ _CORPUS: list[CanaryCase] = [
 ]
 
 
+# NER-specific canary corpus (#44). Only meaningful when NER is enabled and a
+# model is loaded; exercised via run_ner_canary with a backend, never by the
+# default deterministic self-test (which must run without the `ner` extra).
+_NER_CORPUS: list[CanaryCase] = [
+    # True positives — contextual PII the regex scanner cannot see.
+    CanaryCase(text="Email from John Smith about the contract", expected_labels=["PERSON"]),
+    CanaryCase(text="Our office in Berlin handles EU accounts", expected_labels=["LOC"]),
+    CanaryCase(text="Acme Corporation signed the deal today", expected_labels=["ORG"]),
+    # False positives — benign prose that must NOT trigger entity detection.
+    CanaryCase(
+        text="Please review the quarterly report", expected_labels=[], must_detect_regex=False
+    ),
+    CanaryCase(
+        text="The meeting is scheduled for later", expected_labels=[], must_detect_regex=False
+    ),
+]
+
+
 @dataclass
 class CanaryResult:
     passed: bool
@@ -105,4 +123,38 @@ def run_canary(scanner_fn) -> CanaryResult:
         for f in failures:
             logger.critical("canary failure: %s", f)
 
+    return CanaryResult(passed=not failures, failures=failures, duration_seconds=duration)
+
+
+def run_ner_canary(entity_fn) -> CanaryResult:
+    """Run the NER canary corpus against an entity scanner.
+
+    entity_fn: callable(text) -> list[Detection]. Verifies that contextual-PII
+    true positives are detected and benign prose stays clean (nonce-salted, like
+    the deterministic canary).
+    """
+    t0 = time.monotonic()
+    failures: list[str] = []
+
+    for case in _NER_CORPUS:
+        nonce = os.urandom(4).hex()
+        text = f"{case.text} nonce:{nonce}"
+        found_labels = {d.label for d in entity_fn(text)}
+
+        if case.expected_labels:
+            for expected in case.expected_labels:
+                if expected not in found_labels:
+                    failures.append(
+                        f"ner-canary: expected {expected!r} not in {found_labels!r} "
+                        f"for {case.text[:40]!r}"
+                    )
+        elif found_labels:
+            failures.append(
+                f"ner-canary: unexpected entities {found_labels!r} for {case.text[:40]!r}"
+            )
+
+    duration = time.monotonic() - t0
+    if failures:
+        for f in failures:
+            logger.critical("ner-canary failure: %s", f)
     return CanaryResult(passed=not failures, failures=failures, duration_seconds=duration)

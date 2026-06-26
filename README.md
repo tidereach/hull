@@ -160,6 +160,22 @@ Threshold range: `0.0` (block on any classifier signal) to `1.0` (only block at 
 
 ---
 
+### Contextual PII (NER, opt-in)
+
+Regex and entropy catch *structured* secrets but miss free-text PII — a person's name or street address written in prose. A local Named-Entity-Recognition pass closes that gap without sending anything to the cloud. It is **off by default**; enable it and install the optional dependency + a model:
+
+```bash
+pip install -e ".[ner]"                  # installs spaCy
+python -m spacy download en_core_web_sm  # download the model (one-off)
+
+export SPEKTRALIA_NER_ENABLED=1          # or ner_enabled = true in TOML
+# optional: SPEKTRALIA_NER_MODEL=en_core_web_lg  (larger, more accurate)
+```
+
+When enabled, detected `PERSON`, `LOC`, and `ORG` spans are treated as rule hits and sanitized like any other detection. When spaCy or the model is absent, the NER pass is a silent no-op — the gate still runs regex + entropy + classifier and stays fail-closed. `ner_enabled`/`ner_model` are policy-affecting (they change the verdict), so toggling them invalidates the verdict cache.
+
+---
+
 ## Key decisions, by phase
 
 ### Phase 1 — Deterministic core (spec §§4–8, §10, §12)
@@ -246,7 +262,7 @@ Compliance documentation maps each gate component to its OWASP ASI Top 10 risk. 
 
 ## What this gate does NOT cover
 
-- **Contextual PII in prose** — names, addresses, free-text NER. Regex cannot reliably detect these; v2 roadmap item.
+- **Contextual PII in prose** — names, addresses, free-text NER. Regex cannot reliably detect these. Now available **opt-in** via a local NER pass (see below); off by default.
 - **Model outputs / assistant turns** — gating the response stream is the wrong surface for this problem.
 - **`/compact` summarization** — this happens above the API boundary. Start fresh sessions for sensitive work.
 - **Attachments** — refused by default; `--allow-attachments` to opt in.
