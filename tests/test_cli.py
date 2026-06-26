@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import time
 from io import StringIO
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,6 +19,7 @@ from spektralia.cli import (
     cmd_check_sandbox,
     cmd_freeze,
     cmd_hook_check,
+    cmd_install_hooks,
     cmd_scan,
     cmd_scan_config,
     cmd_self_test,
@@ -614,3 +616,162 @@ class TestMain:
             main()
         assert exc.value.code == 0
         assert "spektralia" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# install-hooks
+# ---------------------------------------------------------------------------
+
+
+class TestCmdInstallHooks:
+    """Tests for spektralia install-hooks."""
+
+    def _make_fake_hooks_dir(self, tmp_path: Path) -> Path:
+        hooks = tmp_path / "hooks"
+        hooks.mkdir()
+        for name in (
+            "session_start.py",
+            "user_prompt_submit.py",
+            "pre_tool_use.py",
+            "post_tool_use.py",
+            "stop.py",
+        ):
+            (hooks / name).write_text("# stub")
+        return hooks
+
+    def test_writes_settings_json_for_project_scope(self, tmp_path, capsys, monkeypatch):
+        hooks_dir = self._make_fake_hooks_dir(tmp_path)
+        project = tmp_path / "project"
+        project.mkdir()
+
+        monkeypatch.setattr("spektralia.cli._find_hooks_dir", lambda: hooks_dir)
+        monkeypatch.setattr("spektralia.cli._detect_git_root", lambda: project)
+        # hook-check reads from cwd/.claude/settings.json — ensure it finds the right file
+        monkeypatch.chdir(project)
+        monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path / "home")
+
+        code = cmd_install_hooks(_args(dry_run=False))
+        assert code == 0
+
+        settings_path = project / ".claude" / "settings.json"
+        assert settings_path.exists()
+        data = json.loads(settings_path.read_text())
+        assert "hooks" in data
+        for hook in ("SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop"):
+            assert hook in data["hooks"]
+
+    def test_writes_global_settings_when_no_git_repo(self, tmp_path, capsys, monkeypatch):
+        hooks_dir = self._make_fake_hooks_dir(tmp_path)
+        home = tmp_path / "home"
+        home.mkdir()
+
+        monkeypatch.setattr("spektralia.cli._find_hooks_dir", lambda: hooks_dir)
+        monkeypatch.setattr("spektralia.cli._detect_git_root", lambda: None)
+        monkeypatch.setattr("pathlib.Path.home", lambda: home)
+
+        code = cmd_install_hooks(_args(dry_run=False))
+        assert code == 0
+
+        settings_path = home / ".claude" / "settings.json"
+        assert settings_path.exists()
+        data = json.loads(settings_path.read_text())
+        assert "hooks" in data
+
+    def test_dry_run_does_not_write(self, tmp_path, capsys, monkeypatch):
+        hooks_dir = self._make_fake_hooks_dir(tmp_path)
+        project = tmp_path / "project"
+        project.mkdir()
+
+        monkeypatch.setattr("spektralia.cli._find_hooks_dir", lambda: hooks_dir)
+        monkeypatch.setattr("spektralia.cli._detect_git_root", lambda: project)
+
+        code = cmd_install_hooks(_args(dry_run=True))
+        assert code == 0
+        assert not (project / ".claude" / "settings.json").exists()
+        out = capsys.readouterr().out
+        assert "[dry-run]" in out
+
+    def test_idempotent_when_already_configured(self, tmp_path, capsys, monkeypatch):
+        hooks_dir = self._make_fake_hooks_dir(tmp_path)
+        project = tmp_path / "project"
+        project.mkdir()
+        claude_dir = project / ".claude"
+        claude_dir.mkdir()
+        settings_path = claude_dir / "settings.json"
+        all_hooks = {
+            "SessionStart": [],
+            "UserPromptSubmit": [],
+            "PreToolUse": [],
+            "PostToolUse": [],
+            "Stop": [],
+        }
+        settings_path.write_text(json.dumps({"hooks": all_hooks}))
+
+        monkeypatch.setattr("spektralia.cli._find_hooks_dir", lambda: hooks_dir)
+        monkeypatch.setattr("spektralia.cli._detect_git_root", lambda: project)
+        monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path / "home")
+        # hook-check reads from cwd/.claude/settings.json
+        monkeypatch.chdir(project)
+
+        code = cmd_install_hooks(_args(dry_run=False))
+        # hook-check should pass and return 0
+        assert code == 0
+        out = capsys.readouterr().out
+        assert "already present" in out
+
+    def test_fails_gracefully_when_hooks_dir_not_found(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.setattr("spektralia.cli._find_hooks_dir", lambda: None)
+        monkeypatch.setattr("spektralia.cli._detect_git_root", lambda: None)
+
+        code = cmd_install_hooks(_args(dry_run=False))
+        assert code == 1
+        assert "FAIL" in capsys.readouterr().err
+
+    def test_merges_with_existing_settings(self, tmp_path, capsys, monkeypatch):
+        hooks_dir = self._make_fake_hooks_dir(tmp_path)
+        project = tmp_path / "project"
+        project.mkdir()
+        claude_dir = project / ".claude"
+        claude_dir.mkdir()
+        settings_path = claude_dir / "settings.json"
+        # Pre-existing setting that must survive the merge
+        settings_path.write_text(json.dumps({"someOtherKey": "preserved"}))
+
+        monkeypatch.setattr("spektralia.cli._find_hooks_dir", lambda: hooks_dir)
+        monkeypatch.setattr("spektralia.cli._detect_git_root", lambda: project)
+
+        cmd_install_hooks(_args(dry_run=False))
+
+        data = json.loads(settings_path.read_text())
+        assert data.get("someOtherKey") == "preserved"
+        assert "hooks" in data
+
+    def test_hook_commands_reference_python_executable(self, tmp_path, monkeypatch):
+        import sys
+
+        hooks_dir = self._make_fake_hooks_dir(tmp_path)
+        project = tmp_path / "project"
+        project.mkdir()
+
+        monkeypatch.setattr("spektralia.cli._find_hooks_dir", lambda: hooks_dir)
+        monkeypatch.setattr("spektralia.cli._detect_git_root", lambda: project)
+
+        cmd_install_hooks(_args(dry_run=False))
+
+        data = json.loads((project / ".claude" / "settings.json").read_text())
+        pre_tool_cmd = data["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+        assert sys.executable in pre_tool_cmd
+
+    def test_install_hooks_dispatched_by_main(self, monkeypatch):
+        called = {}
+
+        def _stub(args):
+            called["ok"] = True
+            return 0
+
+        monkeypatch.setattr(cli, "cmd_install_hooks", _stub)
+        monkeypatch.setattr("sys.argv", ["spektralia", "install-hooks"])
+        with pytest.raises(SystemExit) as exc:
+            main()
+        assert exc.value.code == 0
+        assert called.get("ok") is True
