@@ -34,6 +34,7 @@ spektralia self-test       # run canary corpus against live classifier
 spektralia hook-check      # assert Claude Code hooks are installed correctly
 spektralia install-hooks   # write hooks to .claude/settings.json (--dry-run to preview)
 spektralia verify-hooks    # assert installed hook scripts match the recorded integrity manifest
+spektralia hook-pubkey     # print the Ed25519 hook-identity public key (for external pinning)
 ```
 
 ### Hook integrity
@@ -47,7 +48,13 @@ Behaviour is governed by `SPEKTRALIA_HOOK_INTEGRITY_MODE` (`hook_integrity_mode`
 - `block` — refuse to start the session on any digest mismatch.
 - `off` — skip the check entirely.
 
-This is the hash-based foundation; cryptographic call-time identity (Ed25519) layers on top.
+This is the hash-based foundation. On top of it, each hook invocation emits a **cryptographic
+identity proof** into the audit chain: an Ed25519 signature over a per-call nonce when the
+`crypto` extra (`pip install spektralia[crypto]`) and a keyring are available, degrading to a
+keyring HMAC tag and finally to an unsigned marker. `spektralia audit-verify` checks these
+signatures alongside hash-chain integrity; pass `--pubkey <hex>` (from `spektralia hook-pubkey`)
+to pin the trusted public key so verification needs no keyring access. The private key never
+leaves the system keyring.
 
 ### Secure install (hash-pinned)
 
