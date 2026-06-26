@@ -1,0 +1,15 @@
+.github/copilot-instructions.md
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+*.egg
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.ruff_cache/
