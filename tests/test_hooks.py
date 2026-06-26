@@ -224,6 +224,41 @@ class TestPreToolUse:
             )
         assert self._is_deny(result)
 
+    def test_pre_tool_use_own_source_not_scanned(self):
+        # Editing a Spektralia source file must not trigger the hook on its own
+        # pattern definitions (self-scan false positive, issue #55).
+        # Use a token-reference in the content — this would ordinarily block
+        # any other path. The own-source exclusion is path-keyed, so the same
+        # content on a non-excluded path MUST still block.
+        token_ref = "[REDACTED:" + "EMAIL:a1b2c3]"
+        own_source_paths = [
+            "/home/user/repo/src/spektralia/patterns.py",
+            "/home/user/repo/integrations/claude_code_hooks/pre_tool_use.py",
+        ]
+        for fp in own_source_paths:
+            result = self.mod.handle(
+                {
+                    "tool_name": "Write",
+                    "tool_input": {"file_path": fp, "content": f"x = '{token_ref}'"},
+                }
+            )
+            assert result == {}, f"expected pass for own-source path {fp!r}, got {result!r}"
+
+    def test_pre_tool_use_non_own_source_still_blocks(self):
+        # The exclusion must be path-keyed only: the same token-reference content
+        # in a non-excluded file must still be caught.
+        token_ref = "[REDACTED:" + "EMAIL:a1b2c3]"
+        result = self.mod.handle(
+            {
+                "tool_name": "Write",
+                "tool_input": {
+                    "file_path": "/home/user/project/main.py",
+                    "content": f"x = '{token_ref}'",
+                },
+            }
+        )
+        assert self._is_deny(result), f"expected deny for non-own-source path, got {result!r}"
+
 
 # ---------------------------------------------------------------------------
 # PostToolUse
