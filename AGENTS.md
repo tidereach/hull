@@ -201,6 +201,34 @@ spektralia hook-check   # verify all hooks are wired correctly
 
 ---
 
+## Documenting exclusions and tuning changes
+
+Every time a detector exclusion or tuning knob changes, record it *immediately* in the same PR/commit — not in a follow-up ticket, not in a TODO. Undocumented changes are how the #22 regression happened: an allowlist invariant nobody wrote down broke silently when the strip logic shifted.
+
+**What counts as an exclusion or tuning change:**
+
+- Entropy allowlist matchers (`entropy.py`: `_UUID_RE`, `_GIT_SHA_RE`, `_BASE64_IMAGE_RE`, `_FILE_PATH_RE`, and any future additions) and the `_TOKEN_SPLIT` strip that feeds them.
+- Entropy constants (`min_len`, `threshold` in `find_high_entropy`).
+- Classifier knobs — confidence thresholds, two-framing consensus rule, fail-open/closed toggle.
+- Pattern priorities and validators (`patterns.py`).
+- Sanitizer token format, cache keying components, anomaly counters, canary corpus composition.
+
+**What to record every time:**
+
+1. *What* changed — the constant, pattern, or allowlist entry by name.
+2. *Why* — the false positive / false negative / threat that motivated it, with a concrete example payload where applicable.
+3. *Invariants* the change relies on (e.g. "this matcher must be run on both the original and punctuation-stripped token").
+4. *Regression reference* — the GitHub issue or PR that prompted the change.
+
+**Where to record it:**
+
+- `docs/SPEC.md` — for anything that becomes part of the design contract (allowlist entries, thresholds, decision rules). See §6 for the model.
+- `AGENTS.md` "Gotchas" — for invariants a future agent must not silently break.
+- Commit message body — the *why*, not just *what*.
+- `docs/PLAN.md` — only if the change closes or advances a tracked phase item.
+
+---
+
 ## When to open a PR (vs. commit straight to main)
 
 Default to a pull request. A direct commit to `main` is only acceptable when **all** of the following hold; if any trigger fires, open a PR instead.
