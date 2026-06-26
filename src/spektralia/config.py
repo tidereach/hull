@@ -9,6 +9,18 @@ from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Literal
 
+_bool_env = lambda v: v.lower() in ("1", "true", "yes")  # noqa: E731
+
+
+def _coerce_paths(data: dict) -> None:
+    """Coerce string path fields to Path objects in place."""
+    for fname in ("freeze_path", "state_dir"):
+        if fname in data:
+            data[fname] = Path(data[fname])
+    if "sandbox_config_paths" in data:
+        data["sandbox_config_paths"] = tuple(data["sandbox_config_paths"])
+
+
 @dataclass
 class Settings:
     # Ollama
