@@ -19,7 +19,7 @@ _STRICT_SCAN_TOOLS = frozenset({"Task", "Agent", "Bash", "Write", "Edit"})
 
 _OWN_SOURCE_SEGMENTS = (
     "/src/spektralia/",
-    "/integrations/claude_code_hooks/",
+    "/integrations/claude/hooks/",
 )
 
 

@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-HOOKS_DIR = Path(__file__).parent.parent / "integrations" / "claude_code_hooks"
+HOOKS_DIR = Path(__file__).parent.parent / "integrations" / "claude" / "hooks"
 
 # Token pattern for cross-turn leak tests — split to avoid triggering the hook on this file
 _TOKEN_REF = "[REDACTED:" + "EMAIL:a1b2c3]"
@@ -233,7 +233,7 @@ class TestPreToolUse:
         token_ref = "[REDACTED:" + "EMAIL:a1b2c3]"
         own_source_paths = [
             "/home/user/repo/src/spektralia/patterns.py",
-            "/home/user/repo/integrations/claude_code_hooks/pre_tool_use.py",
+            "/home/user/repo/integrations/claude/hooks/pre_tool_use.py",
         ]
         for fp in own_source_paths:
             result = self.mod.handle(

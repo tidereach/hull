@@ -36,7 +36,7 @@ def stop(reason: str) -> dict:
 
 def load_claude_hook(name: str) -> ModuleType:
     repo_root = Path(__file__).resolve().parents[2]
-    path = repo_root / "integrations" / "claude_code_hooks" / f"{name}.py"
+    path = repo_root / "integrations" / "claude" / "hooks" / f"{name}.py"
     spec = importlib.util.spec_from_file_location(f"spektralia_claude_hook_{name}", path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"could not load hook: {path}")

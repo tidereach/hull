@@ -32,9 +32,7 @@ os.environ["SPEKTRALIA_OLLAMA_URL"] = "http://127.0.0.1:11434"
 os.environ["SPEKTRALIA_CLASSIFIER_MODE"] = "fast"
 
 # Add hook dir to path
-sys.path.insert(
-    0, os.path.join(os.path.dirname(__file__), "..", "integrations", "claude_code_hooks")
-)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "integrations", "claude", "hooks"))
 
 import httpx
 import respx

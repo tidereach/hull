@@ -83,7 +83,7 @@ src/spektralia/
   errors.py            SensitiveDataError
   cli.py               versioned subcommands (scan, freeze, audit-verify, hook-check, etc.)
 
-integrations/claude_code_hooks/
+integrations/claude/hooks/
   session_start.py     verify-integrity + self-test + hook-check
   user_prompt_submit.py
   pre_tool_use.py      Task, Bash, Write, Edit + default-deny MCP   ← Task hook MANDATORY
@@ -193,7 +193,7 @@ These are real bugs in code already on disk. Fix them as part of Phase 2's norma
 ### Phase 3 — CLI + Claude Code hooks ✅ (complete, 215 tests passing; e2e verified 2026-06-25)
 
 - `cli.py` — versioned subcommand surface from spec §17 (`scan`, `scan --explain`, `check-ollama`, `verify-integrity`, `verify-installed`, `self-test`, `stats`, `freeze`/`unfreeze`, `audit-verify`, `audit-rotate`, `audit-purge`, `scan-config`, `hook-check`)
-- `integrations/claude_code_hooks/{session_start,user_prompt_submit,pre_tool_use,post_tool_use,stop}.py`
+- `integrations/claude/hooks/{session_start,user_prompt_submit,pre_tool_use,post_tool_use,stop}.py`
 - `settings.example.json` with per-hook strict vs fast mode mapping
 - Default-deny MCP matcher; attachment refusal; hook crash → block
 - **`PreToolUse(Task)` hook is mandatory** — without it, subagent prompts launder context past `UserPromptSubmit`
