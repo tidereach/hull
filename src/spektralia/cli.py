@@ -205,10 +205,15 @@ def cmd_audit_purge(args: argparse.Namespace) -> int:
 
 
 def cmd_scan_config(args: argparse.Namespace) -> int:
-    """Scan CLAUDE.md files for sensitive content."""
+    """Scan agent-memory files (AGENTS.md, CLAUDE.md) for sensitive content."""
     from .scanner import scan
 
-    paths = list(Path(".").rglob("CLAUDE.md")) + list(Path.home().glob(".claude/CLAUDE.md"))
+    names = ("AGENTS.md", "CLAUDE.md")
+    paths: list[Path] = []
+    for name in names:
+        paths.extend(Path(".").rglob(name))
+        paths.extend(Path.home().glob(f".claude/{name}"))
+        paths.extend(Path.home().glob(f".codex/{name}"))
     found_issues = False
     for path in paths:
         try:

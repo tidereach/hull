@@ -2,7 +2,7 @@
 
 Local pre-cloud sensitivity gate. Normalizes and scans input for PII, credentials, and internal identifiers before any cloud LLM call; classifies residual risk locally via Ollama; blocks or passes the sanitized payload.
 
-**Authoritative design spec:** [`docs/SPEC.md`](docs/SPEC.md) — read this before touching any code. [`docs/PLAN.md`](docs/PLAN.md) has phased status and open bugs. [`docs/RATIONALE.md`](docs/RATIONALE.md) has the full design arguments. [`docs/ENDPOINT_STACK.md`](docs/ENDPOINT_STACK.md) shows how Spektralia composes with a sandbox (Fence) and a Falco policy layer (Prempti) into a layered endpoint stack; [`docs/SANDBOX_ALTERNATIVES.md`](docs/SANDBOX_ALTERNATIVES.md) compares Fence with [navikt/cplt](https://github.com/navikt/cplt) as the execution-plane sandbox.
+**Authoritative design spec:** [`docs/SPEC.md`](docs/SPEC.md) — read this before touching any code. [`docs/PLAN.md`](docs/PLAN.md) has phased status and open bugs. [`docs/RATIONALE.md`](docs/RATIONALE.md) has the full design arguments. [`docs/ENDPOINT_STACK.md`](docs/ENDPOINT_STACK.md) shows how Spektralia composes with a sandbox (Fence) and a Falco policy layer (Prempti) into a layered endpoint stack; [`docs/SANDBOX_ALTERNATIVES.md`](docs/SANDBOX_ALTERNATIVES.md) compares Fence with [navikt/cplt](https://github.com/navikt/cplt) as the execution-plane sandbox. [`docs/TEST.md`](docs/TEST.md) is a step-by-step verification guide with expected test counts.
 
 ---
 
@@ -28,7 +28,7 @@ Every action produces a hash-chained audit event. A canary corpus runs at startu
 
 ```
 src/spektralia/
-  __init__.py          gate, gate_sync, SensitiveDataError, GateResult
+  __init__.py          gate, gate_sync, SensitiveDataError, GateResult, Settings
   config.py            Settings; precedence: kwargs > env > toml > defaults
   patterns.py          Pattern(label, regex, validator, priority)
   normalize.py         NFKC, strip obfuscation chars, homoglyph fold
@@ -39,6 +39,7 @@ src/spektralia/
   sanitizer.py         random-suffix tokens, private _restore
   classifier.py        Ollama format=json, two framings, fast mode
   ollama_trust.py      UDS preferred; TCP with PID/exe pin fallback
+  sandbox.py           execution-plane sandbox preflight (fence/cplt); called by check-sandbox
   cache.py             LRU keyed on sha256(sanitized_text + config_hash + pattern_hash + model_digest + prompt_hash)
   canary.py            corpus self-test, drift → auto-freeze
   integrity.py         pattern hash, model digest, dep lockfile check
@@ -48,6 +49,10 @@ src/spektralia/
   gate.py              orchestration, soft mode, --explain
   errors.py            SensitiveDataError
   cli.py               versioned subcommands
+
+scripts/
+  latency_bench.py     per-hook p95 latency benchmark (mocks Ollama with respx)
+  redos_fuzz.py        adversarial ReDoS input fuzz; used by nightly redos-fuzz.yml CI
 
 docs/
   COMPLIANCE.md        GDPR/Datatilsynet/PCI-DSS/HIPAA/OWASP ASI Top 10 coverage
@@ -87,7 +92,7 @@ spektralia freeze / unfreeze
 spektralia audit-verify <path>
 spektralia audit-rotate --keep-days <N>   # prune old audit records; re-anchors chain
 spektralia audit-purge --before YYYY-MM-DD # GDPR Right to Erasure; re-anchors chain
-spektralia scan-config            # lint CLAUDE.md files for sensitive content
+spektralia scan-config            # lint AGENTS.md / CLAUDE.md files for sensitive content
 spektralia hook-check             # assert Claude Code hooks installed correctly
 spektralia check-ollama           # ping configured Ollama endpoint
 spektralia check-sandbox          # assert configured execution-plane sandbox (fence|cplt) is present
@@ -122,7 +127,7 @@ regex          # ReDoS-safe patterns with per-call timeout
 keyring        # optional: TOML HMAC verification
 ```
 
-Dev: `pytest pytest-asyncio respx cyclonedx-bom`
+Dev: `pytest pytest-asyncio respx cyclonedx-bom pip-tools pytest-cov mypy black ruff pip-audit`
 
 Toolchain (install separately — not pip packages): `uv` (for `make lock`), `pre-commit` (for git hooks)
 

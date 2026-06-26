@@ -372,6 +372,13 @@ class TestCmdScanConfig:
         assert code == 1
         assert "EMAIL" in capsys.readouterr().err
 
+    def test_scans_agents_md(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "AGENTS.md").write_text("# Agents\n\ncall me at bob@example.com\n")
+        code = cmd_scan_config(_args())
+        assert code == 1
+        assert "EMAIL" in capsys.readouterr().err
+
 
 # ---------------------------------------------------------------------------
 # hook-check
