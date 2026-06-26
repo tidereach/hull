@@ -165,6 +165,31 @@ def test_parse_response_nonempty_categories_no_debug_log(caplog):
     assert not any("empty categories" in r.message for r in caplog.records)
 
 
+def test_parse_response_case_insensitive_categories():
+    """Model returning lowercase categories must be normalized to the canonical uppercase form."""
+    raw = json.dumps({"sensitive": True, "confidence": 0.9, "categories": ["pii", "credentials"]})
+    _, _, categories = _parse_response(raw)
+    assert "PII" in categories
+    assert "CREDENTIALS" in categories
+
+
+def test_parse_response_sensitive_empty_categories_fallback():
+    """When sensitive=True and all categories are unknown/empty, fall back to CONFIDENTIAL."""
+    raw = json.dumps({"sensitive": True, "confidence": 0.9, "categories": []})
+    sensitive, _, categories = _parse_response(raw)
+    assert sensitive is True
+    assert "CONFIDENTIAL" in categories
+
+
+def test_parse_response_sensitive_unknown_categories_fallback():
+    """Unknown categories stripped + sensitive=True → CONFIDENTIAL fallback."""
+    raw = json.dumps({"sensitive": True, "confidence": 0.9, "categories": ["INVENTED", "NOPE"]})
+    sensitive, _, categories = _parse_response(raw)
+    assert sensitive is True
+    assert "CONFIDENTIAL" in categories
+    assert "INVENTED" not in categories
+
+
 # ---------------------------------------------------------------------------
 # Fast mode (single framing) and framing-2 failure
 # ---------------------------------------------------------------------------
@@ -180,6 +205,36 @@ def test_fast_mode_single_framing():
     assert result.sensitive is True
     assert result.confidence == pytest.approx(0.8)
     assert route.call_count == 1  # fast mode issues exactly one framing call
+
+
+@respx.mock
+def test_classify_sensitive_always_has_categories():
+    """Contract: categories must never be empty when classify() returns sensitive=True."""
+    respx.post(f"{MOCK_BASE}/api/generate").mock(
+        side_effect=[
+            httpx.Response(200, json=_mock_response(True, 0.9, [])),
+            httpx.Response(200, json=_mock_response(True, 0.85, [])),
+        ]
+    )
+    client = httpx.Client(base_url=MOCK_BASE)
+    result = classify("text", client=client, model="llama3.2:3b")
+    assert result.sensitive is True
+    assert len(result.categories) > 0
+
+
+@respx.mock
+def test_classify_normalizes_lowercase_categories():
+    """Model returning lowercase category strings must be canonicalized to uppercase."""
+    respx.post(f"{MOCK_BASE}/api/generate").mock(
+        side_effect=[
+            httpx.Response(200, json=_mock_response(True, 0.9, ["pii", "credentials"])),
+            httpx.Response(200, json=_mock_response(True, 0.85, ["pii"])),
+        ]
+    )
+    client = httpx.Client(base_url=MOCK_BASE)
+    result = classify("alice@corp.com", client=client, model="llama3.2:3b")
+    assert "PII" in result.categories
+    assert "CREDENTIALS" in result.categories
 
 
 @respx.mock
