@@ -11,7 +11,7 @@ from .anomaly import AnomalyDetector, FreezeSwitch
 from .audit import AuditChain
 from .cache import LRUCache
 from .canary import CanaryResult, run_canary
-from .classifier import ClassifierResult, classify
+from .classifier import ClassifierResult, SensitiveCategory, classify
 from .config import Settings
 from .decode import decode_and_rescan
 from .entropy import find_high_entropy
@@ -221,8 +221,10 @@ class Gate:
                 )
             cr = None
 
+        cr_cats = cr.categories if cr else []
+
         # Classifier unavailable category
-        if cr and "classifier_unavailable" in cr.categories:
+        if cr and SensitiveCategory.CLASSIFIER_UNAVAILABLE in cr.categories:
             self._anomaly.record("classifier_unavailable")
             if not s.fail_open:
                 self._emit("block", detections, cr, reason="classifier_unavailable")
@@ -264,13 +266,13 @@ class Gate:
         if should_block:
             if s.mode == "soft" and classifier_high and not rule_hit:
                 # Soft mode: prompt user (hooks handle the actual prompting)
-                categories_frozen = frozenset(cr.categories if cr else [])
+                categories_frozen = frozenset(cr_cats)
                 if self._anomaly.check_mutation_pattern(categories_frozen):
                     self._emit("mutation_pattern_detected", detections, cr)
                     raise SensitiveDataError(
                         reason="mutation_pattern_detected",
                         labels=tuple(rule_labels),
-                        categories=tuple(cr.categories if cr else []),
+                        categories=tuple(cr_cats),
                         confidence=cr.confidence if cr else 0.0,
                     )
                 # Return a GateResult with blocked=True for soft-mode hooks to handle
@@ -288,7 +290,7 @@ class Gate:
                         "blocked": True,
                         "reason": result.block_reason,
                         "labels": list(rule_labels),
-                        "categories": list(cr.categories if cr else []),
+                        "categories": list(cr_cats),
                     },
                 )
                 return result
@@ -302,13 +304,13 @@ class Gate:
                     "blocked": True,
                     "reason": block_reason,
                     "labels": list(rule_labels),
-                    "categories": list(cr.categories if cr else []),
+                    "categories": list(cr_cats),
                 },
             )
             raise SensitiveDataError(
                 reason=block_reason,
                 labels=tuple(rule_labels),
-                categories=tuple(cr.categories if cr else []),
+                categories=tuple(cr_cats),
                 confidence=cr.confidence if cr else 0.0,
             )
 

@@ -8,6 +8,8 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+_OWNER_FILE_MODE = 0o600
+
 
 @dataclass
 class _Event:
@@ -132,7 +134,7 @@ class FreezeSwitch:
         if st.st_uid != os.getuid():
             return True, "freeze_file_anomalous"
 
-        if mode != 0o600:
+        if mode != _OWNER_FILE_MODE:
             logger.warning("freeze: mode is %o not 0600 — treating as frozen", mode)
             return True, "freeze_file_anomalous"
 
@@ -141,7 +143,7 @@ class FreezeSwitch:
     def set_frozen(self, frozen: bool) -> None:
         if frozen:
             self._path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-            self._path.touch(mode=0o600)
+            self._path.touch(mode=_OWNER_FILE_MODE)
         else:
             try:
                 self._path.unlink()

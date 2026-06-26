@@ -1,17 +1,21 @@
 from __future__ import annotations
 
 import ctypes
-import platform
+import platform as _platform
 
 _PR_SET_DUMPABLE = 4
+
+try:
+    _LIBC = ctypes.CDLL("libc.so.6", use_errno=True) if _platform.system() == "Linux" else None
+except OSError:
+    _LIBC = None
 
 
 def disable_core_dumps() -> None:
     """Refuse core dumps for this process (Linux only). No-op elsewhere."""
-    if platform.system() == "Linux":
+    if _LIBC is not None:
         try:
-            libc = ctypes.CDLL("libc.so.6", use_errno=True)
-            libc.prctl(_PR_SET_DUMPABLE, 0, 0, 0, 0)
+            _LIBC.prctl(_PR_SET_DUMPABLE, 0, 0, 0, 0)
         except OSError:
             pass
 
@@ -36,11 +40,10 @@ class Secret:
         """Pin buffer in RAM (requires sufficient RLIMIT_MEMLOCK)."""
         if self._locked or not self._buf:
             return
-        if platform.system() == "Linux":
+        if _LIBC is not None:
             try:
-                libc = ctypes.CDLL("libc.so.6", use_errno=True)
                 addr = (ctypes.c_char * len(self._buf)).from_buffer(self._buf)
-                ret = libc.mlock(addr, len(self._buf))
+                ret = _LIBC.mlock(addr, len(self._buf))
                 if ret == 0:
                     self._locked = True
             except OSError:
@@ -50,11 +53,10 @@ class Secret:
         if self._buf:
             for i in range(len(self._buf)):
                 self._buf[i] = 0
-        if self._locked and platform.system() == "Linux":
+        if self._locked and _LIBC is not None:
             try:
-                libc = ctypes.CDLL("libc.so.6", use_errno=True)
                 addr = (ctypes.c_char * len(self._buf)).from_buffer(self._buf)
-                libc.munlock(addr, len(self._buf))
+                _LIBC.munlock(addr, len(self._buf))
             except OSError:
                 pass
             self._locked = False
