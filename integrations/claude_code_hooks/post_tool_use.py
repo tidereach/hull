@@ -14,13 +14,18 @@ def handle(payload: dict) -> dict:
 
     try:
         from spektralia.scanner import scan
+    except ImportError as e:
+        return {
+            "decision": "block",
+            "reason": f"hook_import_error: spektralia not installed ({type(e).__name__}); run 'pip install -e .' in the project venv",
+        }
 
+    try:
         detections = scan(output)
         if detections:
             labels = "+".join(sorted({d.label for d in detections}))
             return {"decision": "block", "reason": f"rule({labels})"}
         return {}
-
     except Exception as e:
         return {"decision": "block", "reason": f"hook_error: {type(e).__name__}"}
 
