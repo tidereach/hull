@@ -201,9 +201,21 @@ spektralia hook-check   # verify all hooks are wired correctly
 
 ---
 
+## When to file an issue
+
+When work surfaces something that won't be handled in the current task — a future-scope idea, a non-blocking defect in unrelated code, a follow-up to a landing change, or a doc/spec inconsistency that isn't on the critical path — **file a GitHub issue rather than editing `docs/PLAN.md` or leaving a TODO comment**. Spawn the `file-issue` subagent with a short brief (one paragraph + any relevant file or section reference); it handles deduplication, labeling, and milestone assignment. Do not batch-defer to PLAN.md; the issue tracker is the authoritative backlog.
+
+Trigger conditions:
+- A future-scope improvement or optimization surfaces during focused work
+- A non-blocking bug or inconsistency is noticed in code not being touched
+- A follow-up change is needed but doesn't belong in the current PR
+- A doc or spec inconsistency is found that isn't on the critical path
+
+---
+
 ## What this gate does NOT cover
 
-- Contextual PII in prose (names, addresses — NER is a v2 roadmap item)
+- Contextual PII in prose (names, addresses — NER tracked in #44)
 - Model outputs / assistant turns (gating prose response stream is the wrong surface)
 - `/compact` summarization (happens above the API; start fresh sessions for sensitive work)
 - Attachments in Claude Code prompts (refused by default; `--allow-attachments` to opt in)
