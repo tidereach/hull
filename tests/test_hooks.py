@@ -429,7 +429,8 @@ class TestHookImportFailureFailsClosed:
         with patch.dict(sys.modules, {"spektralia.scanner": None}):
             result = mod.handle({"output": "some tool output"})
         assert result["decision"] == "block"
-        assert "hook_error" in result["reason"]
+        assert "hook_import_error" in result["reason"]
+        assert "pip install" in result["reason"]
 
 
 # ---------------------------------------------------------------------------
