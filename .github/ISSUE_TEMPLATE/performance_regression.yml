@@ -1,0 +1,88 @@
+name: Performance regression
+description: "Agent start-here: run `python scripts/latency_bench.py` locally to reproduce, then check src/spektralia/gate.py and the hot path modules (normalize, scanner, classifier). Latency budgets are defined in scripts/latency_bench.py."
+title: "[Perf] "
+labels: ["performance", "bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One-sentence description of the regression.
+      placeholder: "e.g. UserPromptSubmit hook p95 latency rose from 120 ms to 340 ms after classifier change"
+    validations:
+      required: true
+
+  - type: input
+    id: measured_p95
+    attributes:
+      label: Measured p95 latency (ms)
+      placeholder: "340"
+    validations:
+      required: true
+
+  - type: input
+    id: budget_p95
+    attributes:
+      label: Budget p95 latency (ms)
+      description: From scripts/latency_bench.py
+      placeholder: "200"
+    validations:
+      required: true
+
+  - type: input
+    id: hook_or_command
+    attributes:
+      label: Hook / command being measured
+      placeholder: "UserPromptSubmit / spektralia scan"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Spektralia version / commit
+      placeholder: "0.1.0 / abc1234"
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Repro steps
+      description: How to reproduce the regression. Include the benchmark command and any config overrides.
+      placeholder: |
+        python scripts/latency_bench.py
+    validations:
+      required: true
+
+  - type: input
+    id: ci_run
+    attributes:
+      label: CI latency job link (if available)
+      placeholder: "https://github.com/dormant-warlock/spektralia/actions/runs/..."
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: What changed recently? Suspect commits, config changes, model upgrades?
+
+  - type: checkboxes
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria
+      options:
+        - label: p95 latency back within budget as measured by `python scripts/latency_bench.py`
+        - label: Latency CI job green
+        - label: No correctness regressions (`pytest -q`)
+
+  - type: textarea
+    id: relevant_files
+    attributes:
+      label: Relevant files / area
+      placeholder: "src/spektralia/gate.py, src/spektralia/classifier.py, scripts/latency_bench.py"
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References

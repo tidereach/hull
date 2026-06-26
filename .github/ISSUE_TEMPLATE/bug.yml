@@ -1,0 +1,100 @@
+name: Bug report
+description: "Agent start-here: read docs/SPEC.md for expected behaviour, reproduce with `pytest -q` or `spektralia scan --explain`, then bisect to the failing module. Security bugs must NOT be filed here — use the private advisory link instead."
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One-sentence description of the bug.
+      placeholder: "e.g. scanner misses base64-encoded AWS key when padding is stripped"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Spektralia version / commit
+      description: Output of `pip show spektralia` or `git rev-parse --short HEAD`
+      placeholder: "0.1.0 / abc1234"
+    validations:
+      required: true
+
+  - type: input
+    id: python_version
+    attributes:
+      label: Python version
+      placeholder: "3.11.9"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "Ubuntu 24.04 / macOS 15.2"
+
+  - type: input
+    id: ollama_model
+    attributes:
+      label: Ollama model (if classifier is involved)
+      placeholder: "llama3.1:8b"
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Minimal reproducible example. Redact any real credentials — use fake/synthetic values.
+      placeholder: |
+        1. echo "AKIAIOSFODNN7EXAMPLE" | spektralia scan
+        2. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      description: What should happen according to docs/SPEC.md?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: What actually happens?
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / error output
+      description: Paste relevant output. Use `spektralia scan --explain` for more detail.
+      render: text
+
+  - type: checkboxes
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria
+      description: Definition of done for the fix.
+      options:
+        - label: Root cause identified and documented in PR
+        - label: Regression test added covering this case
+        - label: `pytest -q` passes
+        - label: CI green
+
+  - type: textarea
+    id: relevant_files
+    attributes:
+      label: Relevant files / area
+      description: "Which modules are likely involved? e.g. src/spektralia/decode.py, src/spektralia/scanner.py"
+      placeholder: "src/spektralia/"
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Links to related issues, SPEC.md sections, or test corpus files.
