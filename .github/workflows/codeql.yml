@@ -15,7 +15,6 @@ jobs:
   analyze:
     runs-on: ubuntu-latest
     permissions:
-      security-events: write
       actions: read
       contents: read
     steps:
@@ -36,3 +35,19 @@ jobs:
       - uses: github/codeql-action/analyze@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
         with:
           category: /language:python
+          upload: never
+          output: codeql-results
+
+      - name: Fail on findings
+        run: |
+          set -e
+          total=$(jq '[.runs[].results[]?] | length' codeql-results/*.sarif | awk '{s+=$1} END {print s}')
+          echo "CodeQL findings: $total"
+          test "$total" -eq 0
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: codeql-sarif
+          path: codeql-results/
+          retention-days: 14

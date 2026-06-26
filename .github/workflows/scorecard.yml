@@ -13,8 +13,6 @@ jobs:
   scorecard:
     runs-on: ubuntu-latest
     permissions:
-      security-events: write
-      id-token: write
       contents: read
       actions: read
     steps:
@@ -31,14 +29,10 @@ jobs:
         with:
           results_file: scorecard.sarif
           results_format: sarif
-          publish_results: true
+          publish_results: false
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: scorecard-results
           path: scorecard.sarif
           retention-days: 5
-
-      - uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
-        with:
-          sarif_file: scorecard.sarif
