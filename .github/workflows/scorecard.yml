@@ -1,11 +1,10 @@
 name: OpenSSF Scorecard
 
+# Disabled: workflow fails with `Resource not accessible by integration`
+# on githubv4.Query/ListCommits — likely an org-level Actions token
+# restriction. Tracked in #80. Re-enable once token access is resolved.
 on:
-  branch_protection_rule:
-  schedule:
-    - cron: '30 7 * * 1'   # 07:30 UTC every Monday
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions: read-all
 
