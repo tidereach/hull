@@ -64,21 +64,24 @@ docs/
   COMPLIANCE.md        GDPR/Datatilsynet/PCI-DSS/HIPAA/OWASP ASI Top 10 coverage
   THREATS.md           threat model — in-scope, out-of-scope, what gate does NOT detect
 
-integrations/claude_code_hooks/
-  session_start.py     verify-integrity + self-test + hook-check
-  user_prompt_submit.py
-  pre_tool_use.py      Task, Bash, Write, Edit + default-deny MCP
-  post_tool_use.py     Read, Bash, Grep, Glob, MCP results
-  stop.py
+integrations/claude/
+  hooks/
+    session_start.py     verify-integrity + self-test + hook-check
+    user_prompt_submit.py
+    pre_tool_use.py      Task, Bash, Write, Edit + default-deny MCP
+    post_tool_use.py     Read, Bash, Grep, Glob, MCP results
+    stop.py
   settings.example.json
 
-integrations/copilot_hooks/
-  _common.py           shared helpers for copilot hook scripts
-  session_start.py
-  user_prompt_submit.py
-  pre_tool_use.py
-  post_tool_use.py
-  stop.py
+integrations/copilot/
+  hooks/
+    _common.py           shared helpers for copilot hook scripts
+    session_start.py
+    user_prompt_submit.py
+    pre_tool_use.py
+    post_tool_use.py
+    stop.py
+  spektralia.json        Copilot hook configuration
 ```
 
 ---
@@ -151,7 +154,7 @@ Ollama: `ollama pull llama3.1:8b`
 
 ## Claude Code hook integration
 
-Copy `integrations/claude_code_hooks/settings.example.json` into `.claude/settings.json`
+Copy `integrations/claude/settings.example.json` into `.claude/settings.json`
 (project) or `~/.claude/settings.json` (global); replace `/path/to/spektralia` with the repo root.
 
 | Hook | Effect |
@@ -214,13 +217,12 @@ spektralia hook-check   # verify all hooks are wired correctly
   `regex` module's 100 ms timeout guard fires (returns `REGEX_TIMEOUT`); hangs >500 ms mean the guard is broken.
 
 - **Hook self-scan exclusion: Write/Edit on Spektralia source files are not scanned.**
-  `integrations/claude_code_hooks/pre_tool_use.py` skips scanning any `file_path` that contains
-  `/src/spektralia/` or `/integrations/claude_code_hooks/` as a path segment. Without this, editing
+  `integrations/claude/hooks/pre_tool_use.py` skips scanning any `file_path` that contains
+  `/src/spektralia/` or `/integrations/claude/hooks/` as a path segment. Without this, editing
   `patterns.py` or a hook script triggers the very credential patterns those files define, producing
   false positives on the gate's own source. The exclusion is path-keyed only — content is not
   inspected, so adding a real secret to a source file would still evade the hook; that is an accepted
-  trade-off. See `test_pre_tool_use_own_source_not_scanned` in `tests/test_hooks.py`. Note: the issue
-  (#55) referenced path `integrations/claude/hooks/`; the actual path is `integrations/claude_code_hooks/`.
+  trade-off. See `test_pre_tool_use_own_source_not_scanned` in `tests/test_hooks.py`.
 
 ---
 
