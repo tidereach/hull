@@ -199,6 +199,15 @@ spektralia hook-check   # verify all hooks are wired correctly
   workflow uses pure-Python timeout assertion instead: runs each pattern against adversarial input and asserts the
   `regex` module's 100 ms timeout guard fires (returns `REGEX_TIMEOUT`); hangs >500 ms mean the guard is broken.
 
+- **Hook self-scan exclusion: Write/Edit on Spektralia source files are not scanned.**
+  `integrations/claude_code_hooks/pre_tool_use.py` skips scanning any `file_path` that contains
+  `/src/spektralia/` or `/integrations/claude_code_hooks/` as a path segment. Without this, editing
+  `patterns.py` or a hook script triggers the very credential patterns those files define, producing
+  false positives on the gate's own source. The exclusion is path-keyed only — content is not
+  inspected, so adding a real secret to a source file would still evade the hook; that is an accepted
+  trade-off. See `test_pre_tool_use_own_source_not_scanned` in `tests/test_hooks.py`. Note: the issue
+  (#55) referenced path `integrations/claude/hooks/`; the actual path is `integrations/claude_code_hooks/`.
+
 ---
 
 ## Documenting exclusions and tuning changes
