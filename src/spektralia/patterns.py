@@ -169,10 +169,7 @@ def match_pattern(pat: Pattern, text: str) -> list[tuple[int, int, str]]:
     Returns Detection(label="REGEX_TIMEOUT") sentinel on timeout.
     Raises nothing — always returns a list.
     """
-    compiled = _COMPILED.get(pat.label)
-    if compiled is None:
-        compiled = _compile(pat)
-        _COMPILED[pat.label] = compiled
+    compiled = _COMPILED[pat.label]
 
     results = []
     try:

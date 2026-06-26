@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import re
 import unicodedata
+from collections import Counter
 
 from .scanner import Detection
 
@@ -18,9 +19,7 @@ _FILE_PATH_RE = re.compile(r"^[/~\\]|^\w:[/\\]")
 def _shannon_entropy(s: str) -> float:
     if not s:
         return 0.0
-    freq: dict[str, int] = {}
-    for c in s:
-        freq[c] = freq.get(c, 0) + 1
+    freq = Counter(s)
     n = len(s)
     return -sum((count / n) * math.log2(count / n) for count in freq.values())
 
@@ -38,6 +37,7 @@ def _is_allowlisted(token: str) -> bool:
 
 
 _TOKEN_SPLIT = re.compile(r"[\s\x00-\x1f\x7f,;:!?\"'()\[\]{}<>|&*#@=+\-/\\]+")
+_SPLIT_RE = re.compile(r"\S+")
 
 
 def find_high_entropy(
@@ -49,7 +49,7 @@ def find_high_entropy(
     results: list[Detection] = []
     nfkc = unicodedata.normalize("NFKC", text)
 
-    for token_match in re.finditer(r"\S+", nfkc):
+    for token_match in _SPLIT_RE.finditer(nfkc):
         token = token_match.group(0)
         tok_start = token_match.start()
         tok_end = token_match.end()

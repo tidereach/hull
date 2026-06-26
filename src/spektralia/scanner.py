@@ -96,7 +96,10 @@ def scan(text: str) -> list[Detection]:
         return []
 
     norm_result: NormalizeResult = normalize(text)
-    shadow, shadow_map = whitespace_collapsed_shadow(text)
+    if " " in text or "\t" in text or "\n" in text:
+        shadow, shadow_map = whitespace_collapsed_shadow(text)
+    else:
+        shadow, shadow_map = text, []
 
     all_detections: list[Detection] = []
 
