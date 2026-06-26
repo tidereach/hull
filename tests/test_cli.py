@@ -132,34 +132,28 @@ class TestCmdScan:
 
 
 class TestFreezeCommands:
-    def test_freeze_creates_file(self, tmp_path, capsys, monkeypatch):
+    def test_freeze_creates_file(self, tmp_path, capsys, monkeypatch, mock_settings):
         monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
         freeze_path = tmp_path / "FREEZE"
-        with patch("spektralia.config.Settings.from_env") as ms:
-            s = ms.return_value
-            s.freeze_path = freeze_path
-            code = cmd_freeze(_args())
+        mock_settings.freeze_path = freeze_path
+        code = cmd_freeze(_args())
         assert code == 0
 
-    def test_unfreeze_removes_file(self, tmp_path, capsys, monkeypatch):
+    def test_unfreeze_removes_file(self, tmp_path, capsys, monkeypatch, mock_settings):
         monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
         freeze_path = tmp_path / "FREEZE"
         freeze_path.touch(mode=0o600)
-        with patch("spektralia.config.Settings.from_env") as ms:
-            s = ms.return_value
-            s.freeze_path = freeze_path
-            code = cmd_unfreeze(_args())
+        mock_settings.freeze_path = freeze_path
+        code = cmd_unfreeze(_args())
         assert code == 0
         assert not freeze_path.exists()
 
-    def test_stats_reports_frozen_state(self, tmp_path, capsys, monkeypatch):
+    def test_stats_reports_frozen_state(self, tmp_path, capsys, monkeypatch, mock_settings):
         monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
         freeze_path = tmp_path / "FREEZE"
         freeze_path.touch(mode=0o600)
-        with patch("spektralia.config.Settings.from_env") as ms:
-            s = ms.return_value
-            s.freeze_path = freeze_path
-            code = cmd_stats(_args())
+        mock_settings.freeze_path = freeze_path
+        code = cmd_stats(_args())
         assert code == 0
         out = capsys.readouterr().out
         assert "frozen: True" in out
@@ -171,7 +165,7 @@ class TestFreezeCommands:
 
 
 class TestCmdAuditVerify:
-    def test_valid_chain_exits_0(self, tmp_path, capsys, monkeypatch):
+    def test_valid_chain_exits_0(self, tmp_path, capsys, monkeypatch, mock_settings):
         monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
         from spektralia.audit import AppendOnlyFileSink, AuditChain
 
@@ -184,14 +178,12 @@ class TestCmdAuditVerify:
 
         assert log_path.exists()
 
-        with patch("spektralia.config.Settings.from_env") as ms:
-            s = ms.return_value
-            s.state_dir = tmp_path
-            code = cmd_audit_verify(_args(path=str(log_path)))
+        mock_settings.state_dir = tmp_path
+        code = cmd_audit_verify(_args(path=str(log_path)))
         assert code == 0
         assert "intact" in capsys.readouterr().out
 
-    def test_tampered_record_exits_1(self, tmp_path, capsys, monkeypatch):
+    def test_tampered_record_exits_1(self, tmp_path, capsys, monkeypatch, mock_settings):
         monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
         from spektralia.audit import AppendOnlyFileSink, AuditChain
 
@@ -207,10 +199,8 @@ class TestCmdAuditVerify:
         records[0]["action"] = "tampered"
         log_path.write_text("\n".join(json.dumps(r) for r in records) + "\n")
 
-        with patch("spektralia.config.Settings.from_env") as ms:
-            s = ms.return_value
-            s.state_dir = tmp_path
-            code = cmd_audit_verify(_args(path=str(log_path)))
+        mock_settings.state_dir = tmp_path
+        code = cmd_audit_verify(_args(path=str(log_path)))
         assert code == 1
 
 
@@ -220,7 +210,7 @@ class TestCmdAuditVerify:
 
 
 class TestCmdAuditRotate:
-    def test_rotate_removes_old_records(self, tmp_path, capsys, monkeypatch):
+    def test_rotate_removes_old_records(self, tmp_path, capsys, monkeypatch, mock_settings):
         monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
         from spektralia.audit import AppendOnlyFileSink, AuditChain
 
@@ -241,15 +231,13 @@ class TestCmdAuditRotate:
         chain.emit("recent_pass", pattern_hash="", model_digest="", prompt_hash="")
         chain.close()
 
-        with patch("spektralia.config.Settings.from_env") as ms:
-            s = ms.return_value
-            s.state_dir = tmp_path
-            code = cmd_audit_rotate(_args(keep_days=90))
+        mock_settings.state_dir = tmp_path
+        code = cmd_audit_rotate(_args(keep_days=90))
         assert code == 0
         out = capsys.readouterr().out
         assert "1 record(s) removed" in out
 
-    def test_rotate_no_old_records(self, tmp_path, capsys, monkeypatch):
+    def test_rotate_no_old_records(self, tmp_path, capsys, monkeypatch, mock_settings):
         monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
         from spektralia.audit import AppendOnlyFileSink, AuditChain
 
@@ -259,10 +247,8 @@ class TestCmdAuditRotate:
         chain.emit("pass", pattern_hash="", model_digest="", prompt_hash="")
         chain.close()
 
-        with patch("spektralia.config.Settings.from_env") as ms:
-            s = ms.return_value
-            s.state_dir = tmp_path
-            code = cmd_audit_rotate(_args(keep_days=90))
+        mock_settings.state_dir = tmp_path
+        code = cmd_audit_rotate(_args(keep_days=90))
         assert code == 0
         out = capsys.readouterr().out
         assert "0 record(s) removed" in out
@@ -274,7 +260,7 @@ class TestCmdAuditRotate:
 
 
 class TestCmdAuditPurge:
-    def test_purge_removes_old_records(self, tmp_path, capsys, monkeypatch):
+    def test_purge_removes_old_records(self, tmp_path, capsys, monkeypatch, mock_settings):
         monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
         import datetime
 
@@ -295,20 +281,16 @@ class TestCmdAuditPurge:
         lines[0] = json.dumps(old_data)
         log_path.write_text("\n".join(lines) + "\n")
 
-        with patch("spektralia.config.Settings.from_env") as ms:
-            s = ms.return_value
-            s.state_dir = tmp_path
-            code = cmd_audit_purge(_args(before="2021-01-01"))
+        mock_settings.state_dir = tmp_path
+        code = cmd_audit_purge(_args(before="2021-01-01"))
         assert code == 0
         out = capsys.readouterr().out
         assert "1 record(s) removed" in out
 
-    def test_purge_invalid_date_exits_1(self, tmp_path, capsys, monkeypatch):
+    def test_purge_invalid_date_exits_1(self, tmp_path, capsys, monkeypatch, mock_settings):
         monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
-        with patch("spektralia.config.Settings.from_env") as ms:
-            s = ms.return_value
-            s.state_dir = tmp_path
-            code = cmd_audit_purge(_args(before="not-a-date"))
+        mock_settings.state_dir = tmp_path
+        code = cmd_audit_purge(_args(before="not-a-date"))
         assert code == 1
 
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import os
+import secrets
 from dataclasses import dataclass, field
 
 from .memory_safety import Secret
@@ -47,10 +47,7 @@ def sanitize(text: str, detections: list[Detection]) -> Sanitized:
         result.append(text[prev_end:start])
 
         # Generate unique random suffix
-        for _ in range(100):
-            suffix = os.urandom(3).hex()
-            if suffix not in used_suffixes:
-                break
+        suffix = secrets.token_hex(3)
         used_suffixes.add(suffix)
 
         token = f"[REDACTED:{det.label}:{suffix}]"

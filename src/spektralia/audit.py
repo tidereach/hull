@@ -15,6 +15,10 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+_GENESIS_HASH = "0" * 64
+_OWNER_DIR_MODE = 0o700
+_OWNER_FILE_MODE = 0o600
+
 
 @dataclass
 class AuditRecord:
@@ -35,41 +39,47 @@ class AuditRecord:
     def __post_init__(self) -> None:
         self.record_hash = self._compute_hash()
 
-    def _compute_hash(self) -> str:
-        payload = json.dumps(
-            {
-                "seq": self.seq,
-                "prev_hash": self.prev_hash,
-                "action": self.action,
-                "labels": sorted(self.labels),
-                "categories": sorted(self.categories),
-                "confidence": self.confidence,
-                "pattern_hash": self.pattern_hash,
-                "model_digest": self.model_digest,
-                "prompt_hash": self.prompt_hash,
-                "wall_ns": self.wall_ns,
-                "mono_ns": self.mono_ns,
-            },
-            sort_keys=True,
-        )
-        return hashlib.sha256(payload.encode()).hexdigest()
-
-    def to_dict(self) -> dict:
+    def _canonical_dict(self) -> dict:
         return {
             "seq": self.seq,
             "prev_hash": self.prev_hash,
-            "record_hash": self.record_hash,
             "action": self.action,
-            "labels": self.labels,
-            "categories": self.categories,
+            "labels": sorted(self.labels),
+            "categories": sorted(self.categories),
             "confidence": self.confidence,
             "pattern_hash": self.pattern_hash,
             "model_digest": self.model_digest,
             "prompt_hash": self.prompt_hash,
             "wall_ns": self.wall_ns,
             "mono_ns": self.mono_ns,
+        }
+
+    def _compute_hash(self) -> str:
+        payload = json.dumps(self._canonical_dict(), sort_keys=True)
+        return hashlib.sha256(payload.encode()).hexdigest()
+
+    def to_dict(self) -> dict:
+        return {
+            **self._canonical_dict(),
+            "record_hash": self.record_hash,
             **self.extra,
         }
+
+    @classmethod
+    def from_dict(cls, rec: dict) -> AuditRecord:
+        return cls(
+            seq=rec["seq"],
+            prev_hash=rec["prev_hash"],
+            action=rec["action"],
+            labels=rec.get("labels", []),
+            categories=rec.get("categories", []),
+            confidence=rec.get("confidence", 0.0),
+            pattern_hash=rec.get("pattern_hash", ""),
+            model_digest=rec.get("model_digest", ""),
+            prompt_hash=rec.get("prompt_hash", ""),
+            wall_ns=rec["wall_ns"],
+            mono_ns=rec["mono_ns"],
+        )
 
 
 class AuditSink(ABC):
@@ -91,7 +101,7 @@ class StdoutSink(AuditSink):
 class AppendOnlyFileSink(AuditSink):
     def __init__(self, path: Path) -> None:
         self._path = path
-        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        path.parent.mkdir(parents=True, exist_ok=True, mode=_OWNER_DIR_MODE)
 
         # Security: refuse if file is writable by non-owner
         if path.exists():
@@ -102,7 +112,7 @@ class AppendOnlyFileSink(AuditSink):
                 raise PermissionError(f"Audit log {path} is not owned by current user")
 
         self._fh = open(path, "a", buffering=1)  # line-buffered
-        os.chmod(path, 0o600)  # enforce regardless of umask (Ubuntu default is 0002)
+        os.chmod(path, _OWNER_FILE_MODE)  # enforce regardless of umask (Ubuntu default is 0002)
 
     def write(self, record: AuditRecord) -> None:
         line = json.dumps(record.to_dict()) + "\n"
@@ -195,7 +205,7 @@ class AuditChain:
 
     def __init__(self, state_dir: Path, sink: AuditSink | None = None) -> None:
         self._state_dir = state_dir
-        state_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+        state_dir.mkdir(parents=True, exist_ok=True, mode=_OWNER_DIR_MODE)
         self._state_path = state_dir / self._STATE_FILE
         self._sink = sink or _choose_sink(state_dir)
         self._seq = 0
@@ -206,10 +216,10 @@ class AuditChain:
             try:
                 data = json.loads(self._state_path.read_text())
                 self._seq = data.get("seq", 0)
-                return str(data.get("last_hash", "0" * 64))
+                return str(data.get("last_hash", _GENESIS_HASH))
             except Exception:
-                return "0" * 64
-        return "0" * 64
+                return _GENESIS_HASH
+        return _GENESIS_HASH
 
     def _save_state(self, record: AuditRecord) -> None:
         tmp = self._state_path.with_suffix(".tmp")
@@ -256,33 +266,21 @@ class AuditChain:
         """Return indices of records where the chain breaks."""
         broken: list[int] = []
         for i, rec in enumerate(records):
-            expected_hash = AuditRecord(
-                seq=rec["seq"],
-                prev_hash=rec["prev_hash"],
-                action=rec["action"],
-                labels=rec.get("labels", []),
-                categories=rec.get("categories", []),
-                confidence=rec.get("confidence", 0.0),
-                pattern_hash=rec.get("pattern_hash", ""),
-                model_digest=rec.get("model_digest", ""),
-                prompt_hash=rec.get("prompt_hash", ""),
-                wall_ns=rec["wall_ns"],
-                mono_ns=rec["mono_ns"],
-            ).record_hash
+            expected_hash = AuditRecord.from_dict(rec).record_hash
             if expected_hash != rec.get("record_hash"):
                 broken.append(i)
         return broken
 
-    def rotate(self, keep_days: int) -> int:
-        """Remove records older than keep_days from the file-based audit log.
+    def _prune_log(self, cutoff_ns: int, anchor_action: str, **anchor_extra) -> int:
+        """Filter the file-based audit log, keeping records with wall_ns >= cutoff_ns.
 
-        Returns number of records removed. Emits chain_anchor_after_rotate event.
-        Only operates on append-only file sinks; is a no-op otherwise.
+        Rewrites the log in place, resets chain state to the last kept record,
+        and emits an anchor event. Returns the number of records removed.
+        Only operates if audit.jsonl exists; returns 0 otherwise.
         """
         log_path = self._state_dir / "audit.jsonl"
         if not log_path.exists():
             return 0
-        cutoff_ns = int((time.time() - keep_days * 86400) * 1e9)
         kept: list[str] = []
         removed = 0
         with open(log_path) as fh:
@@ -304,17 +302,26 @@ class AuditChain:
             tmp.replace(log_path)
             if kept:
                 last = json.loads(kept[-1])
-                self._prev_hash = last.get("record_hash", "0" * 64)
+                self._prev_hash = last.get("record_hash", _GENESIS_HASH)
                 self._seq = last.get("seq", self._seq)
             self.emit(
-                "chain_anchor_after_rotate",
+                anchor_action,
                 pattern_hash="",
                 model_digest="",
                 prompt_hash="",
-                keep_days=keep_days,
                 removed=removed,
+                **anchor_extra,
             )
         return removed
+
+    def rotate(self, keep_days: int) -> int:
+        """Remove records older than keep_days from the file-based audit log.
+
+        Returns number of records removed. Emits chain_anchor_after_rotate event.
+        Only operates on append-only file sinks; is a no-op otherwise.
+        """
+        cutoff_ns = int((time.time() - keep_days * 86400) * 1e9)
+        return self._prune_log(cutoff_ns, "chain_anchor_after_rotate", keep_days=keep_days)
 
     def purge(self, before_date: str) -> int:
         """Remove records before the given ISO date (YYYY-MM-DD) from the file-based log.
@@ -326,9 +333,6 @@ class AuditChain:
             cutoff_dt = datetime.date.fromisoformat(before_date)
         except ValueError as exc:
             raise ValueError(f"Invalid date format '{before_date}'; expected YYYY-MM-DD") from exc
-        log_path = self._state_dir / "audit.jsonl"
-        if not log_path.exists():
-            return 0
         cutoff_ns = int(
             datetime.datetime(
                 cutoff_dt.year,
@@ -338,38 +342,7 @@ class AuditChain:
             ).timestamp()
             * 1e9
         )
-        kept: list[str] = []
-        removed = 0
-        with open(log_path) as fh:
-            for line in fh:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    rec = json.loads(line)
-                    if rec.get("wall_ns", 0) >= cutoff_ns:
-                        kept.append(line)
-                    else:
-                        removed += 1
-                except json.JSONDecodeError:
-                    kept.append(line)
-        if removed:
-            tmp = log_path.with_suffix(".tmp")
-            tmp.write_text("\n".join(kept) + ("\n" if kept else ""))
-            tmp.replace(log_path)
-            if kept:
-                last = json.loads(kept[-1])
-                self._prev_hash = last.get("record_hash", "0" * 64)
-                self._seq = last.get("seq", self._seq)
-            self.emit(
-                "chain_anchor_after_purge",
-                pattern_hash="",
-                model_digest="",
-                prompt_hash="",
-                before_date=before_date,
-                removed=removed,
-            )
-        return removed
+        return self._prune_log(cutoff_ns, "chain_anchor_after_purge", before_date=before_date)
 
     def close(self) -> None:
         self._sink.close()

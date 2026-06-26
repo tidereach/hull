@@ -154,12 +154,19 @@ def _fake_libc_factory(*, mlock_raises=False, prctl_raises=False):
 
 def test_mlock_oserror_is_swallowed(monkeypatch):
     """An OSError from libc.mlock must be swallowed; the Secret stays unlocked."""
-    import ctypes
-
     import spektralia.memory_safety as ms
 
-    monkeypatch.setattr(ms.platform, "system", lambda: "Linux")
-    monkeypatch.setattr(ctypes, "CDLL", _fake_libc_factory(mlock_raises=True))
+    class FakeLibc:
+        def mlock(self, addr, n):
+            raise OSError("EPERM")
+
+        def munlock(self, addr, n):
+            return 0
+
+        def prctl(self, *args):
+            return 0
+
+    monkeypatch.setattr(ms, "_LIBC", FakeLibc())
     s = Secret(b"data", label="X")
     s.mlock()  # must not raise
     assert s._locked is False
@@ -167,12 +174,19 @@ def test_mlock_oserror_is_swallowed(monkeypatch):
 
 def test_disable_core_dumps_oserror_is_swallowed(monkeypatch):
     """An OSError from prctl during disable_core_dumps must be swallowed."""
-    import ctypes
-
     import spektralia.memory_safety as ms
 
-    monkeypatch.setattr(ms.platform, "system", lambda: "Linux")
-    monkeypatch.setattr(ctypes, "CDLL", _fake_libc_factory(prctl_raises=True))
+    class FakeLibc:
+        def prctl(self, *args):
+            raise OSError("denied")
+
+        def mlock(self, addr, n):
+            return 0
+
+        def munlock(self, addr, n):
+            return 0
+
+    monkeypatch.setattr(ms, "_LIBC", FakeLibc())
     ms.disable_core_dumps()  # must not raise
 
 
@@ -180,7 +194,7 @@ def test_non_linux_paths_are_noops(monkeypatch):
     """On non-Linux, disable_core_dumps and mlock are no-ops (no libc calls)."""
     import spektralia.memory_safety as ms
 
-    monkeypatch.setattr(ms.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(ms, "_LIBC", None)
     ms.disable_core_dumps()  # no-op, must not raise
     s = Secret(b"data", label="X")
     s.mlock()

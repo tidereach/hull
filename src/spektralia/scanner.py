@@ -87,6 +87,32 @@ def _scan_idna_emails(text: str) -> list[Detection]:
     return detections
 
 
+def _scan_view(
+    patterns,
+    text: str,
+    index_map: list[int] | None = None,
+    orig_len: int | None = None,
+) -> list[Detection]:
+    """Scan `text` with all `patterns`, returning detections in original-text coordinates.
+
+    index_map: when provided, maps offsets in `text` back to the original text.
+    orig_len:  length of the original text (used for REGEX_TIMEOUT span end).
+               Defaults to len(text) when not supplied (i.e. when text IS the original).
+    """
+    _orig_len = orig_len if orig_len is not None else len(text)
+    detections: list[Detection] = []
+    for pat in patterns:
+        for start, end, _matched in match_pattern(pat, text):
+            if start == -1:
+                detections.append(Detection(label="REGEX_TIMEOUT", start=0, end=_orig_len))
+                continue
+            if index_map is not None:
+                start = _remap_offset(start, index_map)
+                end = _remap_offset(end - 1, index_map) + 1
+            detections.append(Detection(label=pat.label, start=start, end=end))
+    return detections
+
+
 def scan(text: str) -> list[Detection]:
     """Run all patterns over text (original + normalized + shadow).
 
@@ -101,37 +127,17 @@ def scan(text: str) -> list[Detection]:
     else:
         shadow, shadow_map = text, []
 
-    all_detections: list[Detection] = []
+    all_detections: list[Detection] = _scan_view(PATTERNS, text)
 
-    for pat in PATTERNS:
-        # Scan original text
-        for start, end, _matched in match_pattern(pat, text):
-            if start == -1:
-                # REGEX_TIMEOUT — treat as block signal
-                all_detections.append(Detection(label="REGEX_TIMEOUT", start=0, end=len(text)))
-                continue
-            all_detections.append(Detection(label=pat.label, start=start, end=end))
+    # Scan normalized form (if different from original)
+    if norm_result.normalized != text:
+        all_detections.extend(
+            _scan_view(PATTERNS, norm_result.normalized, norm_result.offset_map, orig_len=len(text))
+        )
 
-        # Scan normalized form (if different from original)
-        if norm_result.normalized != text:
-            for start, end, _matched in match_pattern(pat, norm_result.normalized):
-                if start == -1:
-                    all_detections.append(Detection(label="REGEX_TIMEOUT", start=0, end=len(text)))
-                    continue
-                # Remap to original offsets
-                orig_start = _remap_offset(start, norm_result.offset_map)
-                orig_end = _remap_offset(end - 1, norm_result.offset_map) + 1
-                all_detections.append(Detection(label=pat.label, start=orig_start, end=orig_end))
-
-        # Scan whitespace-collapsed shadow
-        if shadow != text:
-            for start, end, _matched in match_pattern(pat, shadow):
-                if start == -1:
-                    all_detections.append(Detection(label="REGEX_TIMEOUT", start=0, end=len(text)))
-                    continue
-                orig_start = _remap_offset(start, shadow_map)
-                orig_end = _remap_offset(end - 1, shadow_map) + 1
-                all_detections.append(Detection(label=pat.label, start=orig_start, end=orig_end))
+    # Scan whitespace-collapsed shadow
+    if shadow != text:
+        all_detections.extend(_scan_view(PATTERNS, shadow, shadow_map, orig_len=len(text)))
 
     # Emit obfuscation char detections
     for orig_i, _ch, _reason in norm_result.removals:
