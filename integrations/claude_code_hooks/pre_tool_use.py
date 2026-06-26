@@ -17,12 +17,31 @@ _TOKEN_RE = re.compile(r"\[REDACTED:[A-Z_]+:[0-9a-f]{6}\]")
 _STRICT_SCAN_TOOLS = frozenset({"Task", "Agent", "Bash", "Write", "Edit"})
 
 
+_OWN_SOURCE_SEGMENTS = (
+    "/src/spektralia/",
+    "/integrations/claude_code_hooks/",
+)
+
+
+def _is_own_source(file_path: str) -> bool:
+    """Return True if file_path is under Spektralia's own source tree.
+
+    Checked via path-substring match so the hook works regardless of cwd or
+    whether the repo is checked out at an absolute path we don't know at
+    install time. False positives (a user repo that happens to contain
+    /src/spektralia/) are acceptable — scanning that directory would still be
+    a no-op because the patterns file itself doesn't contain secrets.
+    """
+    normalised = file_path.replace("\\", "/")
+    return any(seg in normalised for seg in _OWN_SOURCE_SEGMENTS)
+
+
 def _extract_text(tool_input: dict) -> str:
     parts: list[str] = []
     for v in tool_input.values():
         if isinstance(v, str):
             parts.append(v)
-        elif isinstance(v, (list, dict)):
+        elif isinstance(v, list | dict):
             parts.append(json.dumps(v))
     return " ".join(parts)
 
@@ -49,6 +68,13 @@ def handle(payload: dict) -> dict:
     # Only scan argument-carrying tools
     if tool_name not in _STRICT_SCAN_TOOLS:
         return {}
+
+    # Skip scanning Spektralia's own source files — editing patterns.py or hook
+    # scripts would trip the very patterns they define (false positive on self).
+    if tool_name in {"Write", "Edit"}:
+        file_path = tool_input.get("file_path", "")
+        if file_path and _is_own_source(file_path):
+            return {}
 
     text = _extract_text(tool_input)
 
