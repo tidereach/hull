@@ -29,10 +29,34 @@ def test_lorem_not_flagged():
     assert dets == []
 
 
+def test_absolute_path_with_uuid_not_flagged():
+    # Regression for #22: an absolute path containing a UUID (e.g. Copilot's
+    # session-state plan file) must not trip SECRET_HIGH_ENTROPY. The leading
+    # "/" is stripped before the entropy calc, so this only passes once the
+    # allowlist is also checked against the original, unstripped token.
+    path = "/home/user/.copilot/session-state/7bc3598a-1268-4f39-9043-aafb91193dd4/plan.md"
+    assert find_high_entropy(path) == []
+
+
+def test_absolute_path_not_flagged():
+    # A long absolute path with no UUID must also pass.
+    path = "/home/user/projects/spektralia/src/spektralia/some_long_module_name.py"
+    assert find_high_entropy(path) == []
+
+
+def test_random_token_in_path_position_still_flagged():
+    # The path allowlist must not become a blanket escape: a genuine high-entropy
+    # secret that doesn't start like a path is still flagged.
+    dets = find_high_entropy("token=tXj3K9mN2pQr7wVa8bCd4eF5gHiJ6kLo")
+    assert dets, "Expected high-entropy detection for a non-path random token"
+    assert dets[0].label == "SECRET_HIGH_ENTROPY"
+
+
 # ---------------------------------------------------------------------------
-# Helpers — direct unit tests for branches not reachable end-to-end
-# (find_high_entropy strips '-', ':', '/' before allowlisting, so the UUID,
-# data-image, and file-path checks must be exercised on _is_allowlisted directly)
+# Helpers — direct unit tests for the allowlist branches
+# (find_high_entropy strips '-', ':', '/' for the entropy calc but now also
+# checks the allowlist against the original token, so these are reachable
+# end-to-end; the direct tests pin the matchers themselves)
 # ---------------------------------------------------------------------------
 
 

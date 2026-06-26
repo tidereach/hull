@@ -59,7 +59,11 @@ def find_high_entropy(
 
         if len(clean) < min_len:
             continue
-        if _is_allowlisted(clean):
+        # Check the allowlist against the original token *and* the cleaned form.
+        # _TOKEN_SPLIT strips the leading "/" (and ":", "\") that _FILE_PATH_RE
+        # keys on, so absolute paths only match when tested unstripped; the
+        # cleaned form still covers cases where surrounding punctuation was noise.
+        if _is_allowlisted(token) or _is_allowlisted(clean):
             continue
         if _shannon_entropy(clean) >= threshold:
             results.append(
