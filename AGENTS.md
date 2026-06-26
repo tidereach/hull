@@ -201,6 +201,19 @@ spektralia hook-check   # verify all hooks are wired correctly
 
 ---
 
+## When to open a PR (vs. commit straight to main)
+
+Default to a pull request. A direct commit to `main` is only acceptable when **all** of the following hold; if any trigger fires, open a PR instead.
+
+Open a PR when:
+- The work is tied to a GitHub issue (any change that closes or advances a tracked item).
+- Tests are touched, or could plausibly be affected — new behavior, changed behavior, refactors of code that has tests, anything that warrants CI signal beyond lint.
+- More than one file changes, **excluding** edits confined to `AGENTS.md`, `CLAUDE.md`, and `README.md` (multi-file doc-only edits to those three files may still go straight to `main`).
+
+Direct commits to `main` are fine for: single-file fixes with no issue and no test surface (typos, comment tweaks, dead-link fixes), and doc-only edits across `AGENTS.md` / `CLAUDE.md` / `README.md`.
+
+---
+
 ## When to file an issue
 
 When work surfaces something that won't be handled in the current task — a future-scope idea, a non-blocking defect in unrelated code, a follow-up to a landing change, or a doc/spec inconsistency that isn't on the critical path — **file a GitHub issue rather than editing `docs/PLAN.md` or leaving a TODO comment**. Spawn the `file-issue` subagent with a short brief (one paragraph + any relevant file or section reference); it handles deduplication, labeling, and milestone assignment. Do not batch-defer to PLAN.md; the issue tracker is the authoritative backlog.
