@@ -228,6 +228,118 @@ def cmd_scan_config(args: argparse.Namespace) -> int:
     return 1 if found_issues else 0
 
 
+def _find_hooks_dir() -> Path | None:
+    """Locate the claude_code_hooks directory from the installed package."""
+
+    import spektralia as _pkg
+
+    pkg_dir = Path(_pkg.__file__).parent
+
+    # Editable / repo install: navigate from src/spektralia/ up to repo root
+    repo_candidate = pkg_dir.parent.parent / "integrations" / "claude_code_hooks"
+    if repo_candidate.is_dir():
+        return repo_candidate.resolve()
+
+    # Future: package-data install at src/spektralia/hooks/
+    data_candidate = pkg_dir / "hooks"
+    if data_candidate.is_dir():
+        return data_candidate.resolve()
+
+    return None
+
+
+def _detect_git_root() -> Path | None:
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            return Path(result.stdout.strip())
+    except Exception:
+        pass
+    return None
+
+
+def _build_hooks_payload(hooks_dir: Path) -> dict:
+    exe = sys.executable
+
+    def _cmd(name: str) -> str:
+        return f"{exe} {hooks_dir / name}"
+
+    return {
+        "SessionStart": [{"hooks": [{"type": "command", "command": _cmd("session_start.py")}]}],
+        "UserPromptSubmit": [
+            {"hooks": [{"type": "command", "command": _cmd("user_prompt_submit.py")}]}
+        ],
+        "PreToolUse": [
+            {
+                "matcher": ".*",
+                "hooks": [{"type": "command", "command": _cmd("pre_tool_use.py")}],
+            }
+        ],
+        "PostToolUse": [
+            {
+                "matcher": ".*",
+                "hooks": [{"type": "command", "command": _cmd("post_tool_use.py")}],
+            }
+        ],
+        "Stop": [{"hooks": [{"type": "command", "command": _cmd("stop.py")}]}],
+    }
+
+
+def cmd_install_hooks(args: argparse.Namespace) -> int:
+    """Write Spektralia hook entries to .claude/settings.json."""
+    hooks_dir = _find_hooks_dir()
+    if hooks_dir is None:
+        print(
+            "FAIL: hook scripts not found — run from the spektralia repo or install package data",
+            file=sys.stderr,
+        )
+        return 1
+
+    git_root = _detect_git_root()
+    if git_root is not None:
+        target = git_root / ".claude" / "settings.json"
+        scope = "project"
+    else:
+        target = Path.home() / ".claude" / "settings.json"
+        scope = "global"
+
+    existing: dict = {}
+    if target.exists():
+        try:
+            existing = json.loads(target.read_text())
+        except Exception as e:
+            print(f"FAIL: cannot read {target}: {e}", file=sys.stderr)
+            return 1
+
+    required_hooks = {"SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop"}
+    already_present = required_hooks.issubset(set(existing.get("hooks", {}).keys()))
+
+    new_hooks = _build_hooks_payload(hooks_dir)
+    merged = {**existing, "hooks": {**existing.get("hooks", {}), **new_hooks}}
+    output = json.dumps(merged, indent=2) + "\n"
+
+    if args.dry_run:
+        print(f"[dry-run] Would write to {target} ({scope}):")
+        print(output)
+        return 0
+
+    if already_present:
+        print(f"OK: hooks already present in {target} — verifying...")
+        return cmd_hook_check(args)
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(output)
+    print(f"OK: hooks installed → {target} ({scope})")
+    return cmd_hook_check(args)
+
+
 def cmd_hook_check(args: argparse.Namespace) -> int:
     """Check Claude Code hooks are installed (global or project settings)."""
     candidates = [
@@ -299,6 +411,9 @@ def main() -> None:
     sub.add_parser("scan-config")
     sub.add_parser("hook-check")
 
+    p_install_hooks = sub.add_parser("install-hooks")
+    p_install_hooks.add_argument("--dry-run", action="store_true")
+
     args = parser.parse_args()
 
     commands = {
@@ -316,6 +431,7 @@ def main() -> None:
         "audit-purge": cmd_audit_purge,
         "scan-config": cmd_scan_config,
         "hook-check": cmd_hook_check,
+        "install-hooks": cmd_install_hooks,
     }
 
     handler = commands.get(args.command)
