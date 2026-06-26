@@ -96,6 +96,16 @@ def normalize(text: str) -> NormalizeResult:
     4. Append each expanded output char and its source orig_i to result/offset_map.
     5. Apply homoglyph fold on the fully-built string (1-to-1, offset_map stays valid).
     """
+    # Fast-path: pure ASCII text cannot contain any zero-width, BIDI, variation,
+    # or tag characters (all are non-ASCII), and NFKC is a no-op on ASCII.
+    if text.isascii():
+        return NormalizeResult(
+            normalized=text,
+            original=text,
+            removals=[],
+            offset_map=list(range(len(text))),
+        )
+
     removals: list[tuple[int, str, str]] = []
     result_chars: list[str] = []
     offset_map: list[int] = []  # normalized_index -> original_index

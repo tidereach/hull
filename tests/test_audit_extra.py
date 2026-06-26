@@ -16,6 +16,7 @@ import time
 import types
 
 import pytest
+from conftest import _write_log
 
 from spektralia.audit import (
     AppendOnlyFileSink,
@@ -196,10 +197,6 @@ def test_rotate_no_log_returns_zero(tmp_path):
 def test_purge_no_log_returns_zero(tmp_path):
     chain = AuditChain(tmp_path, sink=DummySink())
     assert chain.purge("2020-01-01") == 0
-
-
-def _write_log(tmp_path, lines):
-    (tmp_path / "audit.jsonl").write_text("\n".join(lines) + "\n")
 
 
 def test_rotate_skips_blank_keeps_garbage_removes_old(tmp_path):

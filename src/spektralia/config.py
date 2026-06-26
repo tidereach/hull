@@ -9,13 +9,16 @@ from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Literal
 
-_POLICY_FIELDS: set[str] = set()
+_bool_env = lambda v: v.lower() in ("1", "true", "yes")  # noqa: E731
 
 
-def policy_field(default=None, **kw):
-    """Mark a Settings field as policy-affecting (included in config_hash)."""
-    f = field(default=default, **kw)
-    return f
+def _coerce_paths(data: dict) -> None:
+    """Coerce string path fields to Path objects in place."""
+    for fname in ("freeze_path", "state_dir"):
+        if fname in data:
+            data[fname] = Path(data[fname])
+    if "sandbox_config_paths" in data:
+        data["sandbox_config_paths"] = tuple(data["sandbox_config_paths"])
 
 
 @dataclass
@@ -115,12 +118,7 @@ class Settings:
                 break
 
         # Coerce Path fields from TOML
-        for fname in ("freeze_path", "state_dir"):
-            if fname in toml_data:
-                toml_data[fname] = Path(toml_data[fname])
-        # tomllib yields a list for sandbox_config_paths; the dataclass field is a tuple
-        if "sandbox_config_paths" in toml_data:
-            toml_data["sandbox_config_paths"] = tuple(toml_data["sandbox_config_paths"])
+        _coerce_paths(toml_data)
 
         env: dict[str, object] = {}
         mapping: dict[str, tuple[str, Callable[[str], object]]] = {
@@ -131,12 +129,9 @@ class Settings:
             "SPEKTRALIA_CLASSIFIER_MODE": ("classifier_mode", str),
             "SPEKTRALIA_SENSITIVITY_THRESHOLD": ("sensitivity_threshold", float),
             "SPEKTRALIA_MODE": ("mode", str),
-            "SPEKTRALIA_FAIL_OPEN": ("fail_open", lambda v: v.lower() in ("1", "true", "yes")),
+            "SPEKTRALIA_FAIL_OPEN": ("fail_open", _bool_env),
             "SPEKTRALIA_MAX_INPUT_CHARS": ("max_input_chars", int),
-            "SPEKTRALIA_MLOCK_SECRETS": (
-                "mlock_secrets",
-                lambda v: v.lower() in ("1", "true", "yes"),
-            ),
+            "SPEKTRALIA_MLOCK_SECRETS": ("mlock_secrets", _bool_env),
             "SPEKTRALIA_CLASSIFIER_TIMEOUT_SECONDS": ("classifier_timeout_seconds", float),
             "SPEKTRALIA_STATE_DIR": ("state_dir", Path),
             "SPEKTRALIA_SANDBOX_BACKEND": ("sandbox_backend", str),
@@ -162,11 +157,7 @@ class Settings:
         data = raw.get("spektralia", raw)
         data.update(overrides)
         # Coerce Path fields
-        for fname in ("freeze_path", "state_dir"):
-            if fname in data:
-                data[fname] = Path(data[fname])
-        if "sandbox_config_paths" in data:
-            data["sandbox_config_paths"] = tuple(data["sandbox_config_paths"])
+        _coerce_paths(data)
         return cls(**data)
 
     def config_hash(self) -> str:

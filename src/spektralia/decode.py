@@ -9,7 +9,6 @@ from .scanner import Detection, scan
 
 _BASE64_RE = re.compile(r"[A-Za-z0-9+/]{40,}={0,2}")
 _HEX_RE = re.compile(r"[0-9a-fA-F]{64,}")
-_GZIP_MAGIC = b"\x1f\x8b"
 
 
 def _decode_and_scan(raw: bytes, outer_start: int, outer_end: int, suffix: str) -> list[Detection]:
@@ -52,12 +51,13 @@ def decode_and_rescan(text: str) -> list[Detection]:
 
     # Gzip magic bytes in base64-encoded content (already covered above)
     # Direct gzip-magic bytes in text (rare but possible in binary pastes)
+    raw_bytes = text.encode("latin-1", errors="replace")
     idx = 0
     while True:
         pos = text.find("\x1f\x8b", idx)
         if pos == -1:
             break
-        raw = text[pos:].encode("latin-1", errors="replace")
+        raw = raw_bytes[pos:]
         try:
             decoded = gzip.decompress(raw)
             results.extend(_decode_and_scan(decoded, pos, len(text), "ENCODED"))

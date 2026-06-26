@@ -272,9 +272,18 @@ class TestJwtHeaderValidator:
 
 
 class TestMatchPatternDynamicCompile:
-    def test_uncached_pattern_compiled_on_demand(self):
-        # A Pattern whose label is not in the prebuilt _COMPILED cache exercises
-        # the lazy-compile fallback in match_pattern.
-        pat = Pattern(label="ZZZ_NOT_CACHED", regex=r"zebra\d+")
-        r = match_pattern(pat, "see zebra42 over there")
-        assert any("zebra42" in m for *_, m in r)
+    def test_precompiled_patterns_used_directly(self):
+        # _COMPILED is fully populated at module import; match_pattern uses
+        # _COMPILED[pat.label] directly without a lazy-compile fallback.
+        # All patterns in PATTERNS have pre-compiled entries.
+        import pytest
+
+        from spektralia.patterns import _COMPILED, PATTERNS
+
+        for pat in PATTERNS:
+            assert pat.label in _COMPILED, f"Pattern {pat.label!r} missing from _COMPILED"
+
+        # And an unknown label raises KeyError (no silent fallback)
+        unknown = Pattern(label="ZZZ_NOT_CACHED", regex=r"zebra\d+")
+        with pytest.raises(KeyError):
+            match_pattern(unknown, "see zebra42 over there")
