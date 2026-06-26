@@ -95,7 +95,7 @@ Spektralia's `UserPromptSubmit` hook. This asymmetry matters when reasoning abou
 
 ## Hook ordering — the real composition issue
 
-Both Spektralia (`integrations/claude_code_hooks/pre_tool_use.py`) and Prempti register a
+Both Spektralia (`integrations/claude/hooks/pre_tool_use.py`) and Prempti register a
 `PreToolUse` hook. Claude Code runs every registered hook for a matcher, and any `deny`
 blocks the call. The order is a deliberate choice:
 

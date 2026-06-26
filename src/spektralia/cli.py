@@ -229,14 +229,14 @@ def cmd_scan_config(args: argparse.Namespace) -> int:
 
 
 def _find_hooks_dir() -> Path | None:
-    """Locate the claude_code_hooks directory from the installed package."""
+    """Locate the claude hooks directory from the installed package."""
 
     import spektralia as _pkg
 
     pkg_dir = Path(_pkg.__file__).parent
 
     # Editable / repo install: navigate from src/spektralia/ up to repo root
-    repo_candidate = pkg_dir.parent.parent / "integrations" / "claude_code_hooks"
+    repo_candidate = pkg_dir.parent.parent / "integrations" / "claude" / "hooks"
     if repo_candidate.is_dir():
         return repo_candidate.resolve()
 

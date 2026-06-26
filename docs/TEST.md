@@ -492,7 +492,7 @@ Expected: `blocked: Blocked: rule(EMAIL)...` followed by `OK — live gate block
 
 ## Phase 3 — CLI + Claude Code hooks
 
-**Covers:** `cli.py`, `integrations/claude_code_hooks/`
+**Covers:** `cli.py`, `integrations/claude/hooks/`
 
 ### 3.1 Automated tests
 
@@ -701,7 +701,7 @@ exit 0
 
 ```bash
 echo '{"tool_name": "mcp__github__create_issue", "tool_input": {}}' \
-  | python integrations/claude_code_hooks/pre_tool_use.py
+  | python integrations/claude/hooks/pre_tool_use.py
 ```
 
 Expected:
@@ -713,7 +713,7 @@ Expected:
 
 ```bash
 echo '{"tool_name": "Agent", "tool_input": {"prompt": "use [REDACTED:EMAIL:abc123] for auth"}}' \
-  | python integrations/claude_code_hooks/pre_tool_use.py
+  | python integrations/claude/hooks/pre_tool_use.py
 ```
 
 Expected:
@@ -725,7 +725,7 @@ Expected:
 
 ```bash
 echo '{"prompt": "look at this", "attachments": [{"type": "image"}]}' \
-  | python integrations/claude_code_hooks/user_prompt_submit.py
+  | python integrations/claude/hooks/user_prompt_submit.py
 ```
 
 Expected:
@@ -736,7 +736,7 @@ Expected:
 ### 3.18 Hook: invalid JSON input blocks
 
 ```bash
-echo 'not json' | python integrations/claude_code_hooks/user_prompt_submit.py
+echo 'not json' | python integrations/claude/hooks/user_prompt_submit.py
 ```
 
 Expected:
@@ -755,7 +755,7 @@ Expected:
 
 2. Wire hooks into `~/.claude/settings.json` (or a project `.claude/settings.json`):
    ```bash
-   sed 's|/path/to/spektralia|'"$(pwd)"'|g' integrations/claude_code_hooks/settings.example.json > ~/.claude/settings.json
+   sed 's|/path/to/spektralia|'"$(pwd)"'|g' integrations/claude/hooks/settings.example.json > ~/.claude/settings.json
    ```
 
 3. Verify hooks are wired:

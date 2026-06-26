@@ -56,7 +56,7 @@ spektralia/
 │       ├── negative/               (false-positive bait — UUIDs, SHAs, lorem)
 │       └── injection/              (prompt-injection payloads that try to flip the classifier)
 └── integrations/
-    └── claude_code_hooks/          (see "Integration" section below)
+    └── claude/hooks/          (see "Integration" section below)
 ```
 
 ## Design decisions
@@ -165,7 +165,7 @@ Scan the tool *arguments* the model emitted. Two checks:
 Hooks operate on discrete pre/post events, not on streamed chunks. The model-to-user prose stream is **not** scrubbed in real time — wrong surface, wrong economics, would create a re-identification feature we explicitly do not want.
 
 ### Files
-Hook implementations live in `integrations/claude_code_hooks/`:
+Hook implementations live in `integrations/claude/hooks/`:
 - `user_prompt_submit.py`
 - `post_tool_use.py`
 - `pre_tool_use.py`
@@ -243,7 +243,7 @@ spektralia/
 │   ├── errors.py
 │   └── cli.py                       (CHANGED — adds freeze / unfreeze / verify-integrity subcommands)
 ├── tests/                           (+ test_integrity.py, test_anomaly.py, test_audit_chain.py)
-└── integrations/claude_code_hooks/
+└── integrations/claude/hooks/
 ```
 
 ## v2 design (carried forward in summary)
@@ -369,7 +369,7 @@ src/spektralia/
 ├── gate.py                (CHANGED — soft-mode override path with audit; --explain; integration of all above)
 └── cli.py                 (CHANGED — scan-config, self-test, hook-check subcommands; versioned CLI surface)
 
-integrations/claude_code_hooks/
+integrations/claude/hooks/
 ├── session_start.py       (NEW)
 ├── pre_tool_use.py        (CHANGED — Task added to matchers; default-deny MCP policy)
 ├── stop.py                (NEW — final audit roll-up)

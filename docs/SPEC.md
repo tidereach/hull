@@ -94,7 +94,7 @@ spektralia/
 │       ├── positive/                 (true-positive per category)
 │       ├── negative/                 (false-positive bait: UUIDs, SHAs, lorem)
 │       └── injection/                (prompt-injection payloads)
-├── integrations/claude_code_hooks/
+├── integrations/claude/hooks/
 │   ├── session_start.py
 │   ├── user_prompt_submit.py
 │   ├── pre_tool_use.py               (matches Task, Bash, Write, Edit, network MCPs)
@@ -382,7 +382,7 @@ Subcommands:
 
 ---
 
-## 18. Claude Code integration (`integrations/claude_code_hooks/`)
+## 18. Claude Code integration (`integrations/claude/hooks/`)
 
 Defense in depth via hooks. No persistent cross-turn state. Settings.example.json is the single source of truth for canonical configuration; integrators copy and adjust paths only.
 
