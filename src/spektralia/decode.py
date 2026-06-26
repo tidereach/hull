@@ -9,7 +9,6 @@ from .scanner import Detection, scan
 
 _BASE64_RE = re.compile(r"[A-Za-z0-9+/]{40,}={0,2}")
 _HEX_RE = re.compile(r"[0-9a-fA-F]{64,}")
-_GZIP_MAGIC = b"\x1f\x8b"
 
 
 def _decode_and_scan(raw: bytes, outer_start: int, outer_end: int, suffix: str) -> list[Detection]:

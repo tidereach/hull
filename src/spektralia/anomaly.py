@@ -25,7 +25,6 @@ class AnomalyDetector:
         "block",
         "pass",
         "warn",
-        "user_override",
         "canary_drift",
     )
 

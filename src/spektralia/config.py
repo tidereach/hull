@@ -9,14 +9,6 @@ from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Literal
 
-_POLICY_FIELDS: set[str] = set()
-
-
-def policy_field(default=None, **kw):
-    """Mark a Settings field as policy-affecting (included in config_hash)."""
-    f = field(default=default, **kw)
-    return f
-
 
 @dataclass
 class Settings:

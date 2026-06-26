@@ -4,11 +4,6 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    pass
-
 
 logger = logging.getLogger(__name__)
 
@@ -73,11 +68,10 @@ class CanaryResult:
     duration_seconds: float
 
 
-def run_canary(scanner_fn, classifier_fn=None) -> CanaryResult:
-    """Run canary corpus against the scanner (and optionally classifier).
+def run_canary(scanner_fn) -> CanaryResult:
+    """Run canary corpus against the scanner.
 
     scanner_fn: callable(text) -> list[Detection]
-    classifier_fn: optional callable(text) -> ClassifierResult
     """
     t0 = time.monotonic()
     failures: list[str] = []
