@@ -59,14 +59,13 @@ Use `git commit --no-verify` only as a temporary escape hatch (for example, to p
 ollama serve
 ```
 
-Ollama listens on `http://127.0.0.1:11434` by default. Spektralia connects via TCP and pins the remote PID and binary hash on first connection. UDS support depends on Ollama exposing a socket — check your Ollama version's documentation.
+Ollama listens on `http://127.0.0.1:11434` by default. Spektralia connects via TCP and pins the remote PID and binary hash on first connection.
 
 Configure spektralia to use a non-default endpoint via env var or TOML:
 
 ```bash
 # env var
 export SPEKTRALIA_OLLAMA_URL="http://192.168.1.10:11434"   # remote or non-default TCP
-export SPEKTRALIA_OLLAMA_SOCKET="/path/to/ollama.sock"      # UDS (takes precedence over URL, if Ollama exposes one)
 ```
 
 ```toml
