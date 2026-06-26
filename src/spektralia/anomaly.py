@@ -40,6 +40,7 @@ class AnomalyDetector:
             "rule_classifier_disagreement": rule_classifier_disagreement_rate_threshold,
         }
         self._events: deque[_Event] = deque()
+        self._counts: dict[str, int] = dict.fromkeys(self._COUNTERS, 0)
         self._should_freeze = False
         self._freeze_reason: str = ""
 
@@ -49,6 +50,8 @@ class AnomalyDetector:
     def record(self, name: str) -> bool:
         """Record an event. Returns True if this triggers auto-freeze."""
         self._events.append(_Event(name=name))
+        if name in self._counts:
+            self._counts[name] += 1
         self._prune()
 
         if name == "canary_drift":
@@ -62,7 +65,7 @@ class AnomalyDetector:
             return False
 
         for counter, threshold in self._thresholds.items():
-            count = sum(1 for e in self._events if e.name == counter)
+            count = self._counts.get(counter, 0)
             rate = count / total
             if rate > threshold and count >= 3:
                 self._should_freeze = True
@@ -86,7 +89,8 @@ class AnomalyDetector:
     def _prune(self) -> None:
         cutoff = time.monotonic() - self._window
         while self._events and self._events[0].ts < cutoff:
-            self._events.popleft()
+            ev = self._events.popleft()
+            self._counts[ev.name] = max(0, self._counts.get(ev.name, 0) - 1)
 
     @property
     def should_freeze(self) -> bool:
@@ -98,11 +102,7 @@ class AnomalyDetector:
 
     def counters(self) -> dict[str, int]:
         self._prune()
-        result = dict.fromkeys(self._COUNTERS, 0)
-        for e in self._events:
-            if e.name in result:
-                result[e.name] += 1
-        return result
+        return {k: self._counts.get(k, 0) for k in self._COUNTERS}
 
 
 class FreezeSwitch:
