@@ -268,31 +268,6 @@ make sbom                         # regenerates SBOM.json via cyclonedx-py
 
 ---
 
-## 8. v2 roadmap
-
-Items deferred from v1 scope. Add to this list whenever a task surfaces a candidate; don't wait.
-
-- **Contextual PII / NER** — names, addresses, free-text identifiers not capturable by regex. Requires a local NER model (spaCy or similar). Currently documented as out-of-scope in spec §13.5.
-- **Cryptographic hook identity (stronger form)** — current HMAC-in-keyring approach makes substitution *auditable*; a future version could use an Ed25519 key pair so the hook can *prove* identity to a verifier without relying on keyring availability.
-- **Hook signing / binary integrity** — verify that the hook scripts themselves haven't been tampered with (hash of hook files at install time, checked at SessionStart against a stored manifest).
-- **Gating model outputs / assistant turns** — currently out of scope; prose response stream is the wrong surface for v1 but worth revisiting once NER lands.
-- **`pip install --require-hashes` enforcement at install time** — Phase 4 exit criteria mention this; wire it into the install docs and CI once Phase 4 closes.
-- **ReDoS nightly fuzz** — Phase 4 CI item; add as a scheduled GitHub Actions job.
-- **Log raw model response on empty categories** — when the classifier returns `sensitive=True, confidence=1.0, categories=[]`, the fail-closed defaults mask whether the model returned a bad response or an empty-but-valid one. Log the raw model output (redacted) at DEBUG level so false positives are diagnosable without rerunning with a debugger.
-- **Automated hook setup (`spektralia install-hooks`)** — current setup requires manual sed + copy; a dedicated CLI subcommand should locate the repo root, write `~/.claude/settings.json` (or a project `.claude/settings.json`), and verify with `hook-check` in one step.
-- **Cross-layer sandbox preflight (`spektralia check-sandbox`)** — ✅ implemented. Asserts the configured execution-plane sandbox (`fence` or `cplt`) is on `PATH`, with optional config-hash pinning (detect-only by default); wired into the `SessionStart` preflight and `none` by default so existing installs are unaffected. Realizes the [ENDPOINT_STACK.md cross-layer-integrity item](ENDPOINT_STACK.md); see [SANDBOX_ALTERNATIVES.md](SANDBOX_ALTERNATIVES.md) for the Fence-vs-[cplt](https://github.com/navikt/cplt) comparison. **Remaining:** the equivalent Prempti-service-up assertion.
-
----
-
-## 9. v3 roadmap
-
-Items deferred beyond v2 scope.
-
-- **Quickstart setup script** — a `scripts/setup.sh` (or `spektralia setup` CLI subcommand) that installs the venv, pulls the Ollama model, and wires Claude Code hooks in one step for end-users. `--dev` flag additionally installs dev dependencies, seeds the canary corpus, runs the full test suite, and verifies hook-check, so a developer has a fully exercised environment after a single command.
-- **Network-isolated Ollama deployment** — run Ollama in a container/sandbox with no outbound route (Docker network default-deny, or a UDS-only deployment) so a compromised model or binary cannot exfiltrate scanned content. Spektralia trusts the Ollama process (UDS owner/mode, TCP PID/binary/version pin, model-digest pin) but does not constrain its egress; a malicious subprocess connection is invisible to all three hook layers. This is the **execution-plane** concern already delegated to Fence/cplt — see [ENDPOINT_STACK.md](ENDPOINT_STACK.md) ("Fence allowlist the stack requires") and [SANDBOX_ALTERNATIVES.md](SANDBOX_ALTERNATIVES.md). v3 work: document the recommended Ollama topology (container + egress-deny + socket mount) and optionally extend `spektralia check-sandbox` to assert Ollama's network access is actually restricted — not to build a network enforcer into Spektralia itself.
-
----
-
 ## 7. Where to find what
 
 - **Full 22-chapter implementation spec** (exact schemas, signatures, behaviour): `SPEC.md`
@@ -301,10 +276,10 @@ Items deferred beyond v2 scope.
 
 ### Hook known issues — **MUST FIX BEFORE PROD** (found 2026-06-24, §3.19)
 
-See `docs/hook-exceptions-v2.md` for full detail. Summary of five items that are v2 work but are prod-release blockers:
+See `docs/hook-exceptions-v2.md` for full detail. Five items tracked as individual issues — all milestone v2, all prod-release blockers:
 
-1. Self-scan: Write/Edit hooks scan own source files and trip false positives
-2. Empty categories pattern from classifier on benign content (`categories=[]`)
-3. UnboundLocalError in post_tool_use import block when venv unavailable
-4. Wrong JSON output shape in all three hook scripts (fixed in session; needs contract test)
-5. Wrong tool name for subagent spawn (`"Task"` was `"Agent"`; fixed in session; needs regression test)
+1. Self-scan false positives → #55
+2. Empty `categories=[]` from classifier on benign content → #56
+3. UnboundLocalError in post_tool_use when venv unavailable → #57
+4. Wrong JSON output shape in hook scripts (fixed; needs contract test) → #58
+5. Wrong tool name for subagent spawn (`"Task"` not `"Agent"`; fixed; needs regression test) → #59
