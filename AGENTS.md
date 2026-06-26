@@ -55,6 +55,12 @@ scripts/
   redos_fuzz.py        adversarial ReDoS input fuzz; used by nightly redos-fuzz.yml CI
 
 docs/
+  SPEC.md              authoritative design spec
+  PLAN.md              phased status and open bugs
+  RATIONALE.md         full design arguments
+  ENDPOINT_STACK.md    how Spektralia composes with Fence + Prempti into a layered endpoint stack
+  SANDBOX_ALTERNATIVES.md  Fence vs navikt/cplt comparison
+  TEST.md              step-by-step verification guide with expected test counts
   COMPLIANCE.md        GDPR/Datatilsynet/PCI-DSS/HIPAA/OWASP ASI Top 10 coverage
   THREATS.md           threat model — in-scope, out-of-scope, what gate does NOT detect
 
@@ -65,6 +71,14 @@ integrations/claude_code_hooks/
   post_tool_use.py     Read, Bash, Grep, Glob, MCP results
   stop.py
   settings.example.json
+
+integrations/copilot_hooks/
+  _common.py           shared helpers for copilot hook scripts
+  session_start.py
+  user_prompt_submit.py
+  pre_tool_use.py
+  post_tool_use.py
+  stop.py
 ```
 
 ---
