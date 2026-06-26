@@ -1,0 +1,75 @@
+name: Lock-drift / freshness
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # 06:00 UTC nightly
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/pip
+          key: pip-lock-drift
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Run osv-scanner
+        id: osv
+        continue-on-error: true
+        uses: google/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+        with:
+          scan-args: |-
+            --lockfile=requirements.txt:requirements.lock
+
+      - name: Run pip-audit
+        id: audit
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          pip-audit -r requirements.lock 2>&1 | tee pip-audit-output.txt
+
+      - name: Write findings summary
+        if: steps.osv.outcome == 'failure' || steps.audit.outcome == 'failure'
+        run: |
+          printf '%s\n' \
+            '## Nightly lock-drift: vulnerability detected' \
+            '' \
+            '| Scanner | Outcome |' \
+            '|---------|---------|' \
+            '| osv-scanner | ${{ steps.osv.outcome }} |' \
+            '| pip-audit   | ${{ steps.audit.outcome }} |' \
+            '' \
+            '### pip-audit output' \
+            '```' \
+            > findings.md
+          cat pip-audit-output.txt >> findings.md
+          printf '```\n\nRun `pip-audit -r requirements.lock` locally for details.\n' >> findings.md
+
+      - name: File issue on findings
+        if: steps.osv.outcome == 'failure' || steps.audit.outcome == 'failure'
+        uses: peter-evans/create-issue-from-file@fca9117c27cdc29c6c4db3b86c48e4115a786710 # v6.0.0
+        with:
+          title: "Security: dependency vulnerability detected (nightly scan)"
+          content-filepath: findings.md
+          labels: security
