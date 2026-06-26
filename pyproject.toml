@@ -19,6 +19,12 @@ dependencies = [
 crypto = [
     "cryptography>=42",
 ]
+# Contextual PII / NER (#44). Optional: when absent, the NER pass is a no-op and
+# the gate falls back to regex + entropy + classifier. The language model must be
+# downloaded separately, e.g. `python -m spacy download en_core_web_sm`.
+ner = [
+    "spacy>=3.7",
+]
 dev = [
     "pytest>=8",
     "pytest-asyncio>=0.23",

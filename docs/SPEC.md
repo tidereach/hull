@@ -319,6 +319,16 @@ Thresholds (configurable):
 - **`spektralia scan --explain`** (and hook equivalent) shows: which detectors ran, what they found, what categories the classifier returned, what the block reason was. Labels/categories only — never values.
 - **Actionable block reasons.** Block message is structured: `Blocked: rule(EMAIL,IP_ADDR) + classifier(0.91, [PII])`. Specific enough to act on, generic enough not to leak values. Documented prohibition: never include the offending value in any user-visible message.
 
+#### 13.5.1 Contextual PII / NER (opt-in, `ner.py`)
+
+The disclaimer above states the gate "does not detect contextual personal data (names in prose, …)". As of #44 this gap can be closed **opt-in**: with `Settings.ner_enabled = True` (default `False`), a local Named-Entity-Recognition pass (spaCy, via the `ner` extra) runs after normalization-based scanning and before the Ollama classifier. Detected `PERSON`, `LOC`, and `ORG` spans become detections — treated as rule hits and run through the same span-replacement sanitizer as regex matches.
+
+- **Default-off.** Existing installs are unaffected until the operator opts in and downloads a model (`python -m spacy download en_core_web_sm`). `ner_enabled`/`ner_model` are policy-affecting (in `config_hash`), so toggling them invalidates the cache.
+- **Fail-soft on absence.** When spaCy or the model is missing, the backend yields no entities and the gate proceeds on regex + entropy + classifier — it never crashes or silently weakens fail-closed behaviour.
+- **Conservative label set.** Only `PERSON`, `GPE`/`LOC`, and `ORG` entity types are surfaced; noisy types (dates, money, ordinals) are dropped to limit false positives. The NER canary corpus (`canary.run_ner_canary`) carries true-positive and false-positive cases.
+
+The verbatim README disclaimer remains accurate for the default configuration; with NER enabled, contextual-name/location/org coverage is best-effort and bounded by the chosen model.
+
 ---
 
 ## 14. Gate orchestration (`gate.py`)
@@ -497,7 +507,7 @@ Spektralia makes no compliance certification claims. The doc states:
 ## 22. Out of scope (v1)
 
 - Outbound message gate at the Anthropic client level (would require custom client or forked Claude Code).
-- NER for contextual PII (roadmap: spaCy `nb_core_news_sm`, `en_core_web_lg`).
+- NER for contextual PII — **implemented opt-in** (§13.5.1; `Settings.ner_enabled`, spaCy via the `ner` extra). Default-off; model downloaded separately.
 - HIPAA-specific patterns (roadmap if a healthcare adopter shows up).
 - Streaming / chunked input (callers must buffer before `gate()`).
 - Persistent / distributed cache.

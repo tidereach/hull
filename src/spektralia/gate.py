@@ -59,6 +59,7 @@ class Gate:
         self._client: httpx.Client | None = None
         self._model_digest = ""
         self._last_canary: CanaryResult | None = None
+        self._ner_backend = None  # lazily built when ner_enabled
 
         integrity = get_integrity_report(None, s.ollama_model)
         self._prompt_hash = integrity["prompt_hash"]
@@ -71,6 +72,14 @@ class Gate:
             heartbeat_seconds=s.heartbeat_seconds,
             heartbeat_every_n_calls=s.heartbeat_every_n_calls,
         )
+
+    def _get_ner_backend(self):
+        """Lazily construct the NER backend (model load is expensive)."""
+        if self._ner_backend is None:
+            from .ner import build_ner_backend
+
+            self._ner_backend = build_ner_backend(self._settings.ner_model)
+        return self._ner_backend
 
     def _get_client(self) -> httpx.Client:
         if self._client is None:
@@ -154,6 +163,17 @@ class Gate:
         detections = scan(text)
         detections.extend(find_high_entropy(text))
         detections.extend(decode_and_rescan(text))
+
+        # Contextual PII via local NER (opt-in). Runs after normalization-based
+        # scanning and before the classifier; entity spans are treated as rule
+        # hits and sanitized like any other detection.
+        if s.ner_enabled:
+            from .ner import scan_entities
+
+            try:
+                detections.extend(scan_entities(text, self._get_ner_backend()))
+            except Exception as e:  # NER must never crash the gate
+                logger.warning("ner error: %s", e)
 
         # Check for regex timeout — fail closed
         rule_labels = {d.label for d in detections}
