@@ -147,6 +147,24 @@ def test_parse_response_clamps_out_of_range_confidence():
     assert confidence == 1.0
 
 
+def test_parse_response_empty_categories_emits_debug_log(caplog):
+    raw = json.dumps({"sensitive": True, "confidence": 1.0, "categories": []})
+    import logging
+
+    with caplog.at_level(logging.DEBUG, logger="spektralia.classifier"):
+        _parse_response(raw)
+    assert any("empty categories" in r.message for r in caplog.records)
+
+
+def test_parse_response_nonempty_categories_no_debug_log(caplog):
+    raw = json.dumps({"sensitive": True, "confidence": 0.9, "categories": ["PII"]})
+    import logging
+
+    with caplog.at_level(logging.DEBUG, logger="spektralia.classifier"):
+        _parse_response(raw)
+    assert not any("empty categories" in r.message for r in caplog.records)
+
+
 # ---------------------------------------------------------------------------
 # Fast mode (single framing) and framing-2 failure
 # ---------------------------------------------------------------------------

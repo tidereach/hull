@@ -91,6 +91,11 @@ def _parse_response(raw: str) -> tuple[bool, float, list[str]]:
     raw_cats = data.get("categories", [])
     categories = [c for c in raw_cats if isinstance(c, str) and c in _KNOWN_CATEGORIES]
 
+    if sensitive and not categories:
+        # raw is the Ollama response body — it does not contain the scanned input text,
+        # so logging it here does not leak secrets.
+        logger.debug("classifier returned sensitive=True with empty categories; raw=%s", raw)
+
     return sensitive, confidence, categories
 
 
