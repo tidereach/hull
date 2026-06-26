@@ -47,8 +47,53 @@ def _emit_hook_identity(payload: dict) -> None:
         pass  # Never block session start on identity emit failure
 
 
+def _check_hook_integrity() -> tuple[str, str]:
+    """Verify installed hook scripts against the recorded manifest.
+
+    Returns ``(decision, reason)`` where ``decision`` is "continue" or "block".
+    Emits an audit event for every outcome so tamper attempts and the absence
+    of a manifest are both visible after the fact. Honours
+    ``Settings.hook_integrity_mode``: "off" skips, "warn" audits and continues,
+    "block" refuses the session on a mismatch.
+    """
+    try:
+        from spektralia.audit import AuditChain
+        from spektralia.config import Settings
+        from spektralia.hook_manifest import verify_hook_integrity
+
+        s = Settings.from_env()
+        if s.hook_integrity_mode == "off":
+            return "continue", ""
+
+        status, problems = verify_hook_integrity(s.effective_hook_manifest_path())
+        chain = AuditChain(s.state_dir)
+        chain.emit(
+            "hook_integrity_check",
+            pattern_hash="",
+            model_digest="",
+            prompt_hash="",
+            status=status,
+            problems=problems,
+            mode=s.hook_integrity_mode,
+        )
+        chain.close()
+
+        if status == "mismatch" and s.hook_integrity_mode == "block":
+            return "block", "Hook script tampering detected:\n" + "\n".join(problems)
+    except Exception:
+        # Never let an integrity-check failure crash session start; the audit
+        # emit above is best-effort and the gate itself remains fail-closed.
+        return "continue", ""
+    return "continue", ""
+
+
 def handle(payload: dict) -> dict:
     _emit_hook_identity(payload)
+
+    integrity_decision, integrity_reason = _check_hook_integrity()
+    if integrity_decision == "block":
+        return {"action": "block", "reason": integrity_reason}
+
     failures: list[str] = []
 
     checks = [

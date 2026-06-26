@@ -337,7 +337,50 @@ def cmd_install_hooks(args: argparse.Namespace) -> int:
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(output)
     print(f"OK: hooks installed → {target} ({scope})")
+
+    _record_hook_manifest(hooks_dir)
     return cmd_hook_check(args)
+
+
+def _record_hook_manifest(hooks_dir: Path) -> None:
+    """Record SHA-256 digests of installed hook scripts for tamper detection."""
+    from .config import Settings
+    from .hook_manifest import write_manifest
+
+    try:
+        s = Settings.from_env()
+        manifest_path = s.effective_hook_manifest_path()
+        write_manifest(manifest_path, hooks_dir)
+        print(f"OK: hook integrity manifest recorded → {manifest_path}")
+    except Exception as e:
+        # Manifest recording is best-effort hardening; never fail the install on it.
+        print(f"WARN: could not write hook manifest: {e}", file=sys.stderr)
+
+
+def cmd_verify_hooks(args: argparse.Namespace) -> int:
+    """Verify installed hook scripts match the recorded integrity manifest."""
+    from .config import Settings
+    from .hook_manifest import verify_hook_integrity
+
+    s = Settings.from_env()
+    manifest_path = s.effective_hook_manifest_path()
+    status, problems = verify_hook_integrity(manifest_path)
+
+    if status == "no_manifest":
+        print(
+            f"WARN: no hook manifest at {manifest_path} — run 'spektralia install-hooks'",
+            file=sys.stderr,
+        )
+        # Absence is only fatal when the operator demands strict integrity.
+        return 1 if s.hook_integrity_mode == "block" else 0
+
+    if status == "ok":
+        print("OK: hook scripts match recorded manifest")
+        return 0
+
+    for p in problems:
+        print(f"TAMPER: {p}", file=sys.stderr)
+    return 1
 
 
 def cmd_hook_check(args: argparse.Namespace) -> int:
@@ -370,6 +413,21 @@ def cmd_hook_check(args: argparse.Namespace) -> int:
         return 1
     sources = sorted({hook_sources[h] for h in required})
     print(f"OK: all required hooks present (configured in: {', '.join(sources)})")
+
+    # Surface hook-script integrity status (non-fatal here; SessionStart enforces
+    # the WARN/BLOCK policy per Settings.hook_integrity_mode).
+    from .config import Settings
+    from .hook_manifest import verify_hook_integrity
+
+    s = Settings.from_env()
+    status, problems = verify_hook_integrity(s.effective_hook_manifest_path())
+    if status == "ok":
+        print("OK: hook integrity manifest verified")
+    elif status == "no_manifest":
+        print("INFO: no hook integrity manifest recorded yet")
+    else:
+        for p in problems:
+            print(f"WARN: hook integrity — {p}", file=sys.stderr)
     return 0
 
 
@@ -410,6 +468,7 @@ def main() -> None:
 
     sub.add_parser("scan-config")
     sub.add_parser("hook-check")
+    sub.add_parser("verify-hooks")
 
     p_install_hooks = sub.add_parser("install-hooks")
     p_install_hooks.add_argument("--dry-run", action="store_true")
@@ -431,6 +490,7 @@ def main() -> None:
         "audit-purge": cmd_audit_purge,
         "scan-config": cmd_scan_config,
         "hook-check": cmd_hook_check,
+        "verify-hooks": cmd_verify_hooks,
         "install-hooks": cmd_install_hooks,
     }
 
