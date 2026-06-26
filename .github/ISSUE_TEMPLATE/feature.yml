@@ -1,0 +1,68 @@
+name: Feature request
+description: "Agent start-here: read docs/SPEC.md for the relevant §, then check src/spektralia/ for the affected module. Propose a new capability or enhancement to the sensitivity gate."
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One-sentence description of the feature.
+      placeholder: "e.g. Add IBAN detection pattern with MOD-97 validator"
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation / user story
+      description: Why is this needed? Who benefits? What problem does it solve?
+      placeholder: "As a developer using Spektralia as a Claude Code hook, I want..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_behaviour
+    attributes:
+      label: Proposed behaviour
+      description: Describe the desired behaviour in concrete terms. Include input/output examples where possible.
+    validations:
+      required: true
+
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+      description: What is explicitly NOT part of this feature?
+
+  - type: input
+    id: spec_section
+    attributes:
+      label: SPEC.md section(s) affected
+      description: "e.g. §4 (scanner), §7 (sanitizer)"
+      placeholder: "§"
+
+  - type: checkboxes
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria
+      description: Definition of done — check off as each is met.
+      options:
+        - label: Implementation complete and tests passing (`pytest -q`)
+        - label: New pattern/behaviour covered by unit tests
+        - label: SPEC.md updated to reflect the change (if applicable)
+        - label: Canary corpus updated if new positive/negative examples needed
+        - label: CI green (lint, security, test, verify-sbom)
+
+  - type: textarea
+    id: relevant_files
+    attributes:
+      label: Relevant files / area
+      description: "List source files or directories most likely to be touched. e.g. src/spektralia/patterns.py, src/spektralia/scanner.py, tests/test_patterns.py"
+      placeholder: "src/spektralia/"
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Links to related issues, PRs, SPEC.md sections, or external references.

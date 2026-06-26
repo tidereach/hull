@@ -1,0 +1,51 @@
+name: Task
+description: "Agent start-here: read docs/PLAN.md for current phase status, then check src/spektralia/ for the relevant module. Use this for chores, refactors, CI/tooling work, and documentation updates."
+title: "[Task] "
+labels: ["task"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One-sentence description of what needs to be done.
+      placeholder: "e.g. Increase coverage for ollama_trust.py to ≥80%"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What needs doing
+      description: Detailed description of the work. Break into sub-steps if helpful.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why_now
+    attributes:
+      label: Why now
+      description: What unblocks if this is done? Is there a milestone or dependency?
+
+  - type: checkboxes
+    id: definition_of_done
+    attributes:
+      label: Definition of done
+      description: Check off as each is met.
+      options:
+        - label: Work complete
+        - label: Tests pass (`pytest -q`)
+        - label: CI green (lint, security, test, verify-sbom)
+        - label: Docs/PLAN.md updated if this closes a tracked item
+
+  - type: textarea
+    id: relevant_files
+    attributes:
+      label: Relevant files / area
+      description: "List source files or directories most likely to be touched."
+      placeholder: "src/spektralia/"
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Links to related issues, PRs, SPEC.md sections, or PLAN.md items.

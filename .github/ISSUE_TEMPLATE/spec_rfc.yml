@@ -1,0 +1,70 @@
+name: Spec / RFC
+description: "Agent start-here: read docs/SPEC.md and docs/RATIONALE.md for existing design decisions before drafting. Changes here usually touch docs/SPEC.md, src/spektralia/gate.py, and the relevant sub-module."
+title: "[RFC] "
+labels: ["spec", "enhancement"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One-sentence description of the proposed design change.
+      placeholder: "e.g. Add NER-based contextual PII detection as an opt-in v2 scanner"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What limitation or gap in the current design does this address?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_design
+    attributes:
+      label: Proposed design
+      description: Describe the new behaviour, data flow, and any new components. Reference SPEC.md sections where relevant.
+    validations:
+      required: true
+
+  - type: input
+    id: spec_sections
+    attributes:
+      label: SPEC.md sections affected
+      description: "e.g. §4 (scanner), §9 (classifier)"
+      placeholder: "§"
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches were weighed? Why were they rejected?
+
+  - type: textarea
+    id: security_privacy
+    attributes:
+      label: Security / privacy impact
+      description: Does this change the gate's fail-closed behaviour, audit chain, or sanitizer guarantees? If so, how?
+
+  - type: checkboxes
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria
+      options:
+        - label: SPEC.md updated with new/revised sections
+        - label: RATIONALE.md updated with decision record
+        - label: Implementation (if any) covered by tests
+        - label: CI green
+
+  - type: textarea
+    id: relevant_files
+    attributes:
+      label: Relevant files / area
+      placeholder: "docs/SPEC.md, docs/RATIONALE.md, src/spektralia/"
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Related issues, prior RFCs, external research, or THREATS.md entries.
