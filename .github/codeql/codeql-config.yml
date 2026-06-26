@@ -1,0 +1,9 @@
+name: "Spektralia CodeQL config"
+
+# tests/ deliberately create files with permissive modes (0o644, 0o666, 0o777)
+# as fixtures that verify the security-detection code rejects them.
+# CodeQL's py/overly-permissive-file rule flags these as findings, but they
+# are intentional test scaffolding, not production vulnerabilities.
+# Production code (src/) only uses restrictive modes (0o600, 0o700).
+paths-ignore:
+  - tests/
