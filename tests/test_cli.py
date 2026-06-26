@@ -206,6 +206,78 @@ class TestCmdAuditVerify:
         code = cmd_audit_verify(_args(path=str(log_path)))
         assert code == 1
 
+    def test_valid_identity_signature_exits_0(self, tmp_path, capsys, monkeypatch, mock_settings):
+        monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
+        import spektralia.integrity as integrity_mod
+        from spektralia.audit import AppendOnlyFileSink, AuditChain
+        from spektralia.integrity import compute_hook_identity
+
+        # Force the deterministic HMAC identity scheme (no crypto/keyring needed).
+        monkeypatch.setattr(integrity_mod, "get_or_create_ed25519_seed", lambda: b"")
+        monkeypatch.setattr(integrity_mod, "get_or_create_hook_key", lambda: b"\x09" * 32)
+
+        log_path = tmp_path / "audit.jsonl"
+        chain = AuditChain(tmp_path, sink=AppendOnlyFileSink(log_path))
+        chain.emit(
+            "hook_identity",
+            pattern_hash="",
+            model_digest="",
+            prompt_hash="",
+            identity=compute_hook_identity("sess"),
+        )
+        chain.close()
+
+        mock_settings.state_dir = tmp_path
+        code = cmd_audit_verify(_args(path=str(log_path), pubkey=None))
+        assert code == 0
+        assert "1 signed" in capsys.readouterr().out
+
+    def test_bad_identity_signature_exits_1(self, tmp_path, capsys, monkeypatch, mock_settings):
+        monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
+        import spektralia.integrity as integrity_mod
+        from spektralia.audit import AppendOnlyFileSink, AuditChain
+
+        monkeypatch.setattr(integrity_mod, "get_or_create_hook_key", lambda: b"\x09" * 32)
+
+        log_path = tmp_path / "audit.jsonl"
+        chain = AuditChain(tmp_path, sink=AppendOnlyFileSink(log_path))
+        chain.emit(
+            "hook_identity",
+            pattern_hash="",
+            model_digest="",
+            prompt_hash="",
+            identity={"scheme": "hmac", "nonce": "sess:1", "sig": "00" * 32},
+        )
+        chain.close()
+
+        mock_settings.state_dir = tmp_path
+        code = cmd_audit_verify(_args(path=str(log_path), pubkey=None))
+        assert code == 1
+        assert "IDENTITY SIGNATURE INVALID" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# hook-pubkey
+# ---------------------------------------------------------------------------
+
+
+class TestCmdHookPubkey:
+    def test_prints_pubkey_when_available(self, monkeypatch, capsys):
+        from spektralia.cli import cmd_hook_pubkey
+
+        monkeypatch.setattr("spektralia.integrity.hook_public_key_hex", lambda: "ab" * 32)
+        code = cmd_hook_pubkey(_args())
+        assert code == 0
+        assert "ab" * 32 in capsys.readouterr().out
+
+    def test_fails_when_unavailable(self, monkeypatch, capsys):
+        from spektralia.cli import cmd_hook_pubkey
+
+        monkeypatch.setattr("spektralia.integrity.hook_public_key_hex", lambda: "")
+        code = cmd_hook_pubkey(_args())
+        assert code == 1
+        assert "FAIL" in capsys.readouterr().err
+
 
 # ---------------------------------------------------------------------------
 # audit-rotate

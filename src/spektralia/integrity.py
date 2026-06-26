@@ -16,6 +16,7 @@ from .patterns import PATTERNS
 
 _KEYRING_SERVICE = "spektralia"
 _KEYRING_KEY = "hook_identity_key"
+_KEYRING_ED25519_KEY = "hook_ed25519_seed"
 
 
 def compute_pattern_hash() -> str:
@@ -118,6 +119,11 @@ def get_or_create_hook_key() -> bytes:
 
     Stored in the system keyring under service='spektralia'. Returns empty bytes
     if keyring is unavailable — callers treat that as unauthenticated.
+
+    Catches ``BaseException`` rather than ``Exception``: some broken keyring
+    backends raise ``pyo3_runtime.PanicException`` (a ``BaseException`` subclass)
+    from their Rust bindings, which must degrade to "unauthenticated" rather than
+    crashing the hook.
     """
     try:
         import keyring
@@ -128,7 +134,7 @@ def get_or_create_hook_key() -> bytes:
         key = _secrets.token_bytes(32)
         keyring.set_password(_KEYRING_SERVICE, _KEYRING_KEY, key.hex())
         return key
-    except Exception:
+    except BaseException:
         return b""
 
 
@@ -137,6 +143,9 @@ def compute_hook_token(session_id: str | None = None) -> str:
 
     Returns empty string if the keyring key is unavailable — the absence of a
     token is itself auditable (hook replaced or keyring broken).
+
+    Retained for backward compatibility; new callers should prefer
+    :func:`compute_hook_identity`, which prefers Ed25519 signatures.
     """
     key = get_or_create_hook_key()
     if not key:
@@ -144,3 +153,147 @@ def compute_hook_token(session_id: str | None = None) -> str:
     wall_ns = time.time_ns()
     msg = f"{session_id or 'unknown'}:{wall_ns}".encode()
     return hmac.new(key, msg, hashlib.sha256).hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# Ed25519 cryptographic hook identity (#45)
+#
+# The HMAC token above makes hook substitution auditable after the fact but
+# cannot prove identity to a third party without sharing the secret. An Ed25519
+# key pair lets the hook sign a per-call nonce; a verifier holding only the
+# public key can confirm authenticity without keyring access. HMAC remains the
+# fallback when ``cryptography`` or the keyring is unavailable.
+# ---------------------------------------------------------------------------
+
+
+def _ed25519_module():
+    """Return the cryptography Ed25519 module, or ``None`` if unavailable.
+
+    Catches ``BaseException`` because a broken ``cryptography`` install can raise
+    ``pyo3_runtime.PanicException`` (not ``ImportError``) when its Rust bindings
+    fail to load.
+    """
+    try:
+        from cryptography.hazmat.primitives.asymmetric import ed25519
+
+        return ed25519
+    except BaseException:  # pragma: no cover - broken/absent cryptography install
+        return None
+
+
+def get_or_create_ed25519_seed() -> bytes:
+    """Return the raw 32-byte Ed25519 private seed, generating one on first call.
+
+    Stored hex-encoded in the system keyring. Returns empty bytes if either
+    ``cryptography`` or the keyring is unavailable, so callers fall back to HMAC.
+    """
+    ed25519 = _ed25519_module()
+    if ed25519 is None:
+        return b""
+    try:
+        import keyring
+        from cryptography.hazmat.primitives.serialization import (
+            Encoding,
+            NoEncryption,
+            PrivateFormat,
+        )
+
+        stored = keyring.get_password(_KEYRING_SERVICE, _KEYRING_ED25519_KEY)
+        if stored:
+            return bytes.fromhex(stored)
+        priv = ed25519.Ed25519PrivateKey.generate()
+        seed = priv.private_bytes(Encoding.Raw, PrivateFormat.Raw, NoEncryption())
+        keyring.set_password(_KEYRING_SERVICE, _KEYRING_ED25519_KEY, seed.hex())
+        return seed
+    except BaseException:
+        return b""
+
+
+def hook_public_key_hex() -> str:
+    """Return the hex-encoded Ed25519 public key, or "" if unavailable.
+
+    A verifier can pin this value (e.g. via ``audit-verify --pubkey``) to check
+    hook signatures without keyring access.
+    """
+    seed = get_or_create_ed25519_seed()
+    ed25519 = _ed25519_module()
+    if not seed or ed25519 is None:
+        return ""
+    try:
+        from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+        priv = ed25519.Ed25519PrivateKey.from_private_bytes(seed)
+        pub = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+        return pub.hex()
+    except BaseException:  # pragma: no cover - cryptography runtime failure
+        return ""
+
+
+def compute_hook_identity(session_id: str | None = None) -> dict[str, str]:
+    """Build a per-call identity proof for a hook invocation.
+
+    Returns a dict with at least ``scheme`` and ``nonce``. Prefers an Ed25519
+    signature (``scheme="ed25519"`` with ``sig`` and ``pub``); falls back to an
+    HMAC tag (``scheme="hmac"`` with ``sig``); finally ``scheme="none"`` with an
+    empty signature when no key material is reachable. The absence of a signature
+    is itself auditable.
+    """
+    wall_ns = time.time_ns()
+    nonce = f"{session_id or 'unknown'}:{wall_ns}"
+
+    seed = get_or_create_ed25519_seed()
+    ed25519 = _ed25519_module()
+    if seed and ed25519 is not None:
+        try:
+            from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+            priv = ed25519.Ed25519PrivateKey.from_private_bytes(seed)
+            sig = priv.sign(nonce.encode()).hex()
+            pub = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw).hex()
+            return {"scheme": "ed25519", "nonce": nonce, "sig": sig, "pub": pub}
+        except BaseException:  # pragma: no cover - cryptography runtime failure
+            pass
+
+    key = get_or_create_hook_key()
+    if key:
+        sig = hmac.new(key, nonce.encode(), hashlib.sha256).hexdigest()
+        return {"scheme": "hmac", "nonce": nonce, "sig": sig}
+
+    return {"scheme": "none", "nonce": nonce, "sig": ""}
+
+
+def verify_hook_identity(identity: dict, *, trusted_pub_hex: str | None = None) -> bool:
+    """Verify an identity proof produced by :func:`compute_hook_identity`.
+
+    For Ed25519 proofs the signature is checked against ``trusted_pub_hex`` when
+    supplied, otherwise against the locally stored key's public half — so a
+    forged ``pub`` embedded in the proof cannot pass. HMAC proofs are checked by
+    recomputing the tag with the stored key. Returns ``False`` for unsigned
+    (``scheme="none"``) proofs, unknown schemes, or any verification error.
+    """
+    scheme = identity.get("scheme")
+    nonce = str(identity.get("nonce", ""))
+    sig = str(identity.get("sig", ""))
+
+    if scheme == "ed25519":
+        ed25519 = _ed25519_module()
+        if ed25519 is None:
+            return False
+        pub_hex = trusted_pub_hex or hook_public_key_hex()
+        if not pub_hex:
+            return False
+        try:
+            pub = ed25519.Ed25519PublicKey.from_public_bytes(bytes.fromhex(pub_hex))
+            pub.verify(bytes.fromhex(sig), nonce.encode())
+            return True
+        except BaseException:
+            return False
+
+    if scheme == "hmac":
+        key = get_or_create_hook_key()
+        if not key:
+            return False
+        expected = hmac.new(key, nonce.encode(), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(expected, sig)
+
+    return False
