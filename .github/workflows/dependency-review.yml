@@ -22,6 +22,29 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check dependency-review support
+        id: support-check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          IS_PRIVATE: ${{ github.event.repository.private }}
+        run: |
+          if [ "$IS_PRIVATE" != "true" ]; then
+            echo "supported=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          advanced_security_status="$(
+            gh api "repos/$REPOSITORY" --jq '.security_and_analysis.advanced_security.status // "disabled"'
+          )"
+          if [ "$advanced_security_status" = "enabled" ]; then
+            echo "supported=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "supported=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping dependency-review because GitHub Advanced Security is not enabled for this private repository."
+          fi
+
       - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4
+        if: steps.support-check.outputs.supported == 'true'
         with:
           fail-on-severity: moderate
