@@ -176,6 +176,19 @@ When enabled, detected `PERSON`, `LOC`, and `ORG` spans are treated as rule hits
 
 ---
 
+### Gating model outputs (opt-in)
+
+By default Spektralia gates only the *outbound* payload. It can also scan **finalized assistant turns** — catching a model that echoes back sensitive content or synthesizes new sensitive output — via the `Stop` hook. Off by default:
+
+```bash
+export SPEKTRALIA_GATE_OUTPUTS=1            # or gate_outputs = true in TOML
+export SPEKTRALIA_GATE_OUTPUTS_MODE=warn    # "warn" (audit only) or "block"
+```
+
+The assistant turn is read at the `Stop` boundary and run through the deterministic pipeline (regex + entropy + decoded payloads + opt-in NER). In `warn` mode a flagged turn emits an `output_flagged` audit event and the session still stops; in `block` mode the Stop is refused so the model is asked to revise. The Ollama classifier is deliberately **not** run per-turn (it would add interactive latency); classifier-based output gating is a v3 consideration. Streaming output is not intercepted — only complete turns.
+
+---
+
 ## Key decisions, by phase
 
 ### Phase 1 — Deterministic core (spec §§4–8, §10, §12)
@@ -263,7 +276,7 @@ Compliance documentation maps each gate component to its OWASP ASI Top 10 risk. 
 ## What this gate does NOT cover
 
 - **Contextual PII in prose** — names, addresses, free-text NER. Regex cannot reliably detect these. Now available **opt-in** via a local NER pass (see below); off by default.
-- **Model outputs / assistant turns** — gating the response stream is the wrong surface for this problem.
+- **Model output streams** — token-by-token streaming is not intercepted. Finalized assistant *turns* can be scanned **opt-in** (see below); the live stream is out of scope.
 - **`/compact` summarization** — this happens above the API boundary. Start fresh sessions for sensitive work.
 - **Attachments** — refused by default; `--allow-attachments` to opt in.
 - **Network MITM on the Anthropic API** — out of threat model scope.

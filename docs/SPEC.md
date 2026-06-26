@@ -329,6 +329,15 @@ The disclaimer above states the gate "does not detect contextual personal data (
 
 The verbatim README disclaimer remains accurate for the default configuration; with NER enabled, contextual-name/location/org coverage is best-effort and bounded by the chosen model.
 
+#### 13.5.2 Gating model outputs / assistant turns (opt-in, `output_gate.py`)
+
+The gate primarily scans the *outbound* payload. As of #47 it can also scan **finalized assistant turns** opt-in (`Settings.gate_outputs`, default `False`), catching a model that echoes back sensitive content it was given or synthesizes new sensitive output. The finalized turn is read at the `Stop` hook boundary (`transcript_path`) and run through the deterministic pipeline (regex + entropy + decoded payloads + opt-in NER).
+
+- **Finalized turns, not streaming.** Token streams are not intercepted — there is no clean hook surface and per-token scanning would add latency. We scan the complete turn at `Stop`.
+- **Classifier deferred for latency.** The Ollama classifier is *not* run per assistant turn (the issue's explicit performance budget); output gating is rule-deterministic. Classifier-based output gating is a v3 consideration.
+- **`warn` vs `block`.** `gate_outputs_mode="warn"` (default) emits an `output_flagged` audit event and lets the turn stand; `"block"` refuses the Stop so the model is asked to revise.
+- Both settings are non-policy (they govern the output surface, not the outbound verdict/cache key).
+
 ---
 
 ## 14. Gate orchestration (`gate.py`)
@@ -341,7 +350,7 @@ async def gate(text: str, settings: Settings | None = None) -> GateResult
 
 **Block logic:** `rule_hit OR classifier_high`. Either signal is sufficient to block; neither is sufficient to override the other when it dissents toward block.
 
-Audit events fire on: `block`, `warn`, `pass`, `classifier_unavailable`, `rule_classifier_disagreement`, `framing_disagreement`, `hallucinated_token_seen`, `user_override`, `mutation_pattern_detected`, `gate_frozen`, `gate_frozen_auto`, `canary_drift`, `hook_missing`, `ollama_*`, `attachment_seen_unscanned`.
+Audit events fire on: `block`, `warn`, `pass`, `classifier_unavailable`, `rule_classifier_disagreement`, `framing_disagreement`, `hallucinated_token_seen`, `user_override`, `mutation_pattern_detected`, `gate_frozen`, `gate_frozen_auto`, `canary_drift`, `hook_missing`, `ollama_*`, `attachment_seen_unscanned`, `output_flagged` (assistant-turn gating, §13.5.2), `hook_integrity_check` (§13.5.1-adjacent), `hook_identity`.
 
 **Input size cap:** `Settings.max_input_chars` (default 100_000). Above cap → deterministic block with category `"input_too_large"`. No silent truncation.
 

@@ -423,6 +423,97 @@ class TestStop:
         assert result["action"] == "continue"
 
 
+class TestStopOutputGating:
+    """Assistant-turn output gating via the Stop hook (#47)."""
+
+    def setup_method(self):
+        self.mod = load_hook("stop")
+
+    def _audit_actions(self, state_dir):
+        log = state_dir / "audit.jsonl"
+        if not log.exists():
+            return []
+        return [json.loads(ln)["action"] for ln in log.read_text().splitlines() if ln.strip()]
+
+    def test_disabled_does_not_scan(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
+        # gate_outputs unset → default False
+        result = self.mod.handle({"assistant_text": "reach me at alice@example.com"})
+        assert result["action"] == "continue"
+        assert "output_flagged" not in self._audit_actions(tmp_path)
+
+    def test_warn_mode_flags_but_continues(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
+        monkeypatch.setenv("SPEKTRALIA_GATE_OUTPUTS", "1")
+        monkeypatch.setenv("SPEKTRALIA_GATE_OUTPUTS_MODE", "warn")
+        result = self.mod.handle({"assistant_text": "reach me at alice@example.com"})
+        assert result["action"] == "continue"
+        assert "output_flagged" in self._audit_actions(tmp_path)
+
+    def test_block_mode_blocks_on_flag(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
+        monkeypatch.setenv("SPEKTRALIA_GATE_OUTPUTS", "1")
+        monkeypatch.setenv("SPEKTRALIA_GATE_OUTPUTS_MODE", "block")
+        result = self.mod.handle({"assistant_text": "the AWS key is AKIAIOSFODNN7EXAMPLE"})
+        assert result.get("decision") == "block"
+        assert "AWS_KEY" in result["reason"]
+
+    def test_clean_output_continues(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
+        monkeypatch.setenv("SPEKTRALIA_GATE_OUTPUTS", "1")
+        monkeypatch.setenv("SPEKTRALIA_GATE_OUTPUTS_MODE", "block")
+        result = self.mod.handle({"assistant_text": "the build passed, all green"})
+        assert result["action"] == "continue"
+        assert "output_flagged" not in self._audit_actions(tmp_path)
+
+    def test_reads_from_transcript(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
+        monkeypatch.setenv("SPEKTRALIA_GATE_OUTPUTS", "1")
+        monkeypatch.setenv("SPEKTRALIA_GATE_OUTPUTS_MODE", "block")
+        transcript = tmp_path / "t.jsonl"
+        transcript.write_text(
+            json.dumps({"role": "user", "content": "hi"})
+            + "\n"
+            + json.dumps(
+                {
+                    "type": "assistant",
+                    "message": {"content": [{"type": "text", "text": "key AKIAIOSFODNN7EXAMPLE"}]},
+                }
+            )
+            + "\n"
+        )
+        result = self.mod.handle({"transcript_path": str(transcript)})
+        assert result.get("decision") == "block"
+
+    def test_extract_last_assistant_text_string_body(self, tmp_path):
+        transcript = tmp_path / "t.jsonl"
+        transcript.write_text(
+            json.dumps({"role": "assistant", "content": "first"})
+            + "\n"
+            + json.dumps({"role": "user", "content": "q"})
+            + "\n"
+            + json.dumps({"role": "assistant", "content": "second"})
+            + "\n"
+        )
+        assert self.mod._extract_last_assistant_text(str(transcript)) == "second"
+
+    def test_extract_handles_missing_file(self):
+        assert self.mod._extract_last_assistant_text("/no/such/transcript.jsonl") == ""
+
+    def test_extract_skips_malformed_lines(self, tmp_path):
+        transcript = tmp_path / "t.jsonl"
+        transcript.write_text(
+            "{not json\n" + json.dumps({"role": "assistant", "content": "ok"}) + "\n"
+        )
+        assert self.mod._extract_last_assistant_text(str(transcript)) == "ok"
+
+    def test_no_text_available_continues(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path))
+        monkeypatch.setenv("SPEKTRALIA_GATE_OUTPUTS", "1")
+        result = self.mod.handle({})
+        assert result["action"] == "continue"
+
+
 # ---------------------------------------------------------------------------
 # I/O wiring tests (subprocess)
 # ---------------------------------------------------------------------------
