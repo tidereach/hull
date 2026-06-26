@@ -154,9 +154,18 @@ Copy `integrations/claude_code_hooks/settings.example.json` into `.claude/settin
 spektralia hook-check   # verify all hooks are wired correctly
 ```
 
+
 ---
 
 ## Gotchas
+
+- **Entropy allowlist is matched against the original *and* punctuation-stripped token.**
+  `find_high_entropy` strips `/ \ : -` (and similar) before the entropy calc, but the file-path
+  and UUID allowlist matchers anchor on those exact characters. The scan loop checks
+  `_is_allowlisted(token) or _is_allowlisted(clean)` for this reason — checking only the stripped
+  form silently disables file-path exemption for absolute paths (the `/` prefix is gone), which is
+  the false positive fixed in #22. Any new allowlist matcher must tolerate being run on both forms.
+  See SPEC §6 for the full table.
 
 - **`gate()` raises, does not return, on hard block.** In strict mode (default), `gate()` raises
   `SensitiveDataError`. It only returns `GateResult(blocked=True)` in soft mode
