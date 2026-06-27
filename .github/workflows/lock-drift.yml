@@ -9,7 +9,17 @@ permissions:
   contents: read
 
 jobs:
-  scan:
+  osv-scan:
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+    with:
+      scan-args: |-
+        --lockfile=requirements.txt:requirements.lock
+
+  pip-audit:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -34,14 +44,6 @@ jobs:
       - name: Install pip-audit
         run: pip install pip-audit
 
-      - name: Run osv-scanner
-        id: osv
-        continue-on-error: true
-        uses: google/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
-        with:
-          scan-args: |-
-            --lockfile=requirements.txt:requirements.lock
-
       - name: Run pip-audit
         id: audit
         continue-on-error: true
@@ -50,15 +52,10 @@ jobs:
           pip-audit -r requirements.lock 2>&1 | tee pip-audit-output.txt
 
       - name: Write findings summary
-        if: steps.osv.outcome == 'failure' || steps.audit.outcome == 'failure'
+        if: steps.audit.outcome == 'failure'
         run: |
           printf '%s\n' \
             '## Nightly lock-drift: vulnerability detected' \
-            '' \
-            '| Scanner | Outcome |' \
-            '|---------|---------|' \
-            '| osv-scanner | ${{ steps.osv.outcome }} |' \
-            '| pip-audit   | ${{ steps.audit.outcome }} |' \
             '' \
             '### pip-audit output' \
             '```' \
@@ -67,7 +64,7 @@ jobs:
           printf '```\n\nRun `pip-audit -r requirements.lock` locally for details.\n' >> findings.md
 
       - name: File issue on findings
-        if: steps.osv.outcome == 'failure' || steps.audit.outcome == 'failure'
+        if: steps.audit.outcome == 'failure'
         uses: peter-evans/create-issue-from-file@fca9117c27cdc29c6c4db3b86c48e4115a786710 # v6.0.0
         with:
           title: "Security: dependency vulnerability detected (nightly scan)"
