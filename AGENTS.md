@@ -112,8 +112,9 @@ source .venv/bin/activate
 pip install -e .[dev]
 pre-commit install   # wire git hooks (ruff, black, mypy, end-of-file-fixer, check-yaml)
 
-# Run tests
+# Run tests (uv not installed; invoke venv directly)
 .venv/bin/pytest -q
+.venv/bin/pre-commit run --files <files>   # lint gate — run before committing touched files
 
 # CLI
 spektralia scan                   # stdin → sanitized stdout; exit 2 on block
@@ -195,6 +196,11 @@ spektralia hook-check   # verify all hooks are wired correctly
 
 ## Gotchas
 
+- **`infra/sandbox` — use `docker compose run --rm agent`, not `up agent`.** `up` exits immediately (no TTY). Use `./start.sh` or `docker compose run --rm agent`.
+- **`infra/sandbox` — bwrap is blocked by Docker's default seccomp.** The entrypoint falls back to direct exec and prints a warning; Docker's `read_only: true` + `:ro` mounts still enforce FS isolation. bwrap works in Podman rootless.
+- **`infra/sandbox` — `userns_mode: "keep-id:..."` is Podman-only.** It is commented out in `docker-compose.yml`; uncomment only when using Podman.
+- **`infra/sandbox` — workspace bind-mount must be pre-created by the user (run `setup.sh` first).** Docker creates the directory as `root` if absent, blocking agent writes. If it's already root-owned: `sudo chown $USER:$USER infra/sandbox/workspace`.
+- **`integrity.py` — pre-existing mypy/ruff issues (fixed in feat/cplt-sndbx-integration).** If they reappear after a rebase: `type: ignore[return-value]` → `type: ignore[no-any-return]`; `isinstance(exc, (A, B))` → `isinstance(exc, A | B)` (UP038).
 - **Entropy allowlist is matched against the original *and* punctuation-stripped token.**
   `find_high_entropy` strips `/ \ : -` (and similar) before the entropy calc, but the file-path
   and UUID allowlist matchers anchor on those exact characters. The scan loop checks
