@@ -81,7 +81,29 @@ def _gate_output(payload: dict, chain, settings) -> dict:
     return {"action": "continue"}
 
 
+def _write_session_event(payload: dict) -> None:
+    """Best-effort: append the turn to the session-streams volume for Airlock (#114)."""
+    try:
+        from spektralia.sessions.writer import append_session_event
+
+        session_id = payload.get("session_id") or payload.get("sessionId") or "unknown"
+        transcript_path = payload.get("transcript_path") or payload.get("transcriptPath") or ""
+        assistant_text = ""
+        if transcript_path:
+            assistant_text = _extract_last_assistant_text(transcript_path)
+        append_session_event(
+            session_id=str(session_id),
+            source="claude-code",
+            transcript_path=transcript_path,
+            assistant_text=assistant_text,
+        )
+    except Exception:
+        pass  # Never block session termination
+
+
 def handle(payload: dict) -> dict:
+    _write_session_event(payload)
+
     try:
         from spektralia.audit import AuditChain
         from spektralia.config import Settings

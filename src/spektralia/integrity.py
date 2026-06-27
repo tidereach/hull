@@ -29,7 +29,7 @@ def _reraise_if_control(exc: BaseException) -> None:
     still let ``KeyboardInterrupt`` / ``SystemExit`` / ``GeneratorExit`` propagate;
     this guard, called first in each handler, ensures that.
     """
-    if isinstance(exc, (KeyboardInterrupt, SystemExit, GeneratorExit)):
+    if isinstance(exc, KeyboardInterrupt | SystemExit | GeneratorExit):
         raise exc
 
 
@@ -220,7 +220,7 @@ def get_or_create_ed25519_seed() -> bytes:
         priv = ed25519.Ed25519PrivateKey.generate()
         seed = priv.private_bytes(Encoding.Raw, PrivateFormat.Raw, NoEncryption())
         keyring.set_password(_KEYRING_SERVICE, _KEYRING_ED25519_KEY, seed.hex())
-        return seed  # type: ignore[return-value]
+        return seed  # type: ignore[no-any-return]
     except BaseException as exc:
         _reraise_if_control(exc)
         return b""
@@ -241,7 +241,7 @@ def hook_public_key_hex() -> str:
 
         priv = ed25519.Ed25519PrivateKey.from_private_bytes(seed)
         pub = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
-        return pub.hex()  # type: ignore[return-value]
+        return pub.hex()  # type: ignore[no-any-return]
     except BaseException as exc:  # pragma: no cover - cryptography runtime failure
         _reraise_if_control(exc)
         return ""

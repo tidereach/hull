@@ -1,0 +1,27 @@
+# agent.policy — declarative FS isolation policy for the agent container.
+#
+# This file is the human-readable source of truth for which paths the agent
+# may read or write. entrypoint.sh translates it into bwrap arguments.
+# Once landrun is verified (#139), this policy will drive Landlock LSM rules.
+#
+# Format: <access> <path>
+#   ro    read-only bind
+#   rw    read-write bind
+#   tmpfs temporary filesystem (no persistence)
+
+ro    /usr
+ro    /etc
+ro    /lib
+ro    /lib64
+ro    /bin
+ro    /sbin
+ro    /home/agent
+rw    /home/agent/.cache
+rw    /home/agent/.local
+rw    /home/agent/.config
+rw    /work/workspace
+rw    /work/outputs
+rw    /work/session-streams
+ro    /work/repos
+tmpfs /tmp
+tmpfs /var/tmp

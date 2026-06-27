@@ -288,10 +288,23 @@ See `docs/hook-exceptions-v2.md` for full detail. Five items tracked as individu
 
 Detect dangerous AI-agent activity by ingesting session-stream JSONL and triggering an action. Parent epic: **#110**. Carved into the sub-issues below.
 
+**Session-streams volume contract is now live** (landed in `feat/cplt-sndbx-integration`):
+- `infra/sandbox/docker-compose.yml` declares the `session-streams` named volume.
+- The Claude Code Stop hook (`integrations/claude/hooks/stop.py`) writes normalized JSONL turn
+  events to `$SPEKTRALIA_SESSION_STREAMS_DIR/<session_id>.jsonl` via
+  `spektralia.sessions.writer.append_session_event()`.
+- The Copilot Stop hook picks this up automatically (delegates to the Claude hook via
+  `load_claude_hook`).
+- The schema is: `{ts, session_id, source, event_type, transcript_path, assistant_text}`.
+- **#114** can now be built against a real producer; no stub needed.
+
 ### v1 — detect + log only
 
-- **#114** Session ingester core — extensible JSONL stream library (`spektralia.sessions`). `SessionEvent` + `SessionAdapter` protocol + tail-safe stream reader. No agent-specific code.
-- **#115** Session adapter: Claude Code transcript JSONL. Generalises `integrations/claude/hooks/stop.py:_extract_last_assistant_text` into a shared helper.
+- **#114** Session ingester core — extensible JSONL stream library (`spektralia.sessions`).
+  `SessionEvent` + `SessionAdapter` protocol + tail-safe stream reader. `sessions/writer.py`
+  already exists; build `reader.py` and the `SessionEvent` dataclass here.
+- **#115** Session adapter: Claude Code transcript JSONL. `_extract_last_assistant_text` in the
+  Stop hook already feeds the writer; #115 generalises it into a standalone `SessionAdapter`.
 - **#116** CLI: `spektralia session-audit <path>` — offline summary of a transcript file or directory.
 - **#117** Airlock baseline audit + policy doc (new `docs/AIRLOCK.md`). **Supersedes #111** (its baseline scope is absorbed here).
 - **#118** Airlock detection rules + pluggable action interface. `LogAction` ships; `BlockAction` and `VentAction` are protocol-defined and `NotImplementedError`-stubbed for v2.

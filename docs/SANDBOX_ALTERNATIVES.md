@@ -1,12 +1,17 @@
-# Execution-Plane Sandbox Alternatives — Fence vs cplt
+# Execution-Plane Sandbox Alternatives — Fence vs cplt vs cplt-sndbx
 
 Spektralia is the **data plane** of a layered endpoint stack (see
 [docs/ENDPOINT_STACK.md](ENDPOINT_STACK.md)). The **execution plane** — the kernel-enforced
 backstop that contains what a tool call actually *does* against the OS — is supplied by a
 neighbor sandbox. [`docs/ENDPOINT_STACK.md`](ENDPOINT_STACK.md) documents
 [**Fence**](https://github.com/fencesandbox/fence) in that role. This document presents
-[**navikt/cplt**](https://github.com/navikt/cplt) as an alternative and lays out the trade-offs
-**so the operator can choose** — it does not recommend one over the other.
+[**navikt/cplt**](https://github.com/navikt/cplt) and **cplt-sndbx** (the v1 preferred backend,
+lives in `infra/sandbox/`) as alternatives and lays out the trade-offs.
+
+**v1 recommendation: cplt-sndbx** — it is the only option that ships with a Squid egress
+allowlist, per-path FS isolation, the session-streams Airlock contract, and a working Spektralia
+hook layer out of the box. Fence and navikt/cplt are documented here for operators who cannot use
+Podman/Docker or who are evaluating the broader option space.
 
 See also: [docs/ENDPOINT_STACK.md](ENDPOINT_STACK.md) | [docs/THREATS.md](THREATS.md) | [SPEC.md](SPEC.md)
 
@@ -32,25 +37,56 @@ defang postinstall supply-chain hooks. Policy is split between a global
 
 ---
 
+## cplt-sndbx (preferred v1 backend)
+
+cplt-sndbx is a **Podman/Docker Compose stack** that lives in `infra/sandbox/`. It is the
+recommended execution-plane backend for teams already running Linux + Podman/Docker:
+
+- **Hardened compose stack** — two services: a Squid egress proxy (the only service with external
+  network access) and the agent container (internal-only network, forced through proxy).
+- **Read-only rootfs** — `read_only: true` on the agent service; `/tmp`, `~/.cache`, `~/.local`
+  are tmpfs; source repos are mounted `:ro` by default; only the active workspace is `:rw`.
+- **Named volumes** — `agent-config`, `agent-outputs`, `session-streams` (named, not host binds,
+  eliminating the parallel-instance collision in the upstream outline).
+- **Namespace isolation** — `entrypoint.sh` wraps the agent CLI in `bwrap` enforcing the policy
+  from `landlock/agent.policy`. True Landlock LSM is a follow-up (#139, pending landrun
+  verification).
+- **Session-streams Airlock feed** — the Stop hook writes normalized JSONL turn events to
+  `/work/session-streams/<session_id>.jsonl` (backed by the `session-streams` named volume).
+  This is the contract the Airlock ingester (#114) consumes.
+- **Agent-CLI selector** — `AGENT_CLI=copilot|claude|none` build ARG; choose at build time,
+  not image time.
+
+`spektralia check-sandbox --backend cplt-sndbx` asserts `podman` or `docker` is on PATH and the
+`infra/sandbox/` config files match the expected hash. Set `SPEKTRALIA_SANDBOX_OFFLINE=1` to bypass
+the check in CI or offline environments.
+
+### Follow-up items (v2 scope)
+- **#138** Custom seccomp profile restricting kernel-attack syscalls.
+- **#139** True Landlock LSM (per-path R/W at kernel level via landrun or equivalent).
+- **#140** gVisor (`runsc`) runtime for syscall-level isolation.
+- **#142** Prempti sidecar for intent-layer control.
+
+---
+
 ## Comparison
 
-| Dimension | **Fence** | **cplt** |
-|-----------|-----------|----------|
-| Platforms | **Linux only** (`bubblewrap`) | **Linux + macOS** (Landlock+seccomp / Seatbelt) |
-| Kernel mechanism | namespaces + `landlock` + `seccomp` | Landlock + seccomp-BPF (Linux); Seatbelt/SBPL (macOS) |
-| Network model | **default-deny network namespace** (all-or-nothing) | **domain/port-filtering proxy** (granular egress) |
-| git/gh guards | none (that is Prempti's job in the stack) | **built-in** command guards |
-| Credential-file blocking | via directory allowlist | explicit deny of `~/.ssh`, `~/.aws`, `.env*`, `.pem`, `.key` |
-| Env hardening | — | env-var allowlist + `npm_config_ignore_scripts=true` |
-| Config model | manual allowlist | global `config.toml` + committed `.cplt.toml` (deny / propose / trust) |
-| Agent-awareness | generic process sandbox | purpose-built for coding agents; transparent wrapping |
-| Known limitations | Linux-only | Landlock is allowlist-only (cannot deny a subpath inside an allowed dir); macOS Seatbelt deprecation risk; no read-only/full-access presets |
+| Dimension | **Fence** | **navikt/cplt** | **cplt-sndbx** |
+|-----------|-----------|---------|---------|
+| Platforms | **Linux only** (`bubblewrap`) | **Linux + macOS** | Linux + macOS (Podman/Docker) |
+| Kernel mechanism | namespaces + Landlock + seccomp | Landlock + seccomp-BPF / Seatbelt | compose read_only + bwrap namespaces (#139: Landlock LSM planned) |
+| Network model | default-deny namespace | domain/port-filtering proxy | **Squid domain-allowlist proxy** (same pattern, ships with curated lists) |
+| git/gh guards | none | built-in | none (Prempti scope) |
+| Credential-file blocking | directory allowlist | explicit deny list | `:ro` repo mounts + bwrap R/W boundary |
+| Session stream | none | none | **JSONL to `session-streams` named volume** (Airlock substrate) |
+| Spektralia baked in | no | no | **yes** (built into image at compose-build time) |
+| Agent-CLI selector | no | no | **`AGENT_CLI=copilot\|claude\|none`** |
+| v1 preferred | — | — | **yes** |
 
-Two facts dominate the choice. **cplt is the only option that runs on macOS** — Fence's
-`bubblewrap` is Linux-only, so a macOS endpoint that wants an execution plane needs cplt. And
-**cplt's egress proxy is finer-grained than Fence's namespace**: Fence is on/off at the network
-boundary, while cplt can permit specific domains/ports — narrowing (not closing) the
-"covert channel within an allowlisted destination" gap.
+Two facts from the original comparison still stand. **navikt/cplt is the only option that runs on
+macOS without Docker** — Fence's `bubblewrap` is Linux-only, and cplt-sndbx requires
+Podman/Docker. And **cplt's egress proxy is finer-grained than Fence's namespace**: Fence is
+on/off at the network boundary, while cplt and cplt-sndbx both permit specific domains/ports.
 
 ---
 
@@ -121,19 +157,19 @@ backend, then `spektralia check-sandbox` (run automatically at `SessionStart`) v
 
 ```toml
 # .spektralia.toml  →  [spektralia]
-sandbox_backend = "cplt"            # "none" (default) | "fence" | "cplt"
-# sandbox_config_paths = [".cplt.toml", "~/.config/cplt/config.toml"]   # optional override
+sandbox_backend = "cplt-sndbx"      # "none" (default) | "fence" | "cplt" | "cplt-sndbx"
 # sandbox_config_hash = "<sha256>"  # optional: pin for high-assurance endpoints (else detect-only)
 ```
 
-Or via environment: `SPEKTRALIA_SANDBOX_BACKEND=cplt`, `SPEKTRALIA_SANDBOX_CONFIG_HASH=<sha256>`.
+Or via environment: `SPEKTRALIA_SANDBOX_BACKEND=cplt-sndbx`, `SPEKTRALIA_SANDBOX_CONFIG_HASH=<sha256>`.
 
 ```bash
 spektralia check-sandbox
-# backend "none"            -> "OK: no sandbox configured"            (exit 0; default, non-breaking)
-# wrapper missing on PATH   -> "FAIL: cplt not on PATH"              (exit 1; SessionStart blocks)
-# present, detect-only      -> "OK: cplt present, config <hash[:12]>"(exit 0)
-# present, pin mismatch     -> "FAIL: cplt config hash drift ..."    (exit 1; SessionStart blocks)
+# backend "none"                -> "OK: no sandbox configured"                  (exit 0)
+# cplt-sndbx, podman missing    -> "FAIL: neither podman nor docker found"      (exit 1)
+# cplt-sndbx, files missing     -> "FAIL: infra/sandbox config files not found" (exit 1)
+# cplt-sndbx, all ok            -> "OK: cplt-sndbx ready, config <hash[:12]>"   (exit 0)
+# SPEKTRALIA_SANDBOX_OFFLINE=1  -> "OK: cplt-sndbx offline mode"               (exit 0)
 ```
 
 Fail-closed: when a backend is configured, a missing wrapper or drifted pin blocks the session —

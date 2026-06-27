@@ -1,0 +1,94 @@
+# Hardened sandbox container for AI coding agents.
+#
+# Build args (set in .env or override with --build-arg):
+#   AGENT_CLI   copilot | claude | none  (default: copilot)
+#   HOST_UID    host user UID (default: 1000)
+#   HOST_GID    host user GID (default: 1000)
+#
+# Build from repo root so we can COPY spektralia source:
+#   podman build -f infra/sandbox/Containerfile \
+#     --build-arg AGENT_CLI=claude \
+#     -t localhost/agent-sandbox:local .
+#
+# FS isolation layers (defence-in-depth):
+#   1. Compose: read_only rootfs, tmpfs for /tmp+~/.cache, repos :ro
+#   2. bwrap entrypoint: namespace-level R/W policy per path
+#
+# Note (#139): bwrap uses Linux user namespaces (not Landlock LSM).
+# True Landlock enforcement is a follow-up pending landrun verification.
+
+ARG AGENT_CLI=copilot
+ARG HOST_UID=1000
+ARG HOST_GID=1000
+
+FROM node:22-bookworm-slim
+
+ARG AGENT_CLI
+ARG HOST_UID
+ARG HOST_GID
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git \
+        ca-certificates \
+        curl \
+        bubblewrap \
+        python3 \
+        python3-pip \
+        python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+# Rename node user/group to "agent" at the host UID/GID.
+# If HOST_UID/GID differ from 1000, shift the existing ids first.
+RUN if [ "${HOST_GID}" != "1000" ] && getent group "${HOST_GID}" > /dev/null 2>&1; then \
+        existing="$(getent group ${HOST_GID} | cut -d: -f1)"; \
+        groupmod --gid 65534 "$existing"; \
+    fi \
+    && groupmod --gid "${HOST_GID}" --new-name agent node \
+    && if [ "${HOST_UID}" != "1000" ] && getent passwd "${HOST_UID}" > /dev/null 2>&1; then \
+        existing="$(getent passwd ${HOST_UID} | cut -d: -f1)"; \
+        usermod --uid 65533 "$existing"; \
+    fi \
+    && usermod --uid "${HOST_UID}" --gid "${HOST_GID}" --login agent --home /home/agent --move-home node
+
+# Install agent CLI — choose one at build time.
+RUN case "${AGENT_CLI}" in \
+        copilot) npm install -g @github/copilot ;; \
+        claude)  npm install -g @anthropic-ai/claude-code ;; \
+        none)    echo "No agent CLI bundled; install at runtime." ;; \
+        *)       echo "Unknown AGENT_CLI='${AGENT_CLI}'. Valid: copilot|claude|none" && exit 1 ;; \
+    esac
+
+# Install spektralia from the repo tree (build context must be repo root).
+# The source is copied in so no PyPI publish is needed.
+COPY pyproject.toml /opt/spektralia-src/
+COPY src/ /opt/spektralia-src/src/
+COPY integrations/ /opt/spektralia-src/integrations/
+RUN python3 -m pip install --break-system-packages --no-cache-dir /opt/spektralia-src/ \
+    && rm -rf /opt/spektralia-src
+
+# Bake in the entrypoint.
+COPY infra/sandbox/landlock/entrypoint.sh /usr/local/bin/sandbox-entrypoint.sh
+RUN chmod +x /usr/local/bin/sandbox-entrypoint.sh
+
+RUN mkdir -p /home/agent/.config /home/agent/.cache /home/agent/.local \
+        /work/workspace /work/repos /work/outputs /work/session-streams \
+    && chown -R agent:agent /home/agent /work
+
+USER agent
+WORKDIR /work
+
+ENV NODE_ENV=production \
+    npm_config_ignore_scripts=true \
+    YARN_ENABLE_SCRIPTS=false \
+    GIT_TERMINAL_PROMPT=0 \
+    GIT_CONFIG_NOSYSTEM=1 \
+    GIT_CONFIG_COUNT=2 \
+    GIT_CONFIG_KEY_0=commit.gpgsign \
+    GIT_CONFIG_VALUE_0=false \
+    GIT_CONFIG_KEY_1=tag.gpgsign \
+    GIT_CONFIG_VALUE_1=false \
+    TERM=xterm-256color \
+    LANG=C.UTF-8
+
+ENTRYPOINT ["/usr/local/bin/sandbox-entrypoint.sh"]
+CMD ["bash"]

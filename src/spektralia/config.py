@@ -62,8 +62,8 @@ class Settings:
     # Memory
     mlock_secrets: bool = False
 
-    # Sandbox (execution-plane neighbor: Fence or cplt) — see docs/SANDBOX_ALTERNATIVES.md
-    sandbox_backend: Literal["none", "fence", "cplt"] = "none"
+    # Sandbox (execution-plane neighbor) — see docs/SANDBOX_ALTERNATIVES.md
+    sandbox_backend: Literal["none", "fence", "cplt", "cplt-sndbx"] = "none"
     sandbox_config_paths: tuple[str, ...] = ()
     sandbox_config_hash: str | None = None
 

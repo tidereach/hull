@@ -1,0 +1,45 @@
+# Domains the agent and its tools need.
+# Leading dot = wildcard subdomain match.
+# Edit this list to match your project's actual dependencies.
+
+# ── GitHub / Copilot ──────────────────────────────────────────────────────────
+.github.com
+.githubusercontent.com
+.githubcopilot.com
+.github.dev
+copilot-proxy.githubusercontent.com
+
+# ── Anthropic / Claude Code ───────────────────────────────────────────────────
+api.anthropic.com
+.anthropic.com
+statsig.anthropic.com
+
+# ── npm registry ──────────────────────────────────────────────────────────────
+.npmjs.org
+.npmjs.com
+registry.npmjs.org
+
+# ── Python / PyPI ─────────────────────────────────────────────────────────────
+pypi.org
+files.pythonhosted.org
+
+# ── Gradle / Maven ────────────────────────────────────────────────────────────
+.gradle.org
+.maven.org
+.maven.apache.org
+plugins.gradle.org
+repo.maven.apache.org
+services.gradle.org
+repo1.maven.org
+
+# ── SDKMAN ────────────────────────────────────────────────────────────────────
+.sdkman.io
+api.sdkman.io
+
+# ── Node.js ───────────────────────────────────────────────────────────────────
+.nodejs.org
+.nodesource.com
+deb.nodesource.com
+
+# ── Local host services (Ollama, etc.) ───────────────────────────────────────
+host.containers.internal:11434

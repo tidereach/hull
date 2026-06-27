@@ -2,7 +2,7 @@
 
 Local pre-cloud sensitivity gate. Normalizes and scans input for PII, credentials, and internal identifiers before any cloud LLM call; classifies residual risk locally via Ollama; blocks or passes the sanitized payload.
 
-**Authoritative design spec:** [`docs/SPEC.md`](docs/SPEC.md) — read this before touching any code. [`docs/RATIONALE.md`](docs/RATIONALE.md) has the full design arguments. Open bugs and roadmap: [GitHub Issues](https://github.com/dormant-warlock/spektralia/issues). (`docs/PLAN.md` is retiring — see #133.) [`docs/ENDPOINT_STACK.md`](docs/ENDPOINT_STACK.md) shows how Spektralia composes with a sandbox (Fence) and a Falco policy layer (Prempti) into a layered endpoint stack; [`docs/SANDBOX_ALTERNATIVES.md`](docs/SANDBOX_ALTERNATIVES.md) compares Fence with [navikt/cplt](https://github.com/navikt/cplt) as the execution-plane sandbox. [`docs/TEST.md`](docs/TEST.md) is a step-by-step verification guide with expected test counts.
+**Authoritative design spec:** [`docs/SPEC.md`](docs/SPEC.md) — read this before touching any code. [`docs/RATIONALE.md`](docs/RATIONALE.md) has the full design arguments. Open bugs and roadmap: [GitHub Issues](https://github.com/dormant-warlock/spektralia/issues). (`docs/PLAN.md` is retiring — see #133.) [`docs/ENDPOINT_STACK.md`](docs/ENDPOINT_STACK.md) shows how Spektralia composes with a sandbox (Fence) and a Falco policy layer (Prempti) into a layered endpoint stack; [`docs/SANDBOX_ALTERNATIVES.md`](docs/SANDBOX_ALTERNATIVES.md) compares Fence, navikt/cplt, and cplt-sndbx (preferred v1 backend, lives in `infra/sandbox/`). [`docs/TEST.md`](docs/TEST.md) is a step-by-step verification guide with expected test counts.
 
 ---
 
@@ -39,7 +39,10 @@ src/spektralia/
   sanitizer.py         random-suffix tokens, private _restore
   classifier.py        Ollama format=json, two framings, fast mode
   ollama_trust.py      UDS preferred; TCP with PID/exe pin fallback
-  sandbox.py           execution-plane sandbox preflight (fence/cplt); called by check-sandbox
+  sandbox.py           execution-plane sandbox preflight (fence/cplt/cplt-sndbx); called by check-sandbox
+  sessions/
+    __init__.py        package root
+    writer.py          best-effort JSONL turn writer to session-streams volume (Airlock substrate)
   cache.py             LRU keyed on sha256(sanitized_text + config_hash + pattern_hash + model_digest + prompt_hash)
   canary.py            corpus self-test, drift → auto-freeze
   integrity.py         pattern hash, model digest, dep lockfile check
@@ -59,10 +62,24 @@ docs/
   PLAN.md              retiring — see issue #133; content migrating to RATIONALE.md, SPEC.md, and GitHub Issues
   RATIONALE.md         full design arguments
   ENDPOINT_STACK.md    how Spektralia composes with Fence + Prempti into a layered endpoint stack
-  SANDBOX_ALTERNATIVES.md  Fence vs navikt/cplt comparison
+  SANDBOX_ALTERNATIVES.md  Fence vs navikt/cplt vs cplt-sndbx comparison; cplt-sndbx is the v1 preferred backend
   TEST.md              step-by-step verification guide with expected test counts
   COMPLIANCE.md        GDPR/Datatilsynet/PCI-DSS/HIPAA/OWASP ASI Top 10 coverage
   THREATS.md           threat model — in-scope, out-of-scope, what gate does NOT detect
+
+infra/sandbox/
+  Containerfile        multi-stage image; ARG AGENT_CLI=copilot|claude|none; installs bwrap + spektralia
+  docker-compose.yml   hardened stack: read_only rootfs, tmpfs, repos :ro, session-streams named volume
+  setup.sh             auto-detects HOST_UID/GID → writes .env; run once before build
+  start.sh             podman-compose run --rm agent
+  .env.example         AGENT_CLI, HOST_UID/GID, WORKSPACE_DIR, REPO_PATHS, SESSION_STREAMS_VOLUME
+  proxy/
+    squid.conf         egress allowlist; CONNECT-only; blocks known exfiltration domains
+    allowed-domains.txt  GitHub/Copilot/Anthropic/npm/PyPI + host.containers.internal:11434
+    blocked-domains.txt  webhooks, paste sites, tunnels, IP recon (from LOTS + NAV cplt)
+  landlock/
+    agent.policy       declarative R/W policy (ro/rw/tmpfs per path); entrypoint.sh source of truth
+    entrypoint.sh      bwrap wrapper enforcing agent.policy; falls back without bwrap (#139 = Landlock LSM follow-up)
 
 integrations/claude/
   hooks/
@@ -112,7 +129,9 @@ spektralia audit-purge --before YYYY-MM-DD # GDPR Right to Erasure; re-anchors c
 spektralia scan-config            # lint AGENTS.md / CLAUDE.md files for sensitive content
 spektralia hook-check             # assert Claude Code hooks installed correctly
 spektralia check-ollama           # ping configured Ollama endpoint
-spektralia check-sandbox          # assert configured execution-plane sandbox (fence|cplt) is present
+spektralia check-sandbox          # assert configured execution-plane sandbox (fence|cplt|cplt-sndbx) is present
+                                  # cplt-sndbx: checks podman/docker on PATH + infra/sandbox config hash
+                                  #   bypass: SPEKTRALIA_SANDBOX_OFFLINE=1
 
 # SBOM / supply chain
 make sbom    # regenerate SBOM.json from requirements.lock (reproducible; lockfile-based)

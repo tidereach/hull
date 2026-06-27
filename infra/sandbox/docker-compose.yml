@@ -1,0 +1,127 @@
+# cplt-sndbx sandbox — hardened compose stack.
+#
+# Two services:
+#   proxy  — Squid egress allowlist (only service with internet access)
+#   agent  — AI coding agent (internal network only, all egress through proxy)
+#
+# FS isolation (#137):
+#   - agent rootfs is read-only; /tmp and ~/.cache are tmpfs
+#   - source repos mounted :ro by default (REPO_PATHS env)
+#   - only /work/workspace is a writable host-bind
+#   - agent-config, agent-outputs, session-streams are named volumes
+#
+# Usage:
+#   cp .env.example .env && ./setup.sh    # auto-fills HOST_UID/GID
+#   podman-compose build agent
+#   podman-compose up -d proxy
+#   podman-compose run --rm agent bash
+#
+# Build context must be repo root (for spektralia COPY):
+#   podman-compose -f infra/sandbox/docker-compose.yml build
+
+services:
+
+  # ── Egress proxy (the only service with external network access) ──────────
+  proxy:
+    image: docker.io/ubuntu/squid:latest
+    volumes:
+      - ./proxy/squid.conf:/etc/squid/squid.conf:ro,z
+      - ./proxy/allowed-domains.txt:/etc/squid/allowed-domains.txt:ro,z
+      - ./proxy/blocked-domains.txt:/etc/squid/blocked-domains.txt:ro,z
+    networks:
+      - internal
+      - external
+    mem_limit: 512m
+    cpus: 1.0
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - SETGID
+      - SETUID
+      - SETPCAP
+    security_opt:
+      - no-new-privileges:true
+
+  # ── Agent sandbox (no direct internet — all egress via proxy) ─────────────
+  agent:
+    build:
+      context: ../..                        # repo root — needed for spektralia COPY
+      dockerfile: infra/sandbox/Containerfile
+      args:
+        AGENT_CLI: ${AGENT_CLI:-copilot}
+        HOST_UID: ${HOST_UID:-1000}
+        HOST_GID: ${HOST_GID:-1000}
+    image: localhost/agent-sandbox:local
+    # Rootfs is read-only; all writes go to named volumes or tmpfs mounts.
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+      - /var/tmp:size=128m,mode=1777
+    userns_mode: "keep-id:uid=${HOST_UID:-1000},gid=${HOST_GID:-1000}"
+    security_opt:
+      - no-new-privileges:true
+      - label=disable
+    cap_drop:
+      - ALL
+
+    mem_limit: 8g
+    memswap_limit: 8g
+    cpus: 4.0
+    pids_limit: 512
+
+    volumes:
+      # Only :rw HOST-BIND source-code mount — agent edits land here.
+      - ${WORKSPACE_DIR:-./workspace}:/work/workspace:rw,z
+      # Source repos default :ro (#137). Add more via REPO_PATHS or
+      # by adding explicit entries below with :ro,z.
+      # Named volumes carry runtime state (not source code).
+      - agent-config:/home/agent/.config:rw
+      - agent-outputs:/work/outputs:rw
+      - ${SESSION_STREAMS_VOLUME:-session-streams}:/work/session-streams:rw
+      # tmpfs mounts for home caches (read_only: true would block writes otherwise)
+      - type: tmpfs
+        target: /home/agent/.cache
+        tmpfs:
+          size: 536870912    # 512 MiB
+      - type: tmpfs
+        target: /home/agent/.local
+        tmpfs:
+          size: 268435456    # 256 MiB
+
+    working_dir: /work
+
+    env_file:
+      - .env
+    environment:
+      AGENT_CLI: ${AGENT_CLI:-copilot}
+      TERM: xterm-256color
+      LANG: C.UTF-8
+      HTTP_PROXY: http://proxy:3128
+      HTTPS_PROXY: http://proxy:3128
+      NO_PROXY: "host.containers.internal,host.docker.internal"
+      NODE_EXTRA_CA_CERTS: ""
+      # For local Ollama on the host machine.
+      LOCAL_ENDPOINT: http://host.containers.internal:11434/v1
+      # Spektralia session stream — consumed by Airlock (#114).
+      SPEKTRALIA_SESSION_STREAMS_DIR: /work/session-streams
+
+    networks:
+      - internal
+
+    depends_on:
+      - proxy
+
+    stdin_open: true
+    tty: true
+
+networks:
+  internal:
+    internal: true
+  external:
+    driver: bridge
+
+volumes:
+  agent-config: {}
+  agent-outputs: {}
+  session-streams: {}
