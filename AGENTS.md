@@ -2,7 +2,7 @@
 
 Local pre-cloud sensitivity gate. Normalizes and scans input for PII, credentials, and internal identifiers before any cloud LLM call; classifies residual risk locally via Ollama; blocks or passes the sanitized payload.
 
-**Authoritative design spec:** [`docs/SPEC.md`](docs/SPEC.md) — read this before touching any code. [`docs/PLAN.md`](docs/PLAN.md) has phased status and open bugs. [`docs/RATIONALE.md`](docs/RATIONALE.md) has the full design arguments. [`docs/ENDPOINT_STACK.md`](docs/ENDPOINT_STACK.md) shows how Spektralia composes with a sandbox (Fence) and a Falco policy layer (Prempti) into a layered endpoint stack; [`docs/SANDBOX_ALTERNATIVES.md`](docs/SANDBOX_ALTERNATIVES.md) compares Fence with [navikt/cplt](https://github.com/navikt/cplt) as the execution-plane sandbox. [`docs/TEST.md`](docs/TEST.md) is a step-by-step verification guide with expected test counts.
+**Authoritative design spec:** [`docs/SPEC.md`](docs/SPEC.md) — read this before touching any code. [`docs/RATIONALE.md`](docs/RATIONALE.md) has the full design arguments. Open bugs and roadmap: [GitHub Issues](https://github.com/dormant-warlock/spektralia/issues). (`docs/PLAN.md` is retiring — see #133.) [`docs/ENDPOINT_STACK.md`](docs/ENDPOINT_STACK.md) shows how Spektralia composes with a sandbox (Fence) and a Falco policy layer (Prempti) into a layered endpoint stack; [`docs/SANDBOX_ALTERNATIVES.md`](docs/SANDBOX_ALTERNATIVES.md) compares Fence with [navikt/cplt](https://github.com/navikt/cplt) as the execution-plane sandbox. [`docs/TEST.md`](docs/TEST.md) is a step-by-step verification guide with expected test counts.
 
 ---
 
@@ -56,7 +56,7 @@ scripts/
 
 docs/
   SPEC.md              authoritative design spec
-  PLAN.md              phased status and open bugs
+  PLAN.md              retiring — see issue #133; content migrating to RATIONALE.md, SPEC.md, and GitHub Issues
   RATIONALE.md         full design arguments
   ENDPOINT_STACK.md    how Spektralia composes with Fence + Prempti into a layered endpoint stack
   SANDBOX_ALTERNATIVES.md  Fence vs navikt/cplt comparison
@@ -250,7 +250,7 @@ Every time a detector exclusion or tuning knob changes, record it *immediately* 
 - `docs/SPEC.md` — for anything that becomes part of the design contract (allowlist entries, thresholds, decision rules). See §6 for the model.
 - `AGENTS.md` "Gotchas" — for invariants a future agent must not silently break.
 - Commit message body — the *why*, not just *what*.
-- `docs/PLAN.md` — only if the change closes or advances a tracked phase item.
+- GitHub Issues — file one for any carry-over, bug, or tracked item (PLAN.md is retiring, see #133).
 
 ---
 
