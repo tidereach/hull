@@ -319,6 +319,25 @@ Thresholds (configurable):
 - **`spektralia scan --explain`** (and hook equivalent) shows: which detectors ran, what they found, what categories the classifier returned, what the block reason was. Labels/categories only — never values.
 - **Actionable block reasons.** Block message is structured: `Blocked: rule(EMAIL,IP_ADDR) + classifier(0.91, [PII])`. Specific enough to act on, generic enough not to leak values. Documented prohibition: never include the offending value in any user-visible message.
 
+#### 13.5.1 Contextual PII / NER (opt-in, `ner.py`)
+
+The disclaimer above states the gate "does not detect contextual personal data (names in prose, …)". As of #44 this gap can be closed **opt-in**: with `Settings.ner_enabled = True` (default `False`), a local Named-Entity-Recognition pass (spaCy, via the `ner` extra) runs after normalization-based scanning and before the Ollama classifier. Detected `PERSON`, `LOC`, and `ORG` spans become detections — treated as rule hits and run through the same span-replacement sanitizer as regex matches.
+
+- **Default-off.** Existing installs are unaffected until the operator opts in and downloads a model (`python -m spacy download en_core_web_sm`). `ner_enabled`/`ner_model` are policy-affecting (in `config_hash`), so toggling them invalidates the cache.
+- **Fail-soft on absence.** When spaCy or the model is missing, the backend yields no entities and the gate proceeds on regex + entropy + classifier — it never crashes or silently weakens fail-closed behaviour.
+- **Conservative label set.** Only `PERSON`, `GPE`/`LOC`, and `ORG` entity types are surfaced; noisy types (dates, money, ordinals) are dropped to limit false positives. The NER canary corpus (`canary.run_ner_canary`) carries true-positive and false-positive cases.
+
+The verbatim README disclaimer remains accurate for the default configuration; with NER enabled, contextual-name/location/org coverage is best-effort and bounded by the chosen model.
+
+#### 13.5.2 Gating model outputs / assistant turns (opt-in, `output_gate.py`)
+
+The gate primarily scans the *outbound* payload. As of #47 it can also scan **finalized assistant turns** opt-in (`Settings.gate_outputs`, default `False`), catching a model that echoes back sensitive content it was given or synthesizes new sensitive output. The finalized turn is read at the `Stop` hook boundary (`transcript_path`) and run through the deterministic pipeline (regex + entropy + decoded payloads + opt-in NER).
+
+- **Finalized turns, not streaming.** Token streams are not intercepted — there is no clean hook surface and per-token scanning would add latency. We scan the complete turn at `Stop`.
+- **Classifier deferred for latency.** The Ollama classifier is *not* run per assistant turn (the issue's explicit performance budget); output gating is rule-deterministic. Classifier-based output gating is a v3 consideration.
+- **`warn` vs `block`.** `gate_outputs_mode="warn"` (default) emits an `output_flagged` audit event and lets the turn stand; `"block"` refuses the Stop so the model is asked to revise.
+- Both settings are non-policy (they govern the output surface, not the outbound verdict/cache key).
+
 ---
 
 ## 14. Gate orchestration (`gate.py`)
@@ -331,7 +350,7 @@ async def gate(text: str, settings: Settings | None = None) -> GateResult
 
 **Block logic:** `rule_hit OR classifier_high`. Either signal is sufficient to block; neither is sufficient to override the other when it dissents toward block.
 
-Audit events fire on: `block`, `warn`, `pass`, `classifier_unavailable`, `rule_classifier_disagreement`, `framing_disagreement`, `hallucinated_token_seen`, `user_override`, `mutation_pattern_detected`, `gate_frozen`, `gate_frozen_auto`, `canary_drift`, `hook_missing`, `ollama_*`, `attachment_seen_unscanned`.
+Audit events fire on: `block`, `warn`, `pass`, `classifier_unavailable`, `rule_classifier_disagreement`, `framing_disagreement`, `hallucinated_token_seen`, `user_override`, `mutation_pattern_detected`, `gate_frozen`, `gate_frozen_auto`, `canary_drift`, `hook_missing`, `ollama_*`, `attachment_seen_unscanned`, `output_flagged` (assistant-turn gating, §13.5.2), `hook_integrity_check` (§13.5.1-adjacent), `hook_identity`.
 
 **Input size cap:** `Settings.max_input_chars` (default 100_000). Above cap → deterministic block with category `"input_too_large"`. No silent truncation.
 
@@ -497,7 +516,7 @@ Spektralia makes no compliance certification claims. The doc states:
 ## 22. Out of scope (v1)
 
 - Outbound message gate at the Anthropic client level (would require custom client or forked Claude Code).
-- NER for contextual PII (roadmap: spaCy `nb_core_news_sm`, `en_core_web_lg`).
+- NER for contextual PII — **implemented opt-in** (§13.5.1; `Settings.ner_enabled`, spaCy via the `ner` extra). Default-off; model downloaded separately.
 - HIPAA-specific patterns (roadmap if a healthcare adopter shows up).
 - Streaming / chunked input (callers must buffer before `gate()`).
 - Persistent / distributed cache.

@@ -34,6 +34,7 @@ spektralia self-test       # run canary corpus against live classifier
 spektralia hook-check      # assert Claude Code hooks are installed correctly
 spektralia install-hooks   # write hooks to .claude/settings.json (--dry-run to preview)
 spektralia verify-hooks    # assert installed hook scripts match the recorded integrity manifest
+spektralia hook-pubkey     # print the Ed25519 hook-identity public key (for external pinning)
 ```
 
 ### Hook integrity
@@ -47,7 +48,13 @@ Behaviour is governed by `SPEKTRALIA_HOOK_INTEGRITY_MODE` (`hook_integrity_mode`
 - `block` — refuse to start the session on any digest mismatch.
 - `off` — skip the check entirely.
 
-This is the hash-based foundation; cryptographic call-time identity (Ed25519) layers on top.
+This is the hash-based foundation. On top of it, each hook invocation emits a **cryptographic
+identity proof** into the audit chain: an Ed25519 signature over a per-call nonce when the
+`crypto` extra (`pip install spektralia[crypto]`) and a keyring are available, degrading to a
+keyring HMAC tag and finally to an unsigned marker. `spektralia audit-verify` checks these
+signatures alongside hash-chain integrity; pass `--pubkey <hex>` (from `spektralia hook-pubkey`)
+to pin the trusted public key so verification needs no keyring access. The private key never
+leaves the system keyring.
 
 ### Secure install (hash-pinned)
 
@@ -153,6 +160,35 @@ Threshold range: `0.0` (block on any classifier signal) to `1.0` (only block at 
 
 ---
 
+### Contextual PII (NER, opt-in)
+
+Regex and entropy catch *structured* secrets but miss free-text PII — a person's name or street address written in prose. A local Named-Entity-Recognition pass closes that gap without sending anything to the cloud. It is **off by default**; enable it and install the optional dependency + a model:
+
+```bash
+pip install -e ".[ner]"                  # installs spaCy
+python -m spacy download en_core_web_sm  # download the model (one-off)
+
+export SPEKTRALIA_NER_ENABLED=1          # or ner_enabled = true in TOML
+# optional: SPEKTRALIA_NER_MODEL=en_core_web_lg  (larger, more accurate)
+```
+
+When enabled, detected `PERSON`, `LOC`, and `ORG` spans are treated as rule hits and sanitized like any other detection. When spaCy or the model is absent, the NER pass is a silent no-op — the gate still runs regex + entropy + classifier and stays fail-closed. `ner_enabled`/`ner_model` are policy-affecting (they change the verdict), so toggling them invalidates the verdict cache.
+
+---
+
+### Gating model outputs (opt-in)
+
+By default Spektralia gates only the *outbound* payload. It can also scan **finalized assistant turns** — catching a model that echoes back sensitive content or synthesizes new sensitive output — via the `Stop` hook. Off by default:
+
+```bash
+export SPEKTRALIA_GATE_OUTPUTS=1            # or gate_outputs = true in TOML
+export SPEKTRALIA_GATE_OUTPUTS_MODE=warn    # "warn" (audit only) or "block"
+```
+
+The assistant turn is read at the `Stop` boundary and run through the deterministic pipeline (regex + entropy + decoded payloads + opt-in NER). In `warn` mode a flagged turn emits an `output_flagged` audit event and the session still stops; in `block` mode the Stop is refused so the model is asked to revise. The Ollama classifier is deliberately **not** run per-turn (it would add interactive latency); classifier-based output gating is a v3 consideration. Streaming output is not intercepted — only complete turns.
+
+---
+
 ## Key decisions, by phase
 
 ### Phase 1 — Deterministic core (spec §§4–8, §10, §12)
@@ -239,8 +275,8 @@ Compliance documentation maps each gate component to its OWASP ASI Top 10 risk. 
 
 ## What this gate does NOT cover
 
-- **Contextual PII in prose** — names, addresses, free-text NER. Regex cannot reliably detect these; v2 roadmap item.
-- **Model outputs / assistant turns** — gating the response stream is the wrong surface for this problem.
+- **Contextual PII in prose** — names, addresses, free-text NER. Regex cannot reliably detect these. Now available **opt-in** via a local NER pass (see below); off by default.
+- **Model output streams** — token-by-token streaming is not intercepted. Finalized assistant *turns* can be scanned **opt-in** (see below); the live stream is out of scope.
 - **`/compact` summarization** — this happens above the API boundary. Start fresh sessions for sensitive work.
 - **Attachments** — refused by default; `--allow-attachments` to opt in.
 - **Network MITM on the Anthropic API** — out of threat model scope.

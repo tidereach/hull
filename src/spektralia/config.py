@@ -79,6 +79,19 @@ class Settings:
     # Normalization
     normalization_map_version: int = 1
 
+    # Contextual PII / NER (opt-in; requires the `ner` extra). Both fields are
+    # policy-affecting — toggling NER or its model changes the scan verdict, so
+    # they stay IN config_hash() and invalidate the cache when changed.
+    ner_enabled: bool = False
+    ner_model: str = "en_core_web_sm"
+
+    # Gate model outputs / assistant turns (#47). Opt-in; scans finalized
+    # assistant turns with the deterministic pipeline. "warn" audits only;
+    # "block" asks the Stop hook to refuse termination. Non-policy: governs the
+    # output-gating surface, not the outbound content-scan verdict/cache key.
+    gate_outputs: bool = False
+    gate_outputs_mode: Literal["warn", "block"] = "warn"
+
     # These fields are NOT policy-affecting (not in config_hash)
     _non_policy: frozenset[str] = field(
         default_factory=lambda: frozenset(
@@ -104,6 +117,10 @@ class Settings:
                 # content-scan verdict, so it stays out of config_hash()/the cache key.
                 "hook_integrity_mode",
                 "hook_manifest_path",
+                # Output gating governs the assistant-turn surface, not the
+                # outbound content-scan verdict, so it stays out of config_hash().
+                "gate_outputs",
+                "gate_outputs_mode",
                 "_non_policy",
             }
         ),
@@ -148,6 +165,10 @@ class Settings:
             "SPEKTRALIA_SANDBOX_CONFIG_HASH": ("sandbox_config_hash", str),
             "SPEKTRALIA_HOOK_INTEGRITY_MODE": ("hook_integrity_mode", str),
             "SPEKTRALIA_HOOK_MANIFEST_PATH": ("hook_manifest_path", Path),
+            "SPEKTRALIA_NER_ENABLED": ("ner_enabled", _bool_env),
+            "SPEKTRALIA_NER_MODEL": ("ner_model", str),
+            "SPEKTRALIA_GATE_OUTPUTS": ("gate_outputs", _bool_env),
+            "SPEKTRALIA_GATE_OUTPUTS_MODE": ("gate_outputs_mode", str),
         }
         for env_key, (attr, coerce) in mapping.items():
             val = os.environ.get(env_key)

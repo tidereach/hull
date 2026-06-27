@@ -168,7 +168,28 @@ def cmd_audit_verify(args: argparse.Namespace) -> int:
         if broken:
             print(f"CHAIN BROKEN at indices: {broken}", file=sys.stderr)
             return 1
-        print(f"OK: {len(records)} records, chain intact")
+
+        # Identity-signature verification (#45): records carrying an `identity`
+        # proof must verify against the trusted Ed25519 public key (pinned via
+        # --pubkey, else derived from the local keyring) or the stored HMAC key.
+        from .integrity import verify_hook_identity
+
+        trusted_pub = getattr(args, "pubkey", None)
+        bad_sigs: list[int] = []
+        signed = 0
+        for i, rec in enumerate(records):
+            identity = rec.get("identity")
+            if not isinstance(identity, dict) or identity.get("scheme") in (None, "none"):
+                continue
+            signed += 1
+            if not verify_hook_identity(identity, trusted_pub_hex=trusted_pub):
+                bad_sigs.append(i)
+        if bad_sigs:
+            print(f"IDENTITY SIGNATURE INVALID at indices: {bad_sigs}", file=sys.stderr)
+            return 1
+
+        sig_note = f", {signed} signed" if signed else ""
+        print(f"OK: {len(records)} records, chain intact{sig_note}")
         return 0
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
@@ -357,6 +378,22 @@ def _record_hook_manifest(hooks_dir: Path) -> None:
         print(f"WARN: could not write hook manifest: {e}", file=sys.stderr)
 
 
+def cmd_hook_pubkey(args: argparse.Namespace) -> int:
+    """Print the Ed25519 hook-identity public key for external pinning."""
+    from .integrity import hook_public_key_hex
+
+    pub = hook_public_key_hex()
+    if not pub:
+        print(
+            "FAIL: no Ed25519 hook key available (cryptography/keyring missing) — "
+            "hook identity falls back to HMAC",
+            file=sys.stderr,
+        )
+        return 1
+    print(pub)
+    return 0
+
+
 def cmd_verify_hooks(args: argparse.Namespace) -> int:
     """Verify installed hook scripts match the recorded integrity manifest."""
     from .config import Settings
@@ -459,6 +496,11 @@ def main() -> None:
 
     p_audit_verify = sub.add_parser("audit-verify")
     p_audit_verify.add_argument("path")
+    p_audit_verify.add_argument(
+        "--pubkey",
+        default=None,
+        help="hex Ed25519 public key to pin when verifying hook-identity signatures",
+    )
 
     p_rotate = sub.add_parser("audit-rotate")
     p_rotate.add_argument("--keep-days", type=int, default=90)
@@ -469,6 +511,7 @@ def main() -> None:
     sub.add_parser("scan-config")
     sub.add_parser("hook-check")
     sub.add_parser("verify-hooks")
+    sub.add_parser("hook-pubkey")
 
     p_install_hooks = sub.add_parser("install-hooks")
     p_install_hooks.add_argument("--dry-run", action="store_true")
@@ -491,6 +534,7 @@ def main() -> None:
         "scan-config": cmd_scan_config,
         "hook-check": cmd_hook_check,
         "verify-hooks": cmd_verify_hooks,
+        "hook-pubkey": cmd_hook_pubkey,
         "install-hooks": cmd_install_hooks,
     }
 

@@ -19,18 +19,20 @@ def _run_check(cmd: list[str]) -> tuple[bool, str]:
 
 
 def _emit_hook_identity(payload: dict) -> None:
-    """Emit an HMAC-signed identity token into the audit chain.
+    """Emit a signed identity proof into the audit chain.
 
-    If the hook binary is replaced, the token will either be absent (keyring
-    inaccessible) or mismatch future verifications — both conditions are auditable.
+    Prefers an Ed25519 signature over a per-call nonce, falling back to HMAC and
+    then to an unsigned marker. If the hook binary is replaced or the key store
+    is inaccessible, the proof will be absent or fail future verification — all
+    auditable. ``spektralia audit-verify`` checks these signatures.
     """
     try:
         from spektralia.audit import AuditChain
         from spektralia.config import Settings
-        from spektralia.integrity import compute_hook_token
+        from spektralia.integrity import compute_hook_identity
 
         session_id = payload.get("session_id") or payload.get("sessionId")
-        token = compute_hook_token(session_id)
+        identity = compute_hook_identity(session_id)
         s = Settings.from_env()
         chain = AuditChain(s.state_dir)
         chain.emit(
@@ -39,8 +41,9 @@ def _emit_hook_identity(payload: dict) -> None:
             model_digest="",
             prompt_hash="",
             hook="session_start",
-            token_present=bool(token),
-            token=token,
+            identity=identity,
+            # token_present retained for backward-compatible log consumers.
+            token_present=bool(identity.get("sig")),
         )
         chain.close()
     except Exception:
