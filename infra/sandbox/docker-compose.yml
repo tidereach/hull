@@ -12,12 +12,13 @@
 #
 # Usage:
 #   cp .env.example .env && ./setup.sh    # auto-fills HOST_UID/GID
-#   podman-compose build agent
-#   podman-compose up -d proxy
-#   podman-compose run --rm agent bash
+#   docker compose build agent            # or: podman-compose build agent
+#   docker compose up -d proxy
+#   ./start.sh                            # docker compose run --rm agent
 #
+# podman-compose and docker compose are interchangeable here.
 # Build context must be repo root (for spektralia COPY):
-#   podman-compose -f infra/sandbox/docker-compose.yml build
+#   docker compose -f infra/sandbox/docker-compose.yml build
 
 services:
 
