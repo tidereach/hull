@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# On-disk corpus directory (SPEC §13.3).
+# Loaded at import time so CLI / gate startup includes any curated cases.
+_CORPUS_DIR = Path(__file__).parent / "corpus"
 
 
 @dataclass
@@ -17,6 +23,27 @@ class CanaryCase:
     must_classify_sensitive: bool = False
     # If True, scanner must detect regardless of classifier
     must_detect_regex: bool = True
+
+
+def _load_disk_corpus() -> list[CanaryCase]:
+    """Load CanaryCases from *.json files in the corpus directory."""
+    if not _CORPUS_DIR.exists():
+        return []
+    cases: list[CanaryCase] = []
+    for path in sorted(_CORPUS_DIR.glob("*.json")):
+        try:
+            data = json.loads(path.read_text())
+            cases.append(
+                CanaryCase(
+                    text=data["text"],
+                    expected_labels=data.get("expected_labels", []),
+                    must_classify_sensitive=data.get("must_classify_sensitive", False),
+                    must_detect_regex=data.get("must_detect_regex", True),
+                )
+            )
+        except (KeyError, json.JSONDecodeError) as e:
+            logger.warning("canary: skipping malformed corpus file %s: %s", path.name, e)
+    return cases
 
 
 # Canonical canary corpus — deterministic, nonce-salted to defeat key-based backdoors
@@ -94,7 +121,10 @@ def run_canary(scanner_fn) -> CanaryResult:
     t0 = time.monotonic()
     failures: list[str] = []
 
-    for case in _CORPUS:
+    # Merge hard-coded corpus with any on-disk additions
+    full_corpus = _CORPUS + _load_disk_corpus()
+
+    for case in full_corpus:
         # Add a random nonce to defeat key-based backdoors (still triggers regex)
         nonce = os.urandom(4).hex()
         text = f"{case.text} nonce:{nonce}"
