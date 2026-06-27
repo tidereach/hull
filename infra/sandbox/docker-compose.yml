@@ -59,8 +59,9 @@ services:
     tmpfs:
       - /tmp:size=512m,mode=1777
       - /var/tmp:size=128m,mode=1777
-    # Podman only: uncomment to map container user to your host UID/GID.
-    # userns_mode: "keep-id:uid=${HOST_UID:-1000},gid=${HOST_GID:-1000}"
+    # Maps the container user to your host UID/GID (Podman rootless).
+    # Comment out if using Docker (Docker does not support keep-id syntax).
+    userns_mode: "keep-id:uid=${HOST_UID:-1000},gid=${HOST_GID:-1000}"
     security_opt:
       - no-new-privileges:true
       - label=disable
