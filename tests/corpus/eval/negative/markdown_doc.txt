@@ -1,0 +1,11 @@
+# Getting Started
+
+Install the package with pip:
+
+    pip install mypackage
+
+Then import it:
+
+    import mypackage
+
+See README for full documentation.

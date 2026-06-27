@@ -1,0 +1,2 @@
+The sample contained approximately 6.022e23 molecules per mole (Avogadro constant).
+Reaction rate constant k = 1.38e-23 J/K at standard temperature.

@@ -1,0 +1,2 @@
+ERROR [2026-01-01T10:00:00Z] Connection refused: dial tcp :5432: connect: connection refused
+Retrying in 5s (attempt 3/5)

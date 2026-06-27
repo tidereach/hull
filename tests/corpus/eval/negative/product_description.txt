@@ -1,0 +1,2 @@
+Model XR-7000 supports up to 16 simultaneous connections and operates at frequencies between 2.4 GHz and 5.8 GHz.
+Battery life: approximately 8 hours under normal load.

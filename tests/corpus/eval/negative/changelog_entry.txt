@@ -1,0 +1,6 @@
+## [2.1.0] - 2026-01-15
+### Added
+- Support for batch processing up to 1000 items per request
+- New retry logic with exponential backoff
+### Fixed
+- Race condition in concurrent request handling

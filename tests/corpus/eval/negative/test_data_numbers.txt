@@ -1,0 +1,3 @@
+Sample measurements: 142.7, 98.3, 201.0, 67.5, 189.2
+Standard deviation: 52.4
+Mean: 139.7

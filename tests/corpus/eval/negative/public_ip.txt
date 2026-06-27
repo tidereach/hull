@@ -1,0 +1,2 @@
+The public DNS resolver uses anycast routing across multiple geographic regions.
+Latency to the nearest PoP is typically under 10ms for most users.

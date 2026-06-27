@@ -1,0 +1,22 @@
+{
+  "min_f1_per_category": {
+    "API_KEY_GENERIC": 1.0,
+    "AWS_KEY": 1.0,
+    "CREDIT_CARD": 1.0,
+    "CVE": 1.0,
+    "EMAIL": 1.0,
+    "GITHUB_TOKEN": 1.0,
+    "GOOGLE_API_KEY": 1.0,
+    "GOOGLE_OAUTH": 1.0,
+    "INTERNAL_HOST": 1.0,
+    "IP_ADDR": 1.0,
+    "JWT": 1.0,
+    "NO_PID": 1.0,
+    "PRIVATE_KEY_BLOCK": 1.0,
+    "PRIVATE_KEY_BODY": 1.0,
+    "SLACK_TOKEN": 1.0,
+    "STRIPE_KEY": 1.0,
+    "injection": 1.0
+  },
+  "min_overall_f1": 1.0
+}

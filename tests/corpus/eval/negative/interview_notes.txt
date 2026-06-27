@@ -1,0 +1,3 @@
+Candidate demonstrated strong understanding of distributed systems and consensus algorithms.
+Solved the sliding window problem in O(n) time with O(k) space.
+Recommend for next round.

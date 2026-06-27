@@ -153,3 +153,31 @@ jobs:
           cyclonedx-py requirements --output-reproducible -o SBOM.json requirements.lock
           printf '\n' >> SBOM.json
           git diff --exit-code SBOM.json
+
+  eval-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
+        with:
+          path: ~/.cache/pip
+          key: pip-eval-${{ hashFiles('requirements.lock') }}
+
+      - name: Install locked production dependencies
+        run: pip install --require-hashes -r requirements.lock
+
+      - name: Install package and dev extras
+        run: pip install -e ".[dev]"
+
+      - name: Run gate eval harness (offline)
+        run: python scripts/eval_gate.py

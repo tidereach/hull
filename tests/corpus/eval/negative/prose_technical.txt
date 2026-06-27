@@ -1,0 +1,2 @@
+The service uses an event-driven architecture with three microservices communicating via message queues.
+Each consumer group processes events independently and writes results to the shared data store.
