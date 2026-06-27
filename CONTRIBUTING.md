@@ -129,4 +129,4 @@ To improve type coverage:
 
 ## Questions?
 
-See [SPEC.md](docs/SPEC.md) for gate architecture, [PLAN.md](docs/PLAN.md) for development timeline, and [COMPLIANCE.md](docs/COMPLIANCE.md) for security/privacy compliance.
+See [SPEC.md](docs/SPEC.md) for gate architecture, [RATIONALE.md](docs/RATIONALE.md) for design history, and [COMPLIANCE.md](docs/COMPLIANCE.md) for security/privacy compliance. Open work is tracked in [GitHub Issues](https://github.com/dormant-warlock/spektralia/issues).

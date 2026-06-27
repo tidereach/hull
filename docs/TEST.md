@@ -746,7 +746,7 @@ Expected:
 
 ### 3.19 Manual end-to-end (requires live Claude Code + Ollama) ✅ verified 2026-06-25
 
-> This is the Phase 3 exit-criteria scenario from PLAN.md §Phase 3.
+> This is the Phase 3 exit-criteria scenario (see SPEC.md §17–§18 for CLI and hook contracts).
 
 1. Pull the model:
    ```bash

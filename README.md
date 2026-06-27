@@ -323,7 +323,6 @@ Rule-based blocks (email, credit card, API keys, etc.) are always enforced regar
 
 ## Reference
 
-- `docs/PLAN.md` — consolidated phased plan with current status, bugs, and carry-overs
 - `docs/SPEC.md` — full 22-chapter implementation spec (exact schemas, signatures, behaviour)
 - `docs/RATIONALE.md` — full design arguments (Ember critiques, OWASP ASI gap analysis, Ollama trust reasoning)
 - `CLAUDE.md` — file layout, commands, dependency list

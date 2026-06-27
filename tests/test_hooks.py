@@ -145,7 +145,7 @@ class TestPreToolUse:
         assert self._is_deny(result)
 
     def test_subagent_tool_names_in_strict_scan_set(self):
-        # Regression guard for SPEC §18 / PLAN.md §308: the subagent-spawn tool MUST
+        # Regression guard for SPEC §18: the subagent-spawn tool MUST
         # be scanned or a parent agent can launder context into a subagent prompt and
         # bypass UserPromptSubmit. SPEC names it "Task"; some Claude Code versions name
         # it "Agent". Scan both so a future "cleanup" can't drop the deployed one.
@@ -613,7 +613,7 @@ class TestHookIoWiring:
 
 
 # ---------------------------------------------------------------------------
-# Import-failure / venv-unavailable fail-closed paths (PLAN.md §306, bug #3)
+# Import-failure / venv-unavailable fail-closed paths (SPEC §18, issue #57)
 # ---------------------------------------------------------------------------
 
 
@@ -645,7 +645,7 @@ class TestHookImportFailureFailsClosed:
 
 
 # ---------------------------------------------------------------------------
-# Output-shape contracts (PLAN.md §307, bug #4)
+# Output-shape contracts (SPEC §18, issue #58)
 # ---------------------------------------------------------------------------
 
 
