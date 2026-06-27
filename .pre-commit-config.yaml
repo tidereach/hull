@@ -35,3 +35,21 @@ repos:
         name: mypy type check
         args: [--config-file=pyproject.toml]
         files: ^src/spektralia/
+
+  - repo: local
+    hooks:
+      - id: hook-invariants
+        name: Audit §18 hook invariants
+        language: python
+        entry: python scripts/audit_hook_invariants.py
+        files: ^integrations/claude/
+        pass_filenames: false
+        always_run: false
+
+      - id: lock-sbom-guard
+        name: Lock/SBOM freshness guard
+        language: python
+        entry: python scripts/check_lock_sbom_fresh.py
+        files: ^pyproject\.toml$
+        pass_filenames: false
+        always_run: false
