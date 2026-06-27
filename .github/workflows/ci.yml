@@ -1,16 +1,17 @@
 name: CI
 
 on:
+  workflow_dispatch: {}
   push:
     branches: [main]
-    paths: ['src/**', 'tests/**', 'pyproject.toml', 'requirements.lock']
+    paths: ['src/**', 'tests/**', 'pyproject.toml', 'requirements.lock', 'SBOM.json']
   pull_request:
     branches: [main]
-    paths: ['src/**', 'tests/**', 'pyproject.toml', 'requirements.lock']
+    paths: ['src/**', 'tests/**', 'pyproject.toml', 'requirements.lock', 'SBOM.json']
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -82,8 +83,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      # PRs: test boundary versions only. Full matrix runs on push to main.
       matrix:
-        python-version: ["3.11", "3.12", "3.13", "3.14"]
+        python-version: ${{ github.event_name == 'pull_request' && fromJSON('["3.11","3.14"]') || fromJSON('["3.11","3.12","3.13","3.14"]') }}
       fail-fast: false
 
     steps:

@@ -1,10 +1,13 @@
 name: Latency Benchmark
 
 on:
-  pull_request:
-    branches:
-      - main
-  workflow_dispatch:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '0 4 * * 1'   # 04:00 UTC every Monday
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

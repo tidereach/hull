@@ -1,12 +1,16 @@
 name: CodeQL
 
 on:
+  workflow_dispatch: {}
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+    paths: ['src/**', 'pyproject.toml']
   schedule:
     - cron: '45 9 * * 3'   # 09:45 UTC every Wednesday
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
