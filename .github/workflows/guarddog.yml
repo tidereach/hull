@@ -16,6 +16,10 @@ jobs:
     permissions:
       contents: read
       security-events: write
+      # upload-sarif calls the Actions API (get-a-workflow-run) to attach run
+      # metadata; without actions:read it fails with "Resource not accessible
+      # by integration".
+      actions: read
     steps:
       - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
