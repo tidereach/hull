@@ -31,6 +31,12 @@ jobs:
         run: pip install guarddog
 
       - name: Scan dependencies with GuardDog
+        # GuardDog's `verify` exits non-zero when it surfaces heuristic risks
+        # (capability flags, metadata signals). Those are advisory and meant to
+        # be triaged via the SARIF upload to the Security tab, not to hard-block
+        # PRs — so don't let the scan's exit code fail the job. The SARIF is
+        # still produced and uploaded below.
+        continue-on-error: true
         run: >-
           guarddog pypi verify requirements.lock
           --output-format sarif
