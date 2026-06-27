@@ -7,6 +7,7 @@ import asyncio
 import json
 import re
 import sys
+from pathlib import Path
 
 _TOKEN_RE = re.compile(r"\[REDACTED:[A-Z_]+:[0-9a-f]{6}\]")
 
@@ -22,18 +23,51 @@ _OWN_SOURCE_SEGMENTS = (
     "/integrations/claude/hooks/",
 )
 
+# Detect the Spektralia project root from this hook file's location so the full
+# repo tree (including /tests/) is exempt from own-source scanning. The resolved
+# parent chain from __file__: hooks/ → claude/ → integrations/ → root (4 hops).
+_PROJECT_ROOT: Path | None = None
+try:
+    _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+except Exception:
+    pass
+
+# Claude Code's own internal directories — agent-generated state, not user-supplied
+# content. The Ollama classifier is skipped for these paths (issue #99). The
+# token-reference check still runs so cross-turn leaks are caught regardless of
+# destination. Unlike _OWN_SOURCE_SEGMENTS (which skips all checks, because the
+# patterns file itself would trip its own patterns), these only skip the gate call.
+_CLAUDE_INTERNAL_SEGMENTS = (
+    "/.claude/plans/",
+    "/.claude/memory/",
+    "/.claude/commands/",
+    "/.claude/skills/",
+)
+
 
 def _is_own_source(file_path: str) -> bool:
     """Return True if file_path is under Spektralia's own source tree.
 
-    Checked via path-substring match so the hook works regardless of cwd or
-    whether the repo is checked out at an absolute path we don't know at
-    install time. False positives (a user repo that happens to contain
-    /src/spektralia/) are acceptable — scanning that directory would still be
-    a no-op because the patterns file itself doesn't contain secrets.
+    Two checks in order:
+    1. Path-segment substring match (works without knowing the install path).
+    2. Project-root check derived from __file__ — covers /tests/ and any other
+       repo directory not listed in _OWN_SOURCE_SEGMENTS.
     """
     normalised = file_path.replace("\\", "/")
-    return any(seg in normalised for seg in _OWN_SOURCE_SEGMENTS)
+    if any(seg in normalised for seg in _OWN_SOURCE_SEGMENTS):
+        return True
+    if _PROJECT_ROOT is not None:
+        try:
+            return Path(file_path).resolve().is_relative_to(_PROJECT_ROOT)
+        except Exception:
+            pass
+    return False
+
+
+def _is_claude_internal(file_path: str) -> bool:
+    """Return True if file_path is under Claude Code's own internal directories."""
+    normalised = file_path.replace("\\", "/")
+    return any(seg in normalised for seg in _CLAUDE_INTERNAL_SEGMENTS)
 
 
 def _extract_text(tool_input: dict) -> str:
@@ -81,6 +115,14 @@ def handle(payload: dict) -> dict:
     # Check 1: REDACTED token reference in args → cross-turn leak
     if _TOKEN_RE.search(text):
         return _deny("Token reference detected in tool args — possible cross-turn leak")
+
+    # Skip the Ollama classifier for Claude Code's own internal directories.
+    # These hold agent-generated state and trigger classifier false positives on
+    # benign structured content (issue #99). Token-reference check above still runs.
+    if tool_name in {"Write", "Edit"}:
+        file_path = tool_input.get("file_path", "")
+        if file_path and _is_claude_internal(file_path):
+            return {}
 
     # Check 2: fresh sensitive content
     try:

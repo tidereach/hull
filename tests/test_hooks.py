@@ -259,6 +259,35 @@ class TestPreToolUse:
         )
         assert self._is_deny(result), f"expected deny for non-own-source path, got {result!r}"
 
+    def test_pre_tool_use_claude_internal_skips_gate(self):
+        # Claude-internal dirs bypass the Ollama classifier (issue #99).
+        # Gate must not be called; clean content passes through.
+        for fp in [
+            "/.claude/plans/plan.md",
+            "/.claude/memory/notes.md",
+            "/.claude/commands/cmd.md",
+            "/.claude/skills/skill.md",
+        ]:
+            with patch("asyncio.run") as mock_run:
+                result = self.mod.handle(
+                    {"tool_name": "Write", "tool_input": {"file_path": fp, "content": "ok"}}
+                )
+            assert result == {}, f"expected pass for {fp!r}, got {result!r}"
+            mock_run.assert_not_called()
+
+    def test_pre_tool_use_claude_internal_token_ref_blocks(self):
+        # Token-reference check runs before the Claude-internal skip, so a
+        # cross-turn leak written to a plan file is still caught (issue #99).
+        ref = "[REDACTED:" + "EMAIL:a1b2c3]"
+        result = self.mod.handle(
+            {
+                "tool_name": "Write",
+                "tool_input": {"file_path": "/.claude/plans/p.md", "content": ref},
+            }
+        )
+        assert self._is_deny(result)
+        assert "token reference" in self._deny_reason(result).lower()
+
 
 # ---------------------------------------------------------------------------
 # PostToolUse
