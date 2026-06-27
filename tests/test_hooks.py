@@ -341,6 +341,62 @@ class TestSessionStart:
             assert name in result["reason"]
 
 
+class TestSessionStartHookIntegrity:
+    """Hook-script tamper detection at SessionStart (#46)."""
+
+    def setup_method(self):
+        self.mod = load_hook("session_start")
+
+    def _setup_manifest(self, tmp_path, monkeypatch):
+        from spektralia.hook_manifest import HOOK_FILENAMES, write_manifest
+
+        hooks = tmp_path / "hooks"
+        hooks.mkdir()
+        for name in HOOK_FILENAMES:
+            (hooks / name).write_text(f"# {name}\n")
+        state = tmp_path / "state"
+        monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(state))
+        write_manifest(state / "hook_manifest.json", hooks)
+        return hooks
+
+    def test_clean_install_continues(self, tmp_path, monkeypatch):
+        self._setup_manifest(tmp_path, monkeypatch)
+        decision, _ = self.mod._check_hook_integrity()
+        assert decision == "continue"
+
+    def test_off_mode_skips(self, tmp_path, monkeypatch):
+        hooks = self._setup_manifest(tmp_path, monkeypatch)
+        (hooks / "stop.py").write_text("# tampered\n")
+        monkeypatch.setenv("SPEKTRALIA_HOOK_INTEGRITY_MODE", "off")
+        decision, _ = self.mod._check_hook_integrity()
+        assert decision == "continue"
+
+    def test_warn_mode_audits_but_continues(self, tmp_path, monkeypatch):
+        hooks = self._setup_manifest(tmp_path, monkeypatch)
+        (hooks / "stop.py").write_text("# tampered\n")
+        monkeypatch.setenv("SPEKTRALIA_HOOK_INTEGRITY_MODE", "warn")
+        decision, _ = self.mod._check_hook_integrity()
+        assert decision == "continue"
+
+    def test_block_mode_blocks_on_tamper(self, tmp_path, monkeypatch):
+        hooks = self._setup_manifest(tmp_path, monkeypatch)
+        (hooks / "pre_tool_use.py").write_text("# malicious\n")
+        monkeypatch.setenv("SPEKTRALIA_HOOK_INTEGRITY_MODE", "block")
+        decision, reason = self.mod._check_hook_integrity()
+        assert decision == "block"
+        assert "pre_tool_use.py" in reason
+
+    def test_handle_blocks_when_integrity_blocks(self, monkeypatch):
+        # Isolate from the (separately-tested) identity emit and subprocess checks.
+        monkeypatch.setattr(self.mod, "_emit_hook_identity", lambda payload: None)
+        monkeypatch.setattr(
+            self.mod, "_check_hook_integrity", lambda: ("block", "Hook script tampering detected")
+        )
+        result = self.mod.handle({})
+        assert result["action"] == "block"
+        assert "tampering" in result["reason"]
+
+
 # ---------------------------------------------------------------------------
 # Stop
 # ---------------------------------------------------------------------------

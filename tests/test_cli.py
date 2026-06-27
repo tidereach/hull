@@ -25,6 +25,7 @@ from spektralia.cli import (
     cmd_self_test,
     cmd_stats,
     cmd_unfreeze,
+    cmd_verify_hooks,
     cmd_verify_installed,
     cmd_verify_integrity,
     main,
@@ -775,3 +776,66 @@ class TestCmdInstallHooks:
             main()
         assert exc.value.code == 0
         assert called.get("ok") is True
+
+    def test_install_records_manifest(self, tmp_path, capsys, monkeypatch):
+        hooks_dir = self._make_fake_hooks_dir(tmp_path)
+        project = tmp_path / "project"
+        project.mkdir()
+        state = tmp_path / "state"
+        monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(state))
+        monkeypatch.setattr("spektralia.cli._find_hooks_dir", lambda: hooks_dir)
+        monkeypatch.setattr("spektralia.cli._detect_git_root", lambda: project)
+        monkeypatch.chdir(project)
+        monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path / "home")
+
+        code = cmd_install_hooks(_args(dry_run=False))
+        assert code == 0
+        manifest = state / "hook_manifest.json"
+        assert manifest.exists()
+        data = json.loads(manifest.read_text())
+        assert data["hooks_dir"] == str(hooks_dir.resolve())
+
+
+# ---------------------------------------------------------------------------
+# verify-hooks
+# ---------------------------------------------------------------------------
+
+
+class TestCmdVerifyHooks:
+    def _make_hooks_and_manifest(self, tmp_path, monkeypatch):
+        from spektralia.hook_manifest import HOOK_FILENAMES, write_manifest
+
+        hooks = tmp_path / "hooks"
+        hooks.mkdir()
+        for name in HOOK_FILENAMES:
+            (hooks / name).write_text(f"# {name}\n")
+        state = tmp_path / "state"
+        monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(state))
+        write_manifest(state / "hook_manifest.json", hooks)
+        return hooks
+
+    def test_ok(self, tmp_path, capsys, monkeypatch):
+        self._make_hooks_and_manifest(tmp_path, monkeypatch)
+        code = cmd_verify_hooks(_args())
+        assert code == 0
+        assert "match recorded manifest" in capsys.readouterr().out
+
+    def test_tamper_exits_1(self, tmp_path, capsys, monkeypatch):
+        hooks = self._make_hooks_and_manifest(tmp_path, monkeypatch)
+        (hooks / "stop.py").write_text("# evil\n")
+        code = cmd_verify_hooks(_args())
+        assert code == 1
+        assert "TAMPER" in capsys.readouterr().err
+
+    def test_no_manifest_warn_mode_exits_0(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path / "empty"))
+        monkeypatch.setenv("SPEKTRALIA_HOOK_INTEGRITY_MODE", "warn")
+        code = cmd_verify_hooks(_args())
+        assert code == 0
+        assert "no hook manifest" in capsys.readouterr().err
+
+    def test_no_manifest_block_mode_exits_1(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.setenv("SPEKTRALIA_STATE_DIR", str(tmp_path / "empty"))
+        monkeypatch.setenv("SPEKTRALIA_HOOK_INTEGRITY_MODE", "block")
+        code = cmd_verify_hooks(_args())
+        assert code == 1

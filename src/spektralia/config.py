@@ -14,8 +14,8 @@ _bool_env = lambda v: v.lower() in ("1", "true", "yes")  # noqa: E731
 
 def _coerce_paths(data: dict) -> None:
     """Coerce string path fields to Path objects in place."""
-    for fname in ("freeze_path", "state_dir"):
-        if fname in data:
+    for fname in ("freeze_path", "state_dir", "hook_manifest_path"):
+        if fname in data and data[fname] is not None:
             data[fname] = Path(data[fname])
     if "sandbox_config_paths" in data:
         data["sandbox_config_paths"] = tuple(data["sandbox_config_paths"])
@@ -67,6 +67,12 @@ class Settings:
     sandbox_config_paths: tuple[str, ...] = ()
     sandbox_config_hash: str | None = None
 
+    # Hook integrity: detect tampered hook scripts post-install (see hook_manifest.py).
+    # "off" skips the check; "warn" emits an audit event but allows the session;
+    # "block" refuses to start the session on any digest mismatch.
+    hook_integrity_mode: Literal["off", "warn", "block"] = "warn"
+    hook_manifest_path: Path | None = None
+
     # Internal path
     state_dir: Path = field(default_factory=lambda: Path.home() / ".spektralia")
 
@@ -94,6 +100,10 @@ class Settings:
                 "sandbox_backend",
                 "sandbox_config_paths",
                 "sandbox_config_hash",
+                # Hook integrity governs the agent-side hook surface, not the
+                # content-scan verdict, so it stays out of config_hash()/the cache key.
+                "hook_integrity_mode",
+                "hook_manifest_path",
                 "_non_policy",
             }
         ),
@@ -136,6 +146,8 @@ class Settings:
             "SPEKTRALIA_STATE_DIR": ("state_dir", Path),
             "SPEKTRALIA_SANDBOX_BACKEND": ("sandbox_backend", str),
             "SPEKTRALIA_SANDBOX_CONFIG_HASH": ("sandbox_config_hash", str),
+            "SPEKTRALIA_HOOK_INTEGRITY_MODE": ("hook_integrity_mode", str),
+            "SPEKTRALIA_HOOK_MANIFEST_PATH": ("hook_manifest_path", Path),
         }
         for env_key, (attr, coerce) in mapping.items():
             val = os.environ.get(env_key)
@@ -159,6 +171,12 @@ class Settings:
         # Coerce Path fields
         _coerce_paths(data)
         return cls(**data)
+
+    def effective_hook_manifest_path(self) -> Path:
+        """Resolve the hook-integrity manifest path, defaulting under state_dir."""
+        if self.hook_manifest_path is not None:
+            return self.hook_manifest_path
+        return self.state_dir / "hook_manifest.json"
 
     def config_hash(self) -> str:
         """Deterministic hash of all policy-affecting settings.
