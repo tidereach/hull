@@ -129,7 +129,7 @@ class JournaldSink(AuditSink):
 
     def __init__(self) -> None:
         try:
-            from systemd import journal  # type: ignore[import-not-found]
+            from systemd import journal
 
             self._journal = journal
         except ImportError:
