@@ -10,9 +10,15 @@
 copilot-proxy.githubusercontent.com
 
 # ── Anthropic / Claude Code ───────────────────────────────────────────────────
+# Source: https://code.claude.com/docs/en/network-config
+# Excluded: downloads.claude.ai, storage.googleapis.com (not needed — installed from npm)
 api.anthropic.com
 .anthropic.com
 statsig.anthropic.com
+claude.ai
+.claude.ai
+platform.claude.com
+.claudeusercontent.com
 
 # ── npm registry ──────────────────────────────────────────────────────────────
 .npmjs.org
