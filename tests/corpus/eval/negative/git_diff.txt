@@ -1,0 +1,8 @@
+diff --git a/src/main.py b/src/main.py
+index abc1234..def5678 100644
+--- a/src/main.py
++++ b/src/main.py
+@@ -10,6 +10,7 @@ def process():
+     items = fetch_items()
++    items = [i for i in items if i.active]
+     return render(items)

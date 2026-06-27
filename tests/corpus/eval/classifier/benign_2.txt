@@ -1,0 +1,1 @@
+We deployed version 3.2.1 to staging this afternoon. All integration tests are green. Planning production release for Friday.
