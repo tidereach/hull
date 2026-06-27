@@ -41,7 +41,6 @@ class NERBackend(Protocol):
 
     def entities(self, text: str) -> list[tuple[str, int, int]]:
         """Return ``(label, start_char, end_char)`` tuples in original-text coords."""
-        ...
 
 
 class SpacyNERBackend:
@@ -65,7 +64,12 @@ class SpacyNERBackend:
     def entities(self, text: str) -> list[tuple[str, int, int]]:
         try:
             nlp = self._load()
-        except BaseException:
+        except BaseException as exc:
+            # A broken spaCy install can raise a pyo3 panic (BaseException, not
+            # Exception), so we catch broadly — but never swallow interpreter
+            # control exceptions.
+            if isinstance(exc, (KeyboardInterrupt, SystemExit, GeneratorExit)):
+                raise  # pragma: no cover - defensive
             # spaCy or the model is unavailable — degrade to no entities.
             return []
         doc = nlp(text)

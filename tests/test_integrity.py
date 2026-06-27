@@ -255,6 +255,21 @@ class TestHookIdentity:
         with patch("keyring.get_password", side_effect=BaseException("pyo3 panic")):
             assert get_or_create_hook_key() == b""
 
+    def test_control_exceptions_are_not_swallowed(self):
+        # KeyboardInterrupt / SystemExit must propagate, never degrade to b"".
+        for control in (KeyboardInterrupt, SystemExit):
+            with patch("keyring.get_password", side_effect=control()):
+                with pytest.raises(control):
+                    get_or_create_hook_key()
+
+    def test_reraise_if_control_helper(self):
+        # Non-control exceptions pass through (no raise); control ones re-raise.
+        assert integrity_mod._reraise_if_control(ValueError("x")) is None
+        with pytest.raises(KeyboardInterrupt):
+            integrity_mod._reraise_if_control(KeyboardInterrupt())
+        with pytest.raises(SystemExit):
+            integrity_mod._reraise_if_control(SystemExit())
+
 
 # ---------------------------------------------------------------------------
 # Ed25519 cryptographic hook identity (#45)

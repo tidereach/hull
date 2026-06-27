@@ -19,6 +19,20 @@ _KEYRING_KEY = "hook_identity_key"
 _KEYRING_ED25519_KEY = "hook_ed25519_seed"
 
 
+def _reraise_if_control(exc: BaseException) -> None:
+    """Re-raise interpreter-control exceptions so they are never swallowed.
+
+    The hook-identity helpers below catch ``BaseException`` on purpose: a broken
+    Rust-backed dependency (keyring / cryptography) can raise
+    ``pyo3_runtime.PanicException``, which is a ``BaseException`` subclass, *not*
+    an ``Exception`` — so ``except Exception`` would let it crash the hook. We must
+    still let ``KeyboardInterrupt`` / ``SystemExit`` / ``GeneratorExit`` propagate;
+    this guard, called first in each handler, ensures that.
+    """
+    if isinstance(exc, (KeyboardInterrupt, SystemExit, GeneratorExit)):
+        raise exc
+
+
 def compute_pattern_hash() -> str:
     """SHA-256 of sorted pattern table (label, regex, validator name, priority)."""
     table = []
@@ -134,7 +148,8 @@ def get_or_create_hook_key() -> bytes:
         key = _secrets.token_bytes(32)
         keyring.set_password(_KEYRING_SERVICE, _KEYRING_KEY, key.hex())
         return key
-    except BaseException:
+    except BaseException as exc:
+        _reraise_if_control(exc)
         return b""
 
 
@@ -177,7 +192,8 @@ def _ed25519_module():
         from cryptography.hazmat.primitives.asymmetric import ed25519
 
         return ed25519
-    except BaseException:  # pragma: no cover - broken/absent cryptography install
+    except BaseException as exc:  # pragma: no cover - broken/absent cryptography install
+        _reraise_if_control(exc)
         return None
 
 
@@ -205,7 +221,8 @@ def get_or_create_ed25519_seed() -> bytes:
         seed = priv.private_bytes(Encoding.Raw, PrivateFormat.Raw, NoEncryption())
         keyring.set_password(_KEYRING_SERVICE, _KEYRING_ED25519_KEY, seed.hex())
         return seed
-    except BaseException:
+    except BaseException as exc:
+        _reraise_if_control(exc)
         return b""
 
 
@@ -225,7 +242,8 @@ def hook_public_key_hex() -> str:
         priv = ed25519.Ed25519PrivateKey.from_private_bytes(seed)
         pub = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
         return pub.hex()
-    except BaseException:  # pragma: no cover - cryptography runtime failure
+    except BaseException as exc:  # pragma: no cover - cryptography runtime failure
+        _reraise_if_control(exc)
         return ""
 
 
@@ -251,8 +269,8 @@ def compute_hook_identity(session_id: str | None = None) -> dict[str, str]:
             sig = priv.sign(nonce.encode()).hex()
             pub = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw).hex()
             return {"scheme": "ed25519", "nonce": nonce, "sig": sig, "pub": pub}
-        except BaseException:  # pragma: no cover - cryptography runtime failure
-            pass
+        except BaseException as exc:  # pragma: no cover - cryptography runtime failure
+            _reraise_if_control(exc)
 
     key = get_or_create_hook_key()
     if key:
@@ -286,7 +304,8 @@ def verify_hook_identity(identity: dict, *, trusted_pub_hex: str | None = None) 
             pub = ed25519.Ed25519PublicKey.from_public_bytes(bytes.fromhex(pub_hex))
             pub.verify(bytes.fromhex(sig), nonce.encode())
             return True
-        except BaseException:
+        except BaseException as exc:
+            _reraise_if_control(exc)
             return False
 
     if scheme == "hmac":
