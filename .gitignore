@@ -16,3 +16,5 @@ htmlcov/
 .spektralia/
 .spektralia.toml
 settings.local.json
+# Eval harness outputs (generated per run; baseline is committed, results are not)
+scripts/eval_results.json
