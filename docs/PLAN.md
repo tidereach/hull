@@ -283,3 +283,22 @@ See `docs/hook-exceptions-v2.md` for full detail. Five items tracked as individu
 3. UnboundLocalError in post_tool_use when venv unavailable → #57
 4. Wrong JSON output shape in hook scripts (fixed; needs contract test) → #58
 5. Wrong tool name for subagent spawn (`"Task"` not `"Agent"`; fixed; needs regression test) → #59
+
+## 8. Airlock — behavioural detection on agent session streams (#110)
+
+Detect dangerous AI-agent activity by ingesting session-stream JSONL and triggering an action. Parent epic: **#110**. Carved into the sub-issues below.
+
+### v1 — detect + log only
+
+- **#114** Session ingester core — extensible JSONL stream library (`spektralia.sessions`). `SessionEvent` + `SessionAdapter` protocol + tail-safe stream reader. No agent-specific code.
+- **#115** Session adapter: Claude Code transcript JSONL. Generalises `integrations/claude/hooks/stop.py:_extract_last_assistant_text` into a shared helper.
+- **#116** CLI: `spektralia session-audit <path>` — offline summary of a transcript file or directory.
+- **#117** Airlock baseline audit + policy doc (new `docs/AIRLOCK.md`). **Supersedes #111** (its baseline scope is absorbed here).
+- **#118** Airlock detection rules + pluggable action interface. `LogAction` ships; `BlockAction` and `VentAction` are protocol-defined and `NotImplementedError`-stubbed for v2.
+- **#119** Session adapter: GitHub Copilot session JSONL. Parallelisable with #115–#118.
+
+Critical path for v1: `#114 → #115 → #116 → #117`. #118 runs in parallel after #114; #119 runs in parallel any time after #114.
+
+### v2 roadmap
+
+- **#120** Airlock v2 — live watch + block/deny + airlock venting. Meta-issue: `spektralia session-watch`, `BlockAction` implementation, `VentAction` (Docker → Podman container kill). Starts once v1 (#118 in particular) has been live long enough for rules to be tuned against real sessions and false-positives to be driven down.
