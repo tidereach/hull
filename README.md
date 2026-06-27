@@ -33,7 +33,21 @@ spektralia scan            # stdin → sanitized stdout; exit 2 on block
 spektralia self-test       # run canary corpus against live classifier
 spektralia hook-check      # assert Claude Code hooks are installed correctly
 spektralia install-hooks   # write hooks to .claude/settings.json (--dry-run to preview)
+spektralia verify-hooks    # assert installed hook scripts match the recorded integrity manifest
 ```
+
+### Hook integrity
+
+`install-hooks` records SHA-256 digests of every installed hook script in a manifest
+(`~/.spektralia/hook_manifest.json`, mode 0600). At `SessionStart` the gate re-hashes the
+on-disk scripts and compares them, so post-install tampering is surfaced before any hook runs.
+Behaviour is governed by `SPEKTRALIA_HOOK_INTEGRITY_MODE` (`hook_integrity_mode`):
+
+- `warn` (default) — emit an auditable `hook_integrity_check` event and continue.
+- `block` — refuse to start the session on any digest mismatch.
+- `off` — skip the check entirely.
+
+This is the hash-based foundation; cryptographic call-time identity (Ed25519) layers on top.
 
 ### Secure install (hash-pinned)
 
