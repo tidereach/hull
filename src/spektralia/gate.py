@@ -59,7 +59,7 @@ class Gate:
         self._client: httpx.Client | None = None
         self._model_digest = ""
         self._last_canary: CanaryResult | None = None
-        self._ner_backend = None  # lazily built when ner_enabled
+        self._ner_backend: object = None  # lazily built when ner_enabled
 
         integrity = get_integrity_report(None, s.ollama_model)
         self._prompt_hash = integrity["prompt_hash"]
