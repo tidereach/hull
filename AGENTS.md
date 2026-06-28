@@ -1,0 +1,25 @@
+# Spektralia — Migration Planning Repo
+
+Main branch contains only migration planning specs. Full codebase is archived on `archive/pre-migration`.
+
+## Files
+
+- `MAIN.md` — architecture, decisions, execution order. **Read this first.**
+- `layer0_interlock.md` — L0 Attestation/Glue (Stage 2; ships before other layers)
+- `layer1_spectograph.md` — L1 Data Plane / sensitivity gate (Stage 3)
+- `layer2_analyzer.md` — L2 Control Plane / intent integration (Stage 5)
+- `layer3_airlock.md` — L3 Execution Plane / sandbox + session-stream substrate (Stage 4)
+- `layer4_jettison.md` — L4 Visibility Plane / deterministic rules + actions (Stage 6)
+
+## Working with specs
+
+- Ember agent (`ember:Ember`) works well for planning revision sessions — spawn once, relay follow-ups via `SendMessage` with the returned agentId
+- Before any layer spec work begins in parallel, three pre-parallel artifacts must be locked in `interlock-contracts`: `contracts/integrity-inputs/v1.0.0/`, `governance/audit-event-ownership.md`, `governance/freeze-manager-constraint.md`
+- Settings tables: always verify the stated field count matches the actual row count (layer0 said 13/had 15; layer1 said 15/had 20)
+- Audit event ownership uses a two-tier model: layer-exclusive events (interlock only) vs. cross-layer shared-namespace events (defined by interlock, emitted by named layer)
+
+## Git
+
+- `archive/pre-migration` — full monorepo snapshot before restructure (2026-06-28)
+- Working tree may have untracked residue (infra/, src/, tests/) after branch switches; clear with `git clean -fd`
+- `REVIEW_NOTES.md`, `.gitignore` are untracked working-tree files — do not commit without review
