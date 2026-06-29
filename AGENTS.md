@@ -10,7 +10,7 @@ Main branch contains only migration planning specs. The migration is a greenfiel
 - `layer1_sieve.md` — L1 Data Plane / sensitivity gate (Stage 3)
 - `layer2_arbiter.md` — L2 Control Plane / intent integration (Stage 5)
 - `layer3_airlock.md` — L3 Execution Plane / sandbox + session-stream substrate (Stage 4)
-- `layer4_jettison.md` — L4 Visibility Plane / deterministic rules + actions (Stage 6)
+- `layer4_jettison.md` — L4 Visibility Plane / deterministic rules + actions (Stage 2; policy module ships alongside interlock per the 2026-06-29 layer-4 collapse)
 
 ## Project code standards
 
@@ -29,4 +29,4 @@ Layer names (`interlock`, `sieve`, `arbiter`, `airlock`, `jettison`, `hull`, `dr
 
 ## Git
 
-- Greenfield rebuild — no pre-migration codebase is treated as a source of truth in this repo. Any artifact authored under Stages 1–8 is written against the migration specs, not lifted from earlier history.
+- Greenfield rebuild — no pre-migration codebase is treated as a source of truth in this repo. Any artifact authored under Stages 1–7 is written against the migration specs, not lifted from earlier history.
