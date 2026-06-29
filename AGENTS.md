@@ -1,6 +1,6 @@
 # Tidereach — Migration Planning Repo
 
-Main branch contains only migration planning specs. Full codebase is archived on `archive/pre-migration`.
+Main branch contains only migration planning specs. The migration is a greenfield rebuild per `MAIN.md § 8` Constraint 1 — no source is copied forward from any prior implementation.
 
 ## Files
 
@@ -29,5 +29,4 @@ Layer names (`interlock`, `sieve`, `arbiter`, `airlock`, `jettison`, `hull`, `dr
 
 ## Git
 
-- `archive/pre-migration` — full monorepo snapshot before restructure (2026-06-28)
-- Working tree may have untracked residue (infra/, src/, tests/) after branch switches; clear with `git clean -fd`
+- Greenfield rebuild — no pre-migration codebase is treated as a source of truth in this repo. Any artifact authored under Stages 1–8 is written against the migration specs, not lifted from earlier history.
