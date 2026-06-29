@@ -14,27 +14,27 @@ v1 ships git submodule pinned at SHA in each consumer. v2 picks a proper mechani
 
 **Re-open trigger:** contracts stabilize at v1.0.0, OR a non-Python consumer appears, OR submodule UX friction outweighs the publish friction we avoided.
 
-**Linked:** `MAIN.md § 10` v1 distribution paragraph; resolved as a v1-vs-v2 split on 2026-06-29.
+**Linked:** `migration/MAIN.md § 10` v1 distribution paragraph; resolved as a v1-vs-v2 split on 2026-06-29.
 
 ### 2. Team-permissions model across all repos
 
-v1 ships single-operator governance, captured in `docs/GOVERNANCE.md` (Stage 1 deliverable; see `MAIN.md § 11 Stage 1`): `main` accepts commits only from the operator, `CODEOWNERS` is a `* @dotknewt` wildcard in each of the four sibling layer repos + meta-repo, no team-permissions design is authored.
+v1 ships single-operator governance, captured in `docs/GOVERNANCE.md` (Stage 1 deliverable; see `migration/MAIN.md § 11 Stage 1`): `main` accepts commits only from the operator, `CODEOWNERS` is a `* @dotknewt` wildcard in each of the four sibling layer repos + meta-repo, no team-permissions design is authored.
 
 **Why deferred:** inventing five-role RBAC for an audience of one is overhead. The wildcard CODEOWNERS still gives branch-protection a hook to assert on.
 
 **Re-open trigger** (named in GOVERNANCE.md): first non-operator commit on `main` of any new repo, OR first external PR merged to any of the five repos.
 
-**Linked:** `MAIN.md § 11 Stage 1` GOVERNANCE.md deliverable; resolved 2026-06-29.
+**Linked:** `migration/MAIN.md § 11 Stage 1` GOVERNANCE.md deliverable; resolved 2026-06-29.
 
 ### 3. Contract-bump reviewer subagent
 
-Per `MAIN.md § 7 Decision 19(a)`: build at Stage 2 when `contracts/` lands in interlock; not before (no schemas exist to review pre-Stage-2). v1 of any layer ships without it.
+Per `migration/MAIN.md § 7 Decision 19(a)`: build at Stage 2 when `contracts/` lands in interlock; not before (no schemas exist to review pre-Stage-2). v1 of any layer ships without it.
 
 **Why deferred:** the subagent's job is to verify that `contracts/*/v*.0.0/schema.json` bumps come with matching changelog + semver. Until the first such file exists, there is nothing to review against.
 
 **Re-open trigger:** Stage 2 begins; first `contracts/*/v*.0.0/schema.json` lands in `tidereach/interlock`. At that point, the first PR introducing it is the worked example the subagent gets built against.
 
-**Linked:** `MAIN.md § 7 Decision 19(a)`; resolved 2026-06-29.
+**Linked:** `migration/MAIN.md § 7 Decision 19(a)`; resolved 2026-06-29.
 
 ### 4. SLOs / error budgets beyond sieve hook latencies
 
@@ -44,7 +44,7 @@ v1 specifies per-hook p95 latency budgets for sieve (500ms PreToolUse, 300ms Pos
 
 **Re-open trigger:** first operator running Tidereach as part of a managed service offering, OR first SLA contract that cites Tidereach as a dependency, OR any operator-pageable incident pattern emerging from the Stage 6 cross-repo soak.
 
-**Linked:** sieve latency budgets live in `layer1_sieve.md`; resolved-as-deferred 2026-06-29.
+**Linked:** sieve latency budgets live in `migration/layer1_sieve.md`; resolved-as-deferred 2026-06-29.
 
 ---
 
@@ -61,7 +61,7 @@ When appending, copy this shape:
 
 **Re-open trigger:** <Concrete observable signal that makes this re-evaluable. Not "when we have time"; not "if it becomes a problem." Name the event.>
 
-**Linked:** <MAIN.md section or Decision reference; resolved date; relevant layer spec.>
+**Linked:** <migration/MAIN.md section or Decision reference; resolved date; relevant layer spec.>
 ```
 
 The re-open trigger is the load-bearing part. An entry without one is not a roadmap item, it is wishful thinking — file it elsewhere or refine the trigger before committing.

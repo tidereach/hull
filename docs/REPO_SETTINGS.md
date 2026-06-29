@@ -1,7 +1,7 @@
 # Repo settings cookbook (Stage 1 operator guide)
 
 This document is the canonical reference for the **GitHub repo settings** that
-implement [MAIN.md § 7](../MAIN.md) Decisions 10 and 11 across all six tidereach
+implement [migration/MAIN.md § 7](../migration/MAIN.md) Decisions 10 and 11 across all six tidereach
 repositories (`hull`, `interlock`, `sieve`, `arbiter`, `airlock`, `drydock`).
 
 These settings are **not workflows** — they are properties of the GitHub repo
@@ -9,7 +9,7 @@ itself. Apply them at repo bootstrap. The CI workflows in
 [`../.github/workflows/`](../.github/workflows) enforce the per-PR / per-commit
 side of the same decisions; this doc is the org-side complement.
 
-> **Authoritative provenance.** Every rule below cites the MAIN.md decision it
+> **Authoritative provenance.** Every rule below cites the migration/MAIN.md decision it
 > implements. Reopening a rule requires plan-mode re-entry per § 7's preamble.
 
 ---
@@ -63,7 +63,7 @@ exact `job-id` strings under [`../.github/workflows/ci-template.yml`](../.github
 | `gitsign` commit signing | GitHub OIDC → Fulcio CA → Rekor | Decision 10 — every commit on `main` |
 | `cosign` image signing (airlock only) | GitHub Actions OIDC → Fulcio CA → Rekor | Decision 17 — every image on `ghcr.io/tidereach/airlock` |
 | `cosign attest` SBOM/provenance | Same OIDC chain | Decision 17 |
-| Future: PyPI `interlock-contracts` (v2) | PyPI Trusted Publisher via the same GitHub OIDC chain | v2 contracts distribution; currently submodule-pinned per MAIN.md § 10 |
+| Future: PyPI `interlock-contracts` (v2) | PyPI Trusted Publisher via the same GitHub OIDC chain | v2 contracts distribution; currently submodule-pinned per migration/MAIN.md § 10 |
 
 The same OIDC chain authorizes all three signing surfaces — operators verify
 the entire deployment against one Fulcio chain.
@@ -151,10 +151,10 @@ Diff the output against this doc when changing operator handoff.
 
 ## 6. Cross-references
 
-- [`../MAIN.md` § 7 Decision 10](../MAIN.md) — gitsign commit signing
-- [`../MAIN.md` § 7 Decision 11](../MAIN.md) — squash-and-merge
-- [`../MAIN.md` § 7 Decision 17](../MAIN.md) — cosign image signing
-- [`../MAIN.md` § 7 Decision 18](../MAIN.md) — gitleaks + PR-title-lint
-- [`../MAIN.md` § 7 Decision 19](../MAIN.md) — single-operator governance
+- [`../migration/MAIN.md` § 7 Decision 10](../migration/MAIN.md) — gitsign commit signing
+- [`../migration/MAIN.md` § 7 Decision 11](../migration/MAIN.md) — squash-and-merge
+- [`../migration/MAIN.md` § 7 Decision 17](../migration/MAIN.md) — cosign image signing
+- [`../migration/MAIN.md` § 7 Decision 18](../migration/MAIN.md) — gitleaks + PR-title-lint
+- [`../migration/MAIN.md` § 7 Decision 19](../migration/MAIN.md) — single-operator governance
 - [`./CI.md`](./CI.md) — operator overview of the CI workflows themselves
 - [`../.github/workflows/`](../.github/workflows) — the canonical reusable workflows

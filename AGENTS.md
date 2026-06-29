@@ -1,25 +1,26 @@
 # Tidereach — Migration Planning Repo
 
-Main branch contains only migration planning specs. The migration is a greenfield rebuild per `MAIN.md § 8` Constraint 1 — no source is copied forward from any prior implementation.
+Main branch contains only migration planning specs. The migration is a greenfield rebuild per `migration/MAIN.md § 8` Constraint 1 — no source is copied forward from any prior implementation.
 
 ## Files
 
-- `MAIN.md` — architecture, decisions, execution order. **Read this first.**
+- `migration/` — historical planning specs preserved as the canonical migration record. Exempted from `legacy-name-guard` so layer specs may reference pre-migration `spektralia` names where required for narrative accuracy.
+- `migration/MAIN.md` — architecture, decisions, execution order. **Read this first.**
 - `ROADMAP.md` — v2 candidates and other deferred items, each with a concrete re-open trigger. Append new candidates here as they surface; don't wait to be asked.
-- `layer0_interlock.md` — L0 Attestation/Glue (Stage 2; ships before other layers)
-- `layer1_sieve.md` — L1 Data Plane / sensitivity gate (Stage 3)
-- `layer2_arbiter.md` — L2 Control Plane / intent integration (Stage 5)
-- `layer3_airlock.md` — L3 Execution Plane / sandbox + session-stream substrate (Stage 4)
-- `layer4_jettison.md` — L4 Visibility Plane / deterministic rules + actions (Stage 2; policy module ships alongside interlock per the 2026-06-29 layer-4 collapse)
-- `.github/workflows/legacy-name-guard.yml` — reusable workflow enforcing MAIN.md § 8 Constraint 6 (legacy-name grep gate)
-- `.github/workflows/gitleaks.yml` — reusable workflow for MAIN.md § 7 Decision 18(a) (secrets scanner)
-- `.github/workflows/pr-title-lint.yml` — reusable workflow for MAIN.md § 7 Decision 18(b) (Conventional Commit PR titles)
-- `.github/workflows/signature-verify.yml` — reusable workflow for MAIN.md § 7 Decision 10 per-PR gitsign signature check
-- `.github/workflows/image-sign.yml` — airlock-only reusable workflow for MAIN.md § 7 Decision 17 (cosign keyless + multi-arch + SBOM/provenance attestations)
+- `migration/layer0_interlock.md` — L0 Attestation/Glue (Stage 2; ships before other layers)
+- `migration/layer1_sieve.md` — L1 Data Plane / sensitivity gate (Stage 3)
+- `migration/layer2_arbiter.md` — L2 Control Plane / intent integration (Stage 5)
+- `migration/layer3_airlock.md` — L3 Execution Plane / sandbox + session-stream substrate (Stage 4)
+- `migration/layer4_jettison.md` — L4 Visibility Plane / deterministic rules + actions (Stage 2; policy module ships alongside interlock per the 2026-06-29 layer-4 collapse)
+- `.github/workflows/legacy-name-guard.yml` — reusable workflow enforcing migration/MAIN.md § 8 Constraint 6 (legacy-name grep gate)
+- `.github/workflows/gitleaks.yml` — reusable workflow for migration/MAIN.md § 7 Decision 18(a) (secrets scanner)
+- `.github/workflows/pr-title-lint.yml` — reusable workflow for migration/MAIN.md § 7 Decision 18(b) (Conventional Commit PR titles)
+- `.github/workflows/signature-verify.yml` — reusable workflow for migration/MAIN.md § 7 Decision 10 per-PR gitsign signature check
+- `.github/workflows/image-sign.yml` — airlock-only reusable workflow for migration/MAIN.md § 7 Decision 17 (cosign keyless + multi-arch + SBOM/provenance attestations)
 - `.github/workflows/ci-template.yml` — example layer-repo CI; copied to each layer at bootstrap
 - `.github/workflows/release-template.yml` — example layer-repo release workflow (image-publishing layers only, currently airlock); wires the consumer-side `push: tags: ['v*']` trigger that calls hull's `image-sign.yml`
 - `.pre-commit-config.yaml` — canonical pre-commit baseline (gitleaks, hygiene set, uv-lock, commented-in mypy)
-- `docs/REPO_SETTINGS.md` — operator cookbook for GitHub repo-side rules (branch protection, merge strategy, OIDC) per MAIN.md § 7 Decisions 10, 11, 17, 18, 19
+- `docs/REPO_SETTINGS.md` — operator cookbook for GitHub repo-side rules (branch protection, merge strategy, OIDC) per migration/MAIN.md § 7 Decisions 10, 11, 17, 18, 19
 - `docs/CI.md` — operator overview of the CI infrastructure (inheritance model, the six assertions, pinning, troubleshooting, maintenance)
 
 ## Project code standards
@@ -28,7 +29,7 @@ Layer names (`interlock`, `sieve`, `arbiter`, `airlock`, `jettison`, `hull`, `dr
 
 - Use layer names in **documentation** as memorable handles for the layers.
 - Avoid using layer names in **code**. Instead use descriptive, best-practice naming conventions for files, classes, functions, and variables.
-- See also `MAIN.md § 8 Constraint 6`: legacy `spektralia` names MUST NEVER propagate into the new repositories; CI grep gate enforces.
+- See also `migration/MAIN.md § 8 Constraint 6`: legacy `spektralia` names MUST NEVER propagate into the new repositories; CI grep gate enforces.
 
 ## Working with specs
 

@@ -33,7 +33,7 @@ jobs:
 ```
 
 For v1, every consumer pins to `@main`. Once hull cuts tagged releases
-(`v1.0.0` and onward per MAIN.md § 10), consumers SHOULD bump the pin to a
+(`v1.0.0` and onward per migration/MAIN.md § 10), consumers SHOULD bump the pin to a
 release tag so a hull refactor cannot break every layer repo's CI at once.
 
 `image-sign.yml` is **not generic**. It is consumed only by airlock (and any
@@ -43,7 +43,7 @@ future image-publishing layer) from its own `release.yml`, not from `ci.yml`.
 
 ## 2. The six CI assertions mapped to files
 
-| Assertion | MAIN.md provenance | Implemented in |
+| Assertion | migration/MAIN.md provenance | Implemented in |
 |---|---|---|
 | **(1)** Legacy-name grep gate (zero hits for `[Ss]pektralia\|SPEKTRALIA_\|~/\.spektralia/\|src/spektralia/\|spektralia-` outside exemptions) | § 8 Constraint 6 | [`legacy-name-guard.yml`](../.github/workflows/legacy-name-guard.yml) |
 | **(2)** gitsign signed-commit verification (per-PR pass/fail signal complementing branch protection's "require signed commits") | § 7 Decision 10 | [`signature-verify.yml`](../.github/workflows/signature-verify.yml) + REPO_SETTINGS.md § 1 |
@@ -301,8 +301,8 @@ locations. Two fixes:
    convenience pass.
 
 **Hull special case.** Hull (this meta-repo) carries the migration planning
-docs (`MAIN.md`, `layer0_interlock.md`, …, `LICENSE` copyright line). Per
-[MAIN.md § 3](../MAIN.md), Stage 1 moves these docs into a `migration/`
+docs (`migration/MAIN.md`, `migration/layer0_interlock.md`, …, `LICENSE` copyright line). Per
+[migration/MAIN.md § 3](../migration/MAIN.md), Stage 1 moves these docs into a `migration/`
 subdirectory, after which the workflow's built-in `migration/` exemption
 covers them. Until Stage 1 completes, hull's own `ci.yml` does NOT call
 `legacy-name-guard` on hull itself; the workflow is invoked from layer repos
@@ -480,8 +480,8 @@ for the full allowed-prefix list.
 ## 7. Cross-references
 
 - [`./REPO_SETTINGS.md`](./REPO_SETTINGS.md) — GitHub repo-settings cookbook (the org-side complement to this doc)
-- [`../MAIN.md` § 7 Decisions 10, 11, 17, 18, 19](../MAIN.md) — provenance for every assertion above
-- [`../MAIN.md` § 8 Constraint 6](../MAIN.md) — the legacy-name grep gate's authoritative source
-- [`../MAIN.md` § 11 Stage 1](../MAIN.md) — these files as Stage 1 deliverables
+- [`../migration/MAIN.md` § 7 Decisions 10, 11, 17, 18, 19](../migration/MAIN.md) — provenance for every assertion above
+- [`../migration/MAIN.md` § 8 Constraint 6](../migration/MAIN.md) — the legacy-name grep gate's authoritative source
+- [`../migration/MAIN.md` § 11 Stage 1](../migration/MAIN.md) — these files as Stage 1 deliverables
 - [`../.github/workflows/`](../.github/workflows) — the canonical reusable workflows
 - [`../.pre-commit-config.yaml`](../.pre-commit-config.yaml) — the canonical pre-commit baseline
