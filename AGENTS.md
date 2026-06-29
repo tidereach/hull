@@ -1,4 +1,4 @@
-# Spektralia — Migration Planning Repo
+# Tidereach — Migration Planning Repo
 
 Main branch contains only migration planning specs. Full codebase is archived on `archive/pre-migration`.
 
@@ -6,8 +6,8 @@ Main branch contains only migration planning specs. Full codebase is archived on
 
 - `MAIN.md` — architecture, decisions, execution order. **Read this first.**
 - `layer0_interlock.md` — L0 Attestation/Glue (Stage 2; ships before other layers)
-- `layer1_spectograph.md` — L1 Data Plane / sensitivity gate (Stage 3)
-- `layer2_analyzer.md` — L2 Control Plane / intent integration (Stage 5)
+- `layer1_sieve.md` — L1 Data Plane / sensitivity gate (Stage 3)
+- `layer2_arbiter.md` — L2 Control Plane / intent integration (Stage 5)
 - `layer3_airlock.md` — L3 Execution Plane / sandbox + session-stream substrate (Stage 4)
 - `layer4_jettison.md` — L4 Visibility Plane / deterministic rules + actions (Stage 6)
 
