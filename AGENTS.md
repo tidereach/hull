@@ -5,11 +5,20 @@ Main branch contains only migration planning specs. Full codebase is archived on
 ## Files
 
 - `MAIN.md` — architecture, decisions, execution order. **Read this first.**
+- `ROADMAP.md` — v2 candidates and other deferred items, each with a concrete re-open trigger. Append new candidates here as they surface; don't wait to be asked.
 - `layer0_interlock.md` — L0 Attestation/Glue (Stage 2; ships before other layers)
 - `layer1_sieve.md` — L1 Data Plane / sensitivity gate (Stage 3)
 - `layer2_arbiter.md` — L2 Control Plane / intent integration (Stage 5)
 - `layer3_airlock.md` — L3 Execution Plane / sandbox + session-stream substrate (Stage 4)
 - `layer4_jettison.md` — L4 Visibility Plane / deterministic rules + actions (Stage 6)
+
+## Project code standards
+
+Layer names (`interlock`, `sieve`, `arbiter`, `airlock`, `jettison`, `hull`, `drydock`) may be rejected by stakeholders. Keep code resilient to a layer rename — the doc-level name is one search-and-replace away, but a Python identifier or env var carrying a layer name is a breaking change for consumers.
+
+- Use layer names in **documentation** as memorable handles for the layers.
+- Avoid using layer names in **code**. Instead use descriptive, best-practice naming conventions for files, classes, functions, and variables.
+- See also `MAIN.md § 8 Constraint 6`: legacy `spektralia` names MUST NEVER propagate into the new repositories; CI grep gate enforces.
 
 ## Working with specs
 
@@ -22,4 +31,3 @@ Main branch contains only migration planning specs. Full codebase is archived on
 
 - `archive/pre-migration` — full monorepo snapshot before restructure (2026-06-28)
 - Working tree may have untracked residue (infra/, src/, tests/) after branch switches; clear with `git clean -fd`
-- `REVIEW_NOTES.md`, `.gitignore` are untracked working-tree files — do not commit without review
