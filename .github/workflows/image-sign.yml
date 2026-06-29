@@ -1,0 +1,239 @@
+# Reusable workflow: image-sign  (airlock-specific; Stage 4)
+#
+# Enforces MAIN.md § 7 Decision 17:
+#   - Container registry: ghcr.io/tidereach/<image>
+#   - Signing: cosign keyless via GitHub OIDC → Fulcio cert → Rekor
+#   - Multi-arch: amd64 + arm64 manifest list (Apple Silicon dev parity)
+#   - SBOM: in-toto DSSE attestation (predicateType: cyclonedx.org/bom)
+#   - Provenance: in-toto DSSE attestation (predicateType: slsa.dev/provenance/v1)
+#   - Verification: cosign verify-attestation + cosign verify per arch and on the
+#     manifest-list digest, against the GitHub Actions workflow identity.
+#
+# This workflow is consumed ONLY by airlock (and any future image-publishing
+# layer); the other layer repos do not call it. It triggers on tag push (v*).
+#
+# Consumer usage (from airlock's `.github/workflows/release.yml`):
+#
+#   jobs:
+#     image-sign:
+#       uses: tidereach/hull/.github/workflows/image-sign.yml@main
+#       with:
+#         image-name: airlock
+#         containerfile: Containerfile
+#         context: .
+#       permissions:
+#         contents: read
+#         packages: write
+#         id-token: write
+#         attestations: write
+
+name: image-sign
+
+on:
+  workflow_call:
+    inputs:
+      image-name:
+        description: GHCR image short name (e.g. "airlock"); pushed to ghcr.io/tidereach/<image-name>.
+        required: true
+        type: string
+      containerfile:
+        description: Path to the Containerfile/Dockerfile within the repo.
+        required: false
+        default: Containerfile
+        type: string
+      context:
+        description: Build context directory.
+        required: false
+        default: .
+        type: string
+      platforms:
+        description: Comma-separated buildx platforms.
+        required: false
+        default: linux/amd64,linux/arm64
+        type: string
+
+permissions:
+  contents: read
+  packages: write   # GHCR push
+  id-token: write   # OIDC token for cosign keyless + Fulcio
+  attestations: write
+
+concurrency:
+  group: image-sign-${{ github.ref }}
+  cancel-in-progress: false  # never cancel a release in flight
+
+jobs:
+  build-sign-attest:
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY: ghcr.io
+      IMAGE: ghcr.io/tidereach/${{ inputs.image-name }}
+      # cosign keyless verification identity. The trailing pattern accepts
+      # workflows on `main` (for testing) and on `v*` tags (for releases).
+      EXPECTED_IDENTITY_REGEXP: ^https://github\.com/tidereach/[^/]+/\.github/workflows/.+@refs/(heads/main|tags/v.+)$
+      EXPECTED_ISSUER: https://token.actions.githubusercontent.com
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Set up QEMU (multi-arch emulation)
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130  # v3.7.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f  # v3.12.0
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5  # v3.10.1
+
+      - name: Install syft (for image SBOM)
+        uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610  # v0.24.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3.7.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive image tags
+        id: tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          REF="${GITHUB_REF#refs/tags/}"
+          echo "version=${REF}" >> "$GITHUB_OUTPUT"
+          echo "tags=${IMAGE}:${REF},${IMAGE}:latest" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push multi-arch manifest list
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6.19.2
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.containerfile }}
+          platforms: ${{ inputs.platforms }}
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          provenance: mode=max          # SLSA provenance attestation
+          sbom: false                   # we generate the SBOM with syft below
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=false
+
+      - name: Resolve per-arch digests
+        id: digests
+        shell: bash
+        env:
+          MANIFEST_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          # The manifest list digest comes from build-push-action.
+          echo "manifest=${MANIFEST_DIGEST}" >> "$GITHUB_OUTPUT"
+          # Pull per-arch image digests out of the manifest list. cosign ships
+          # `cosign tree` / docker manifest can also do this; we use buildx imagetools.
+          docker buildx imagetools inspect "${IMAGE}@${MANIFEST_DIGEST}" --format '{{json .Manifest}}' \
+            > manifest.json
+          jq -r '.manifests[] | "\(.platform.os)/\(.platform.architecture) \(.digest)"' manifest.json \
+            | tee per-arch-digests.txt
+
+      - name: Sign manifest list (cosign keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+          MANIFEST_DIGEST: ${{ steps.digests.outputs.manifest }}
+        run: |
+          set -euo pipefail
+          cosign sign --yes "${IMAGE}@${MANIFEST_DIGEST}"
+
+      - name: Sign each per-arch image (cosign keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          set -euo pipefail
+          while read -r platform digest; do
+            echo "::group::sign ${platform} ${digest}"
+            cosign sign --yes "${IMAGE}@${digest}"
+            echo "::endgroup::"
+          done < per-arch-digests.txt
+
+      - name: Generate SBOMs (CycloneDX) per arch + manifest
+        env:
+          MANIFEST_DIGEST: ${{ steps.digests.outputs.manifest }}
+        run: |
+          set -euo pipefail
+          mkdir -p sboms
+          syft "${IMAGE}@${MANIFEST_DIGEST}" -o cyclonedx-json > "sboms/manifest.cdx.json"
+          while read -r platform digest; do
+            safe=$(echo "${platform}" | tr '/' '_')
+            syft "${IMAGE}@${digest}" -o cyclonedx-json > "sboms/${safe}.cdx.json"
+          done < per-arch-digests.txt
+
+      - name: Attest SBOMs (in-toto DSSE → Rekor)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+          MANIFEST_DIGEST: ${{ steps.digests.outputs.manifest }}
+        run: |
+          set -euo pipefail
+          cosign attest --yes \
+            --predicate sboms/manifest.cdx.json \
+            --type cyclonedx \
+            "${IMAGE}@${MANIFEST_DIGEST}"
+          while read -r platform digest; do
+            safe=$(echo "${platform}" | tr '/' '_')
+            cosign attest --yes \
+              --predicate "sboms/${safe}.cdx.json" \
+              --type cyclonedx \
+              "${IMAGE}@${digest}"
+          done < per-arch-digests.txt
+
+      - name: Verify signatures and attestations
+        env:
+          MANIFEST_DIGEST: ${{ steps.digests.outputs.manifest }}
+        run: |
+          set -euo pipefail
+          echo "::group::verify manifest list signature"
+          cosign verify \
+            --certificate-identity-regexp "${EXPECTED_IDENTITY_REGEXP}" \
+            --certificate-oidc-issuer "${EXPECTED_ISSUER}" \
+            "${IMAGE}@${MANIFEST_DIGEST}"
+          echo "::endgroup::"
+
+          echo "::group::verify manifest list SBOM (CycloneDX) attestation"
+          cosign verify-attestation \
+            --type cyclonedx \
+            --certificate-identity-regexp "${EXPECTED_IDENTITY_REGEXP}" \
+            --certificate-oidc-issuer "${EXPECTED_ISSUER}" \
+            "${IMAGE}@${MANIFEST_DIGEST}"
+          echo "::endgroup::"
+
+          echo "::group::verify manifest list SLSA provenance attestation"
+          cosign verify-attestation \
+            --type slsaprovenance1 \
+            --certificate-identity-regexp "${EXPECTED_IDENTITY_REGEXP}" \
+            --certificate-oidc-issuer "${EXPECTED_ISSUER}" \
+            "${IMAGE}@${MANIFEST_DIGEST}"
+          echo "::endgroup::"
+
+          while read -r platform digest; do
+            echo "::group::verify ${platform} signature + SBOM + provenance"
+            cosign verify \
+              --certificate-identity-regexp "${EXPECTED_IDENTITY_REGEXP}" \
+              --certificate-oidc-issuer "${EXPECTED_ISSUER}" \
+              "${IMAGE}@${digest}"
+            cosign verify-attestation \
+              --type cyclonedx \
+              --certificate-identity-regexp "${EXPECTED_IDENTITY_REGEXP}" \
+              --certificate-oidc-issuer "${EXPECTED_ISSUER}" \
+              "${IMAGE}@${digest}"
+            cosign verify-attestation \
+              --type slsaprovenance1 \
+              --certificate-identity-regexp "${EXPECTED_IDENTITY_REGEXP}" \
+              --certificate-oidc-issuer "${EXPECTED_ISSUER}" \
+              "${IMAGE}@${digest}"
+            echo "::endgroup::"
+          done < per-arch-digests.txt
+
+          echo "image-sign: all signatures, SBOMs, and SLSA provenance verified against Fulcio + Rekor."
+
+      - name: Upload SBOMs as workflow artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: sboms-${{ steps.tags.outputs.version }}
+          path: sboms/
+          if-no-files-found: error

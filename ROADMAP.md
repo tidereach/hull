@@ -18,7 +18,7 @@ v1 ships git submodule pinned at SHA in each consumer. v2 picks a proper mechani
 
 ### 2. Team-permissions model across all repos
 
-v1 ships single-operator governance, captured in `docs/GOVERNANCE.md` (Stage 1 deliverable; see `MAIN.md § 11 Stage 1`): `main` accepts commits only from the operator, `CODEOWNERS` is a `* @<operator-handle>` wildcard in each of the five repos, no team-permissions design is authored.
+v1 ships single-operator governance, captured in `docs/GOVERNANCE.md` (Stage 1 deliverable; see `MAIN.md § 11 Stage 1`): `main` accepts commits only from the operator, `CODEOWNERS` is a `* @dotknewt` wildcard in each of the four sibling layer repos + meta-repo, no team-permissions design is authored.
 
 **Why deferred:** inventing five-role RBAC for an audience of one is overhead. The wildcard CODEOWNERS still gives branch-protection a hook to assert on.
 

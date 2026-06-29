@@ -1,0 +1,79 @@
+# Reusable workflow: pr-title-lint
+#
+# Enforces MAIN.md § 7 Decision 18(b) — PR titles must follow Conventional
+# Commits. Required because Decision 11 specifies squash-and-merge, which
+# makes the PR title the merge-commit title on `main`. Without this gate,
+# squash-merge history becomes unparseable for changelogs and release tooling.
+#
+# Accepted prefixes (Conventional Commits superset):
+#   feat | fix | chore | refactor | docs | test | perf | breaking |
+#   build | ci | revert | style
+#
+# Format:   <type>(<optional-scope>)<optional-!>: <non-empty description>
+# Examples: feat: add SquidAccessReader to interlock
+#           fix(sieve): close ReDoS in entropy decoder
+#           breaking!: bump session-stream-jsonl to v2.0.0
+#           chore(deps): bump cyclonedx-py to 4.5.0
+#
+# Consumer usage (from a layer repo `.github/workflows/ci.yml`):
+#
+#   jobs:
+#     pr-title-lint:
+#       uses: tidereach/hull/.github/workflows/pr-title-lint.yml@main
+
+name: pr-title-lint
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: pr-title-lint-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    # No-op on non-PR events (e.g. push to main); the workflow exists so
+    # consumers can wire it unconditionally without `if:` plumbing.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR title format
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        shell: python {0}
+        run: |
+          import os
+          import re
+          import sys
+
+          # Conventional Commits superset — see MAIN.md § 7 Decision 18(b).
+          # Pattern: <type>(<optional-scope>)<optional-!>: <non-empty description>
+          TYPES = (
+              'feat', 'fix', 'chore', 'refactor', 'docs', 'test',
+              'perf', 'breaking', 'build', 'ci', 'revert', 'style',
+          )
+          REGEX = re.compile(
+              r'^(' + '|'.join(TYPES) + r')'
+              r'(\([^)]+\))?'   # optional scope
+              r'!?'             # optional breaking-change marker
+              r': '             # required colon + space
+              r'.+$'            # non-empty description
+          )
+
+          title = os.environ['TITLE']
+          if not REGEX.match(title):
+              print('::error::PR title does not match Conventional Commits.')
+              print(f'::error::Got: {title!r}')
+              print('::error::Expected one of:')
+              print('::error::  feat: add X')
+              print('::error::  fix(scope): correct Y')
+              print('::error::  breaking!: change contract Z')
+              print('::error::Allowed types: ' + ', '.join(TYPES))
+              print('::error::See MAIN.md § 7 Decision 18(b).')
+              sys.exit(1)
+
+          print(f'pr-title-lint: ok ({title!r})')

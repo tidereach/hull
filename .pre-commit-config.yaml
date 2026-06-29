@@ -1,0 +1,71 @@
+# Canonical pre-commit baseline for all tidereach/* repos.
+#
+# Mirrors the CI assertions per MAIN.md § 7 Decision 18:
+#   - gitleaks    — secrets scanner, also the CI gate (Decision 18(a))
+#   - hygiene set — trailing whitespace, EOF newline, YAML/TOML syntax, large files
+#   - uv-lock     — lockfile-freshness check for Python layer repos
+#   - mypy        — per-layer type check (each layer pins its own mypy via pyproject)
+#
+# Layer repos COPY this file at bootstrap and may add layer-specific hooks
+# (e.g., sieve adds the ReDoS-bound regex linter, airlock adds shellcheck on
+# scripts/). The shared baseline below stays in lockstep across repos.
+#
+# All hooks are pinned to commit SHAs per the security best practice that
+# motivates Constraint 6's strict-pinning posture for action SHAs.
+# Update the SHAs via `pre-commit autoupdate` and review every bump.
+#
+# Installation in a clone:
+#   pip install pre-commit  # or `uv tool install pre-commit`
+#   pre-commit install      # writes .git/hooks/pre-commit
+
+# Replace each `rev:` placeholder with the upstream SHA at apply time —
+# see docs/CI.md "Pinning" for the resolve-and-bump procedure.
+
+repos:
+  # -------------------------------------------------------------------------
+  # Decision 18(a) — secrets scanner; same tool as CI for parity.
+  # -------------------------------------------------------------------------
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: 83d9cd684c87d95d656c1458ef04895a7f1cbd8e  # v8.30.1 — see docs/CI.md "Pinning"
+    hooks:
+      - id: gitleaks
+
+  # -------------------------------------------------------------------------
+  # Hygiene baseline — keeps diffs clean and catches malformed configs early.
+  # -------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: cef0300fd0fc4d2a87a85fa2093c6b283ea36f4b  # v5.0.0 — see docs/CI.md "Pinning"
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: ["--unsafe"]   # tolerate GitHub Actions YAML tags
+      - id: check-toml
+      - id: check-json
+      - id: check-added-large-files
+        args: ["--maxkb=512"]
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+
+  # -------------------------------------------------------------------------
+  # uv lockfile freshness — Python layer repos only (no-op in hull/airlock).
+  # The hook fails if pyproject.toml has changed but uv.lock was not refreshed.
+  # -------------------------------------------------------------------------
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 06c8dbc924504e76c7ba32c5735e55c9e5e1c266  # 0.5.31 — see docs/CI.md "Pinning"
+    hooks:
+      - id: uv-lock
+
+  # -------------------------------------------------------------------------
+  # mypy — per-layer pyproject configures the actual mypy version and target.
+  # Layer repos UNCOMMENT this block in their copy of the file once a
+  # `src/` tree exists. hull (meta) has no Python source; the block stays
+  # commented in this canonical baseline.
+  # -------------------------------------------------------------------------
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: fc0f09a29bb495f4a91f00266155d6282d52485d  # v1.20.2 — see docs/CI.md "Pinning"
+  #   hooks:
+  #     - id: mypy
+  #       additional_dependencies: []  # layer adds its runtime deps here
+  #       args: ["--config-file=pyproject.toml"]

@@ -1,0 +1,72 @@
+# Example layer-repo release template (image-publishing layers only)
+#
+# Copy this file to `<layer-repo>/.github/workflows/release.yml` at bootstrap
+# IF the layer publishes a container image (currently: airlock only). The
+# generic `ci-template.yml` does NOT call image-sign; image publishing is
+# release-scoped, not PR-scoped.
+#
+# This template is the CONSUMER side of `tidereach/hull/.github/workflows/
+# image-sign.yml`. Two things make it work end-to-end against Decision 17:
+#
+#   1. The trigger `push: tags: ['v*']` constrains releases to semver tags.
+#      Every other branch/PR runs `ci.yml` only; no signing happens off-tag.
+#
+#   2. The cosign keyless identity regex in image-sign.yml's `EXPECTED_IDENTITY_REGEXP`
+#      asserts against the SAN Fulcio builds from THIS workflow's
+#      `job_workflow_ref` claim. The SAN is:
+#
+#        https://github.com/<this-repo-org>/<this-repo>/.github/workflows/release.yml@refs/tags/<vX.Y.Z>
+#
+#      For a tidereach/airlock tag push to `v1.0.0`, the SAN is:
+#
+#        https://github.com/tidereach/airlock/.github/workflows/release.yml@refs/tags/v1.0.0
+#
+#      That matches image-sign.yml's regex:
+#
+#        ^https://github\.com/tidereach/[^/]+/\.github/workflows/.+@refs/(heads/main|tags/v.+)$
+#
+#      so the cert chain (Rekor entry → Fulcio cert → SAN → OIDC issuer)
+#      verifies. If you fork airlock to a non-tidereach org, the regex will
+#      fail; that is by design (Decision 17 limits keyless trust to the
+#      tidereach org).
+#
+# See docs/CI.md § 4a "OIDC → Fulcio → Rekor → cosign verify chain" for the
+# end-to-end walkthrough, and § 5 "image-sign verification cookbook" for the
+# verifier-side cosign invocations.
+
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to (re-)build, e.g. v1.0.0. Manual dispatch is for
+          drilling the chain on a test tag like v0.0.0-rc1.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write   # GHCR push
+  id-token: write   # OIDC token for cosign keyless + Fulcio
+  attestations: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false   # never cancel a release in flight
+
+jobs:
+  image-sign:
+    # IMPORTANT: pin the `@<ref>` of hull's reusable workflow to a SHA or
+    # release tag for production (e.g. `@v1.0.0`). `@main` is acceptable for
+    # bootstrap; bump to a tagged ref once hull cuts releases per docs/CI.md
+    # § 1 "Inheritance model".
+    uses: tidereach/hull/.github/workflows/image-sign.yml@main
+    with:
+      # Substitute the layer's image name; published as ghcr.io/tidereach/<image-name>.
+      image-name: airlock
+      containerfile: Containerfile
+      context: .
+      platforms: linux/amd64,linux/arm64

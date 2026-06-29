@@ -1,0 +1,105 @@
+# Reusable workflow: legacy-name-guard
+#
+# Enforces MAIN.md § 8 Constraint 6 — the historical Spektralia names MUST NEVER
+# propagate into the new tidereach/* repositories. This workflow is a REQUIRED
+# status check on `main` in every layer repo per Decision 11.
+#
+# Pattern: [Ss]pektralia | SPEKTRALIA_ | ~/.spektralia/ | src/spektralia/ | spektralia-
+#
+# Exemptions:
+#   1. The `migration/` directory (if a layer repo carries one as a historical
+#      audit trail).
+#   2. `CHANGELOG.md` (keep-a-changelog historical-narrative blocks).
+#   3. Any block bracketed by HTML comments:
+#        <!-- legacy-name-allowed -->
+#        ... legacy reference ...
+#        <!-- /legacy-name-allowed -->
+#
+# Failure prints every offending file:line:content so the operator can either
+# fix the reference or wrap it in an exemption marker.
+#
+# Consumer usage (from a layer repo `.github/workflows/ci.yml`):
+#
+#   jobs:
+#     legacy-name-guard:
+#       uses: tidereach/hull/.github/workflows/legacy-name-guard.yml@main
+
+name: legacy-name-guard
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: legacy-name-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  grep-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2 — see docs/CI.md "Pinning"
+        with:
+          fetch-depth: 1
+
+      - name: Scan for legacy Spektralia names
+        shell: python {0}
+        run: |
+          import os
+          import re
+          import sys
+          from pathlib import Path
+
+          PATTERN = re.compile(r'[Ss]pektralia|SPEKTRALIA_|~/\.spektralia/|src/spektralia/|spektralia-')
+          OPEN_TAG  = '<!-- legacy-name-allowed -->'
+          CLOSE_TAG = '<!-- /legacy-name-allowed -->'
+          SKIP_DIRS  = {'.git', 'migration', 'node_modules', '.venv', 'venv', '__pycache__'}
+          SKIP_FILES = {'CHANGELOG.md'}
+          # This workflow itself contains the pattern in its documentation; skip it.
+          # Layer repos that copy this file will likewise skip their own copy.
+          SELF = '.github/workflows/legacy-name-guard.yml'
+
+          hits = []
+
+          def scan(path):
+              rel = str(path)
+              if rel.endswith(SELF):
+                  return
+              try:
+                  text = path.read_text(encoding='utf-8', errors='strict')
+              except (OSError, UnicodeError):
+                  return  # binary or unreadable; skip
+              in_exempt = False
+              for lineno, line in enumerate(text.splitlines(), start=1):
+                  if OPEN_TAG in line:
+                      in_exempt = True
+                      continue
+                  if CLOSE_TAG in line:
+                      in_exempt = False
+                      continue
+                  if in_exempt:
+                      continue
+                  if PATTERN.search(line):
+                      hits.append((rel, lineno, line.rstrip()))
+
+          for dirpath, dirnames, filenames in os.walk('.'):
+              dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+              for name in filenames:
+                  if name in SKIP_FILES:
+                      continue
+                  p = Path(dirpath) / name
+                  scan(p)
+
+          if hits:
+              print('::error::Legacy Spektralia names found (MAIN.md § 8 Constraint 6).')
+              print('::error::Wrap intentional historical references in <!-- legacy-name-allowed --> ... <!-- /legacy-name-allowed --> blocks,')
+              print('::error::or move the content under migration/ or CHANGELOG.md.')
+              print('')
+              for path, lineno, line in hits:
+                  print(f'{path}:{lineno}: {line}')
+              sys.exit(1)
+
+          print('legacy-name-guard: clean (MAIN.md § 8 Constraint 6 satisfied).')
