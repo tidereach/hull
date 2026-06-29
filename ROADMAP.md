@@ -36,6 +36,16 @@ Per `MAIN.md § 7 Decision 19(a)`: build at Stage 2 when `contracts/` lands in i
 
 **Linked:** `MAIN.md § 7 Decision 19(a)`; resolved 2026-06-29.
 
+### 4. SLOs / error budgets beyond sieve hook latencies
+
+v1 specifies per-hook p95 latency budgets for sieve (500ms PreToolUse, 300ms PostToolUse, 200ms UserPromptSubmit). v1 does **not** specify availability SLOs, error budgets, graceful-degradation contracts beyond per-component `fail_open=False` defaults, or end-to-end stack-level latency budgets.
+
+**Why deferred:** the project is OSS without an operations team behind it; SLOs imply a service-level commitment that single-operator governance (Decision 19) cannot honor. Per-hook latency budgets are sufficient for "the hook doesn't make the agent CLI feel broken"; broader uptime/error budgets are post-v1 concerns.
+
+**Re-open trigger:** first operator running Tidereach as part of a managed service offering, OR first SLA contract that cites Tidereach as a dependency, OR any operator-pageable incident pattern emerging from the Stage 6 cross-repo soak.
+
+**Linked:** sieve latency budgets live in `layer1_sieve.md`; resolved-as-deferred 2026-06-29.
+
 ---
 
 ## Entry format for new items
