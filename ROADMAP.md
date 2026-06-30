@@ -68,6 +68,16 @@ v1 resolves the operational conflict by setting `required_signatures: false` in 
 
 **Linked:** `migration/MAIN.md § 7 Decision 10` (sigstore via OIDC); `docs/REPO_SETTINGS.md § 1` (the now-off `Require signed commits` row); `docs/CI.md § 2` (the signature-verify workflow as the canonical gate); PR #146 (the worked example). Resolved 2026-06-30.
 
+### 7. `betterleaks` is a young project — abandonment risk
+
+`migration/MAIN.md § 7 Decision 18(a)` was amended 2026-06-30 from `gitleaks` to `betterleaks` (the original gitleaks author's successor at Aikido — drop-in compatible, MIT, no org-license signup). The switch was driven by the `gitleaks-action` v2.0.0 free-but-required org-license that contradicted the spec's claim of optional licensing. **betterleaks is 5 months old as of the switch** (started Feb 2026, v1.6.0 released June 2026, 237 commits, ~30 open issues / PRs), much younger than gitleaks. The same one-person dependence that motivated the original gitleaks pick is therefore re-acquired.
+
+**Why deferred:** there's no v1 fix beyond the choice itself. The 5-month-old project IS the spec; v2 work is either (a) wait for betterleaks to season into a 2-year project before re-evaluating, (b) build a vendor-neutral abstraction (regex+entropy+rule-engine ourselves on top of a stable lower-level lib) so swapping scanners is mechanical, or (c) switch to a more mature alternative (trufflehog, despite the AGPL friction and higher historical FP rate that Decision 18(a) originally rejected it for).
+
+**Re-open trigger:** betterleaks goes 6 months without a release, OR Aikido drops the project, OR a betterleaks-specific FP-rate regression makes the CI noisy, OR a gitleaks-action license-policy reversal restores the option to go back. The fallback path of last resort is the `gitleaks` BINARY directly (drop the action, keep the CLI) which sidesteps the original org-license blocker without leaving the gitleaks ecosystem.
+
+**Linked:** `migration/MAIN.md § 7 Decision 18(a)` (the amendment); `docs/CI.md § 2` row 5 (the assertion); `.pre-commit-config.yaml` (the pinned hook); `.github/workflows/betterleaks.yml` (the CI implementation); resolved-as-deferred 2026-06-30.
+
 ---
 
 ## Entry format for new items
