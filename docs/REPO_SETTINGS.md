@@ -24,7 +24,7 @@ exact `job-id` strings under [`../.github/workflows/ci-template.yml`](../.github
 | Require pull request before merging | **On** | Decision 11 (squash-only merge requires a PR) |
 | Required approvals | **0** for v1 (single-operator governance — GitHub forbids self-approval and no second reviewer exists; signed commits + Rekor + linear history + required status checks are the authenticity gates per `docs/GOVERNANCE.md § 1`) | `docs/GOVERNANCE.md`; bumps when team-permissions are designed (see `ROADMAP.md` items 2 and 5) |
 | Dismiss stale approvals on new commits | **On** (inert under count=0; left enabled so the v2 unlatch to ≥1 doesn't need to flip this knob too) | Standard hygiene |
-| Require signed commits | **On** | **Decision 10** (gitsign / sigstore via OIDC) |
+| Require signed commits | **Off** — GitHub's native verifier rejects sigstore Fulcio certs (`reason: bad_cert`); the `signature-verify / verify` required-status-check is the canonical Decision 10 gate, running `gitsign verify` against Rekor. See `ROADMAP.md` item 6. | **Decision 10** (gitsign / sigstore via OIDC) |
 | Require status checks to pass before merging | **On** | Decision 11 |
 | Require branches to be up to date before merging | **On** | Avoids merge-state divergence under squash-only |
 | Required status checks (every repo) | `legacy-name-guard / grep-gate`, `gitleaks / scan`, `pr-title-lint / lint`, `signature-verify / verify` | Decisions 18(a), 18(b), 10, and Constraint 6 |
@@ -115,7 +115,7 @@ gh api -X PUT "repos/${ORG}/${REPO}/branches/main/protection" \
     "dismiss_stale_reviews": true,
     "require_code_owner_reviews": false
   },
-  "required_signatures": true,
+  "required_signatures": false,
   "required_linear_history": true,
   "required_conversation_resolution": true,
   "allow_force_pushes": false,
