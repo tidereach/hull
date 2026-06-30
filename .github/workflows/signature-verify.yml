@@ -91,14 +91,24 @@ jobs:
             echo "range=HEAD~1..HEAD" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Verify gitsign signatures across range
+      - name: Verify gitsign signatures across range (non-merge commits only)
         shell: bash
         env:
           RANGE: ${{ steps.range.outputs.range }}
         run: |
           set -euo pipefail
           FAIL=0
-          for SHA in $(git rev-list "${RANGE}"); do
+          # `--no-merges` skips merge commits. Their content is fully
+          # determined by their parents (which we DO verify), so signing
+          # the merge commit itself adds no integrity beyond parent
+          # signatures. This also avoids tripping on GitHub-created merge
+          # commits from the "Update branch" UI button, which carry
+          # GitHub's X.509 signature (not sigstore/Fulcio) and which
+          # gitsign rejects with "unsupported signature type: not a PEM
+          # block". Operators can still produce signed merge commits
+          # locally with `git merge -S` if they want; this workflow
+          # neither requires nor rejects those.
+          for SHA in $(git rev-list --no-merges "${RANGE}"); do
             echo "::group::verify ${SHA}"
             if ! gitsign verify \
                 --certificate-oidc-issuer-regexp "${EXPECTED_ISSUER_REGEX}" \
@@ -111,9 +121,9 @@ jobs:
             echo "::endgroup::"
           done
           if [[ "${FAIL}" -ne 0 ]]; then
-            echo "::error::One or more commits in ${RANGE} lack a valid gitsign signature."
+            echo "::error::One or more non-merge commits in ${RANGE} lack a valid gitsign signature."
             echo "::error::Re-sign with: GIT_CONFIG_GLOBAL=<your config> git commit --amend -S --no-edit"
             echo "::error::or rebase the branch with gitsign configured."
             exit 1
           fi
-          echo "signature-verify: all commits in ${RANGE} carry valid sigstore signatures."
+          echo "signature-verify: all non-merge commits in ${RANGE} carry valid sigstore signatures."
