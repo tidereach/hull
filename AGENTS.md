@@ -20,13 +20,13 @@ Main branch contains only migration planning specs. The migration is a greenfiel
 - `.github/CODEOWNERS` — `* @dotknewt` wildcard per `docs/GOVERNANCE.md § 2`.
 - `.github/workflows/ci.yml` — hull's own CI; calls the four reusable workflows via local-path notation. Distinct from `ci-template.yml` (which is the layer-repo template).
 - `.github/workflows/legacy-name-guard.yml` — reusable workflow enforcing migration/MAIN.md § 8 Constraint 6 (legacy-name grep gate)
-- `.github/workflows/gitleaks.yml` — reusable workflow for migration/MAIN.md § 7 Decision 18(a) (secrets scanner)
+- `.github/workflows/betterleaks.yml` — reusable workflow for migration/MAIN.md § 7 Decision 18(a) (secrets scanner; amended 2026-06-30 from `gitleaks.yml` per ROADMAP item 7)
 - `.github/workflows/pr-title-lint.yml` — reusable workflow for migration/MAIN.md § 7 Decision 18(b) (Conventional Commit PR titles)
 - `.github/workflows/signature-verify.yml` — reusable workflow for migration/MAIN.md § 7 Decision 10 per-PR gitsign signature check
 - `.github/workflows/image-sign.yml` — airlock-only reusable workflow for migration/MAIN.md § 7 Decision 17 (cosign keyless + multi-arch + SBOM/provenance attestations)
 - `.github/workflows/ci-template.yml` — example layer-repo CI; copied to each layer at bootstrap
 - `.github/workflows/release-template.yml` — example layer-repo release workflow (image-publishing layers only, currently airlock); wires the consumer-side `push: tags: ['v*']` trigger that calls hull's `image-sign.yml`
-- `.pre-commit-config.yaml` — canonical pre-commit baseline (gitleaks, hygiene set, uv-lock, commented-in mypy)
+- `.pre-commit-config.yaml` — canonical pre-commit baseline (betterleaks, hygiene set, uv-lock, commented-in mypy)
 - `docs/REPO_SETTINGS.md` — operator cookbook for GitHub repo-side rules (branch protection, merge strategy, OIDC) per migration/MAIN.md § 7 Decisions 10, 11, 17, 18, 19
 - `docs/CI.md` — operator overview of the CI infrastructure (inheritance model, the six assertions, pinning, troubleshooting, maintenance)
 - `docs/GOVERNANCE.md` — v1 single-operator posture, CODEOWNERS convention, re-open trigger; cites Decision 19.
@@ -40,7 +40,7 @@ Main branch contains only migration planning specs. The migration is a greenfiel
 
 | Command | Purpose |
 |---|---|
-| `pre-commit run --files <paths>` | Hygiene + gitleaks + (when uncommented) mypy. Install via `python3 -m venv ~/.venvs/pc && ~/.venvs/pc/bin/pip install pre-commit && ~/.venvs/pc/bin/pre-commit install`. |
+| `pre-commit run --files <paths>` | Hygiene + betterleaks + (when uncommented) mypy. Install via `python3 -m venv ~/.venvs/pc && ~/.venvs/pc/bin/pip install pre-commit && ~/.venvs/pc/bin/pre-commit install`. |
 | `gitsign verify HEAD` | Verify the most recent commit's sigstore signature against Rekor. The CI workflow `signature-verify.yml` runs this on every PR. |
 | `gh api -X PUT repos/tidereach/hull/branches/main/protection ...` | Apply branch protection per `docs/REPO_SETTINGS.md § 4` (amended apply script — count=0, code-owner-reviews=false, required_signatures=false). |
 
@@ -66,7 +66,8 @@ Layer names (`interlock`, `sieve`, `arbiter`, `airlock`, `jettison`, `hull`, `dr
 
 ## Live operator gotchas (post-Stage-1)
 
-- **PRs to `main` need the merge dance.** Branch protection's `required_status_checks` lists four contexts (`legacy-name-guard / grep-gate`, `gitleaks / scan`, `pr-title-lint / lint`, `signature-verify / verify`). Until ci.yml is on main + PR-author setup is complete, those checks pend forever. See `ROADMAP.md` item 5 + `docs/TRANSFER.md § 4.4`.
+- **Branch protection's `required_status_checks` lists four contexts** (`legacy-name-guard / grep-gate`, `betterleaks / scan`, `pr-title-lint / lint`, `signature-verify / verify`). `ci.yml` produces all four on every PR; the gates are in steady state. Don't bump `required_approving_review_count` back to 1 without amending governance (re-introduces the single-operator deadlock); don't flip `required_signatures` back to `true` without resolving ROADMAP item 6 (GitHub UI doesn't accept Fulcio certs). `signature-verify.yml` skips merge commits via `git rev-list --no-merges` (PR #150) — using GitHub's "Update branch" UI button on a stale PR is safe again.
+- **Secrets scanner is `betterleaks`, not `gitleaks`.** PR #149 switched after `gitleaks-action` v2 required a free-but-required org-license signup. Drop-in compatible at the rule + config level (`.gitleaks.toml` still accepted as fallback). Abandonment risk tracked in `ROADMAP.md` item 7; fallback path is the `gitleaks` binary directly.
 - **gitsign signatures show "Unverified" in GitHub UI.** GitHub's verifier doesn't accept Fulcio short-lived certs; `signature-verify.yml` is the canonical Decision 10 gate. `ROADMAP.md` item 6.
 - **Single operator + 1-approval is structurally deadlocked.** Resolved as path (a) in `ROADMAP.md` item 5 — `required_approving_review_count: 0`. Don't bump that knob back to 1 without amending governance.
 
