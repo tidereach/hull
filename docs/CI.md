@@ -62,8 +62,9 @@ Every layer repo copies [`../.pre-commit-config.yaml`](../.pre-commit-config.yam
 to its root at bootstrap, then a contributor runs:
 
 ```bash
-pip install pre-commit
-pre-commit install
+python3 -m venv .venv
+.venv/bin/pip install pre-commit
+.venv/bin/pre-commit install
 ```
 
 The baseline hooks include:
@@ -331,20 +332,27 @@ Two options:
 
 The contributor's commits were not signed with gitsign. Fix:
 
-```bash
-# Configure gitsign once (per machine):
-git config --global commit.gpgsign true
-git config --global gpg.x509.program gitsign
-git config --global gpg.format x509
-git config --global tag.gpgsign true
+First, ensure gitsign is configured on the contributor's machine — see
+**§ 4b → "Prerequisite: gitsign configured locally"** for the one-time setup.
 
-# Re-sign the existing branch:
+Then re-sign the existing branch:
+
+```bash
 git rebase --exec 'git commit --amend --no-edit -S' main
 git push --force-with-lease
 ```
 
 If gitsign itself fails (Fulcio cert request errors), check that the
 contributor's OIDC chain (GitHub login or `gh auth login`) is intact.
+
+If gitsign fails with a DNS/UDP timeout (common on systemd-resolved), export
+`GODEBUG=netdns=cgo` to switch gitsign's DNS resolver from pure-Go to the
+system NSS resolver:
+
+```bash
+export GODEBUG=netdns=cgo
+git commit --amend --no-edit  # retry the failing sign
+```
 
 **Merge commits are skipped.** `signature-verify.yml` calls
 `git rev-list --no-merges` so merge commits don't need a sigstore
