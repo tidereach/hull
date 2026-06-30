@@ -45,7 +45,9 @@ future image-publishing layer) from its own `release.yml`, not from `ci.yml`.
 
 | Assertion | migration/MAIN.md provenance | Implemented in |
 |---|---|---|
+<!-- legacy-name-allowed -->
 | **(1)** Legacy-name grep gate (zero hits for `[Ss]pektralia\|SPEKTRALIA_\|~/\.spektralia/\|src/spektralia/\|spektralia-` outside exemptions) | § 8 Constraint 6 | [`legacy-name-guard.yml`](../.github/workflows/legacy-name-guard.yml) |
+<!-- /legacy-name-allowed -->
 | **(2)** gitsign signed-commit verification (per-PR pass/fail signal complementing branch protection's "require signed commits") | § 7 Decision 10 | [`signature-verify.yml`](../.github/workflows/signature-verify.yml) + REPO_SETTINGS.md § 1 |
 | **(3)** Squash-and-merge enforcement | § 7 Decision 11 | **Not a workflow** — [REPO_SETTINGS.md § 2](./REPO_SETTINGS.md) |
 | **(4)** cosign keyless image signing + multi-arch + SBOM/provenance attestations (airlock) | § 7 Decision 17 | [`image-sign.yml`](../.github/workflows/image-sign.yml) |
@@ -113,11 +115,13 @@ to `main` HEAD:
 - (No others as of v1.) When a loose pin exists, the trailing comment names
   it as "main HEAD as of <YYYY-MM-DD>" so future bumps are reviewable.
 
+<!-- legacy-name-allowed -->
 **Why SHA pinning matters.** Tag-based pinning (`actions/checkout@v4`)
 re-resolves on every CI run; a malicious force-push to the tag can swap in
 hostile code. SHA pinning (`actions/checkout@<40-char-sha>`) is immutable.
 This is the same security stance Constraint 6 enforces for Spektralia
 nomenclature: explicitness over convenience.
+<!-- /legacy-name-allowed -->
 
 **Bumping pinned SHAs across all consumer repos.** Open a PR per repo updating
 the `@<sha>` ref (and the trailing `# vX.Y.Z` comment that documents what the
@@ -287,8 +291,10 @@ Once the tag is pushed and the workflow has run green, walk through the verifica
 
 ### legacy-name-guard failed
 
+<!-- legacy-name-allowed -->
 The grep hit a `Spektralia` / `spektralia` reference outside the allowed
 locations. Two fixes:
+<!-- /legacy-name-allowed -->
 
 1. **Genuine drift** — the reference is unintentional. Rename to `tidereach`.
 2. **Intentional historical reference** — wrap the block:

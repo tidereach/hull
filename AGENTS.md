@@ -4,7 +4,9 @@ Main branch contains only migration planning specs. The migration is a greenfiel
 
 ## Files
 
+<!-- legacy-name-allowed -->
 - `migration/` — historical planning specs preserved as the canonical migration record. Exempted from `legacy-name-guard` so layer specs may reference pre-migration `spektralia` names where required for narrative accuracy.
+<!-- /legacy-name-allowed -->
 - `migration/MAIN.md` — architecture, decisions, execution order. **Read this first.**
 - `ROADMAP.md` — v2 candidates and other deferred items, each with a concrete re-open trigger. Append new candidates here as they surface; don't wait to be asked.
 - `migration/layer0_interlock.md` — L0 Attestation/Glue (Stage 2; ships before other layers)
@@ -29,7 +31,9 @@ Layer names (`interlock`, `sieve`, `arbiter`, `airlock`, `jettison`, `hull`, `dr
 
 - Use layer names in **documentation** as memorable handles for the layers.
 - Avoid using layer names in **code**. Instead use descriptive, best-practice naming conventions for files, classes, functions, and variables.
+<!-- legacy-name-allowed -->
 - See also `migration/MAIN.md § 8 Constraint 6`: legacy `spektralia` names MUST NEVER propagate into the new repositories; CI grep gate enforces.
+<!-- /legacy-name-allowed -->
 
 ## Working with specs
 
