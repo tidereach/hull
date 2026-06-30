@@ -29,10 +29,24 @@ unused permissions hierarchy on top.
 
 The single-operator posture is also why the `docs/REPO_SETTINGS.md`
 "Restrict who can push to matching branches" rule lists exactly one
-authorized pusher: `dormant-warlock` at the current repo URL, becoming
-`dotknewt` post the Stage 1 transfer to `tidereach/hull`. The two
-identity strings refer to the same human; the transfer is a GitHub-
-namespace move, not an operator handoff.
+authorized pusher: `dotknewt`, on every `tidereach/*` repo, via the
+`tidereach` org.
+
+**What this means in practice.** [`./REPO_SETTINGS.md § 1`](./REPO_SETTINGS.md)
+ships `required_approving_review_count: 0` and
+`require_code_owner_reviews: false` because GitHub forbids
+self-approval and no second reviewer exists for v1. The authenticity
+gates are signed commits per
+[`../migration/MAIN.md § 7 Decision 10`](../migration/MAIN.md), the
+Rekor transparency log, required linear history, and the required
+status checks listed in [`./CI.md § 2`](./CI.md). Everything those
+gates don't catch is **operator discipline** — a single human's
+commitment to reviewing their own diffs against the gates before
+merging. Single-operator governance reduces to that in practice;
+named explicitly here so the v2 team-permissions design under
+[`../ROADMAP.md`](../ROADMAP.md) item 2 doesn't have to rediscover
+it. See also [`../ROADMAP.md`](../ROADMAP.md) item 5 for the
+contradiction this resolved.
 
 ---
 

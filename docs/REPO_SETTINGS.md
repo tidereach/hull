@@ -22,8 +22,8 @@ exact `job-id` strings under [`../.github/workflows/ci-template.yml`](../.github
 | Rule | Setting | Source |
 |---|---|---|
 | Require pull request before merging | **On** | Decision 11 (squash-only merge requires a PR) |
-| Required approvals | **1** for v1 (single-operator governance) | `docs/GOVERNANCE.md`; bumps when team-permissions are designed |
-| Dismiss stale approvals on new commits | **On** | Standard hygiene |
+| Required approvals | **0** for v1 (single-operator governance — GitHub forbids self-approval and no second reviewer exists; signed commits + Rekor + linear history + required status checks are the authenticity gates per `docs/GOVERNANCE.md § 1`) | `docs/GOVERNANCE.md`; bumps when team-permissions are designed (see `ROADMAP.md` items 2 and 5) |
+| Dismiss stale approvals on new commits | **On** (inert under count=0; left enabled so the v2 unlatch to ≥1 doesn't need to flip this knob too) | Standard hygiene |
 | Require signed commits | **On** | **Decision 10** (gitsign / sigstore via OIDC) |
 | Require status checks to pass before merging | **On** | Decision 11 |
 | Require branches to be up to date before merging | **On** | Avoids merge-state divergence under squash-only |
@@ -32,7 +32,7 @@ exact `job-id` strings under [`../.github/workflows/ci-template.yml`](../.github
 | Required status checks (layer pytest, when present) | `ci / pytest`, `ci / type-check`, `ci / sbom` | Layer-specific |
 | Require linear history | **On** | Decision 11 (squash-only ⇒ history is linear) |
 | Require conversation resolution before merging | **On** | Standard hygiene |
-| Restrict who can push to matching branches | **On** — `dormant-warlock` is the sole authorized pusher at the current `dormant-warlock/spektralia` slug; post the Stage 1 repo transfer to `tidereach/hull`, `dotknewt` is the operator identity with push rights via the `tidereach` org | Decision 19 (single-operator governance) |
+| Restrict who can push to matching branches | **On** — `dotknewt` is the sole authorized pusher on `tidereach/hull` and on every sibling `tidereach/*` repo, via the `tidereach` org | Decision 19 (single-operator governance) |
 | Allow force pushes | **Off** | Decision 10 (signed history must be stable) |
 | Allow deletions | **Off** | Decision 10 |
 
@@ -111,9 +111,9 @@ gh api -X PUT "repos/${ORG}/${REPO}/branches/main/protection" \
   },
   "enforce_admins": true,
   "required_pull_request_reviews": {
-    "required_approving_review_count": 1,
+    "required_approving_review_count": 0,
     "dismiss_stale_reviews": true,
-    "require_code_owner_reviews": true
+    "require_code_owner_reviews": false
   },
   "required_signatures": true,
   "required_linear_history": true,

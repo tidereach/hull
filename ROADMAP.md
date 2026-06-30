@@ -48,13 +48,13 @@ v1 specifies per-hook p95 latency budgets for sieve (500ms PreToolUse, 300ms Pos
 
 ### 5. Single-operator + `required_approving_review_count: 1` merge deadlock
 
-v1 ships `required_approving_review_count: 1` in `docs/REPO_SETTINGS.md § 1` and single-operator governance in `docs/GOVERNANCE.md § 1`. GitHub forbids a PR author from counting toward their own required-approval count, so a single operator cannot merge their own PRs against `main` once the spec is applied. The Stage 1 transfer landed branch protection per spec and surfaced the deadlock immediately — the docs/REPO_SETTINGS.md line-35 post-transfer wording fix (TRANSFER.md § 4.6) is the first PR that hit it.
+v1 originally shipped `required_approving_review_count: 1` in `docs/REPO_SETTINGS.md § 1` paired with single-operator governance in `docs/GOVERNANCE.md § 1`. GitHub forbids a PR author from self-approving, so the spec applied verbatim made every PR unmergeable — surfaced by PR #146 on `tidereach/hull` immediately after the Stage 1 transfer. **Resolved 2026-06-30 by adopting path (a): drop `required_approving_review_count` to 0 and `require_code_owner_reviews` to false; rely on signed commits + Rekor + linear history + required status checks as the authenticity gates.** The discipline-only fallback rationale lives in `docs/GOVERNANCE.md § 1`.
 
-**Why deferred:** the contradiction is in the spec, not the implementation; resolving it requires picking one of three v1 paths and amending the spec — drop the required-review count to 0 (keep signed commits, linear history, and required status checks as the meaningful gates); operate under two accounts so the secondary can self-approve; or relax `enforce_admins` so the single operator can bypass the rule deliberately when needed. Each tradeoff changes what "single-operator governance" actually means in practice; the choice is post-Stage-1 work.
+**Why this resolution.** Two alternatives were considered and rejected. Path (b) — second operator account approving the primary — contradicts `docs/GOVERNANCE.md § 1`'s "`main` accepts commits only from the operator" and grows the spec change rather than shrinking it. Path (c) — relax `enforce_admins` so the operator can bypass branch protection deliberately — turns every merge into an admin bypass and destroys the audit signal distinguishing "passed the gates" from "operator forced through."
 
-**Re-open trigger:** the first PR that needs to merge against `main` of any `tidereach/*` repo under the applied branch protection — already structurally true as of 2026-06-30; the trigger fires the moment that fact becomes blocking.
+**Re-open trigger:** same as item 2 above — first non-operator commit on `main` of any new repo, OR first external PR merged to any of the five repos. When v2 team-permissions design lands under item 2, the count and code-owner-reviews flag bump back up as part of that work.
 
-**Linked:** `docs/REPO_SETTINGS.md § 1` (the 1-approval row); `docs/GOVERNANCE.md § 1` (single-operator posture); `docs/TRANSFER.md § 4.4` (the apply step that surfaced this); resolved-as-deferred 2026-06-30.
+**Linked:** `docs/REPO_SETTINGS.md § 1` (count + code-owner-reviews rows); `docs/GOVERNANCE.md § 1` (discipline-fallback rationale); `docs/TRANSFER.md § 4.4`; PR #146 on `tidereach/hull` (the worked example of the deadlock and its resolution). Resolved 2026-06-30.
 
 ---
 
