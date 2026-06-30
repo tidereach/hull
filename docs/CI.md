@@ -17,12 +17,13 @@ per-PR CI assertions documented here.
 tidereach/hull/.github/workflows/
 ├── legacy-name-guard.yml   ─┐
 ├── betterleaks.yml          │   reusable; called from every layer repo
-├── pr-title-lint.yml        │
-├── signature-verify.yml    ─┘
+└── pr-title-lint.yml       ─┘
 ├── image-sign.yml           ←  airlock-only (consumed from release.yml)
 ├── ci-template.yml          ←  copied verbatim to each layer (becomes ci.yml)
 └── release-template.yml     ←  copied verbatim to image-publishing layers (becomes release.yml)
 ```
+
+> **2026-06-30 amendment.** `signature-verify.yml` was retired (Decision 10 deferred to v2 per `ROADMAP.md` item 8). The file is removed from `.github/workflows/`; the three reusable workflows above are the v1 universal set.
 
 A layer repo references the reusable workflows via:
 
@@ -41,18 +42,20 @@ future image-publishing layer) from its own `release.yml`, not from `ci.yml`.
 
 ---
 
-## 2. The six CI assertions mapped to files
+## 2. The five CI assertions mapped to files
+
+> **2026-06-30 amendment.** Was six assertions; assertion (2) — gitsign signed-commit verification — was retired with the Decision 10 deferral per `ROADMAP.md` item 8. The remaining five renumber down. The gitsign chain documentation in § 4a + § 4b's "Prerequisite: gitsign configured locally" block is preserved in-place but marked deferred; it lights up again when ROADMAP item 8 re-opens.
 
 | Assertion | migration/MAIN.md provenance | Implemented in |
 |---|---|---|
 <!-- legacy-name-allowed -->
 | **(1)** Legacy-name grep gate (zero hits for `[Ss]pektralia\|SPEKTRALIA_\|~/\.spektralia/\|src/spektralia/\|spektralia-` outside exemptions) | § 8 Constraint 6 | [`legacy-name-guard.yml`](../.github/workflows/legacy-name-guard.yml) |
 <!-- /legacy-name-allowed -->
-| **(2)** gitsign signed-commit verification (per-PR pass/fail signal complementing branch protection's "require signed commits") | § 7 Decision 10 | [`signature-verify.yml`](../.github/workflows/signature-verify.yml) + REPO_SETTINGS.md § 1 |
-| **(3)** Squash-and-merge enforcement | § 7 Decision 11 | **Not a workflow** — [REPO_SETTINGS.md § 2](./REPO_SETTINGS.md) |
-| **(4)** cosign keyless image signing + multi-arch + SBOM/provenance attestations (airlock) | § 7 Decision 17 | [`image-sign.yml`](../.github/workflows/image-sign.yml) |
-| **(5)** betterleaks pre-commit + CI secrets scanner (gitleaks successor by the original author; drop-in compatible) | § 7 Decision 18(a), amended 2026-06-30 | [`betterleaks.yml`](../.github/workflows/betterleaks.yml) + [`../.pre-commit-config.yaml`](../.pre-commit-config.yaml); see `ROADMAP.md` item 7 |
-| **(6)** PR-title-lint enforcing Conventional Commits (required because Decision 11 squash-merges the PR title onto `main`) | § 7 Decision 18(b) | [`pr-title-lint.yml`](../.github/workflows/pr-title-lint.yml) |
+| **(2)** Squash-and-merge enforcement | § 7 Decision 11 | **Not a workflow** — [REPO_SETTINGS.md § 2](./REPO_SETTINGS.md) |
+| **(3)** cosign keyless image signing + multi-arch + SBOM/provenance attestations (airlock) | § 7 Decision 17 | [`image-sign.yml`](../.github/workflows/image-sign.yml) (release-artifact signing; not affected by Decision 10 deferral) |
+| **(4)** betterleaks pre-commit + CI secrets scanner (gitleaks successor by the original author; drop-in compatible) | § 7 Decision 18(a), amended 2026-06-30 | [`betterleaks.yml`](../.github/workflows/betterleaks.yml) + [`../.pre-commit-config.yaml`](../.pre-commit-config.yaml); see `ROADMAP.md` item 7 |
+| **(5)** PR-title-lint enforcing Conventional Commits (required because Decision 11 squash-merges the PR title onto `main`) | § 7 Decision 18(b) | [`pr-title-lint.yml`](../.github/workflows/pr-title-lint.yml) |
+| ~~**(was 2)** gitsign signed-commit verification~~ | ~~§ 7 Decision 10~~ | **Deferred 2026-06-30 per `ROADMAP.md` item 8.** `signature-verify.yml` retired; the gitsign chain docs in § 4a + § 4b's "Prerequisite" block remain in this file as parked reference for the re-enable. |
 
 ---
 
@@ -110,11 +113,7 @@ re-run per the maintenance cadence below):
    resolves to.
 3. Commit with `chore(ci): pin third-party actions to SHA`.
 
-**Loose-pin exceptions.** Two pins do not have semver tags upstream and pin
-to `main` HEAD:
-- `chainguard-dev/actions/setup-gitsign` — used by `signature-verify.yml`.
-- (No others as of v1.) When a loose pin exists, the trailing comment names
-  it as "main HEAD as of <YYYY-MM-DD>" so future bumps are reviewable.
+**Loose-pin exceptions.** ~~Two pins do not have semver tags upstream and pin to `main` HEAD:~~ No loose pins as of 2026-06-30 (the prior `chainguard-dev/actions/setup-gitsign` loose pin retired with `signature-verify.yml` per `ROADMAP.md` item 8). When a future loose pin appears, the trailing comment names it as "main HEAD as of <YYYY-MM-DD>" so future bumps are reviewable.
 
 <!-- legacy-name-allowed -->
 **Why SHA pinning matters.** Tag-based pinning (`actions/checkout@v4`)
@@ -206,16 +205,20 @@ cookbook" below.
 
 ### Prerequisite: gitsign configured locally
 
-Before `git tag -s` works, your local git must route signing through gitsign (sigstore). One-time setup per machine:
+> **2026-06-30 amendment.** Commit-side gitsign is deferred per `ROADMAP.md` item 8. This setup remains required for **release-tag signing** (Decision 17 / image-sign cosign chain) — tags that feed `image-sign.yml` still need `git tag -s`. For day-to-day commits, do **not** set `commit.gpgsign true` until ROADMAP item 8 re-opens.
+
+Before `git tag -s` works, your local git must route signing through gitsign (sigstore). One-time setup per machine (tag-only variant — the v1 supported configuration):
 
 ```bash
-git config --global commit.gpgsign true
 git config --global gpg.x509.program gitsign
 git config --global gpg.format x509
 git config --global tag.gpgsign true
+# NOTE: omit `commit.gpgsign true` while ROADMAP item 8 is open.
 ```
 
-The last line is the tag-specific addition that makes `git tag -s` route through gitsign rather than asking for a GPG key. The first sign event triggers an OIDC dance in your browser to authenticate to Fulcio; subsequent signs reuse the short-lived cert until it expires.
+The `tag.gpgsign` line makes `git tag -s` route through gitsign rather than asking for a GPG key. The first sign event triggers an OIDC dance in your browser to authenticate to Fulcio; subsequent signs reuse the short-lived cert until it expires.
+
+When ROADMAP item 8 re-enables commit signing, add `git config --global commit.gpgsign true` to the block above.
 
 ### Create the tag
 
@@ -328,41 +331,29 @@ Two options:
    legacy `.gitleaks.toml`, which betterleaks also accepts) at repo root.
    Keep the allowlist short and reviewed.
 
-### signature-verify reports a commit without a valid signature
+### ~~signature-verify reports a commit without a valid signature~~
 
-The contributor's commits were not signed with gitsign. Fix:
+> **Deferred 2026-06-30 per `ROADMAP.md` item 8.** The `signature-verify.yml` workflow was retired with the Decision 10 deferral. The runbook below is parked for re-enable; it should be treated as v2 reference material until ROADMAP item 8's re-enable trigger fires.
 
-First, ensure gitsign is configured on the contributor's machine — see
-**§ 4b → "Prerequisite: gitsign configured locally"** for the one-time setup.
+<details><summary>Parked runbook (kept for v2 re-enable)</summary>
 
-Then re-sign the existing branch:
+The contributor's commits were not signed with gitsign. Fix: ensure gitsign is configured on the contributor's machine — see **§ 4b → "Prerequisite: gitsign configured locally"** for the one-time setup. Then re-sign the existing branch:
 
 ```bash
 git rebase --exec 'git commit --amend --no-edit -S' main
 git push --force-with-lease
 ```
 
-If gitsign itself fails (Fulcio cert request errors), check that the
-contributor's OIDC chain (GitHub login or `gh auth login`) is intact.
-
-If gitsign fails with a DNS/UDP timeout (common on systemd-resolved), export
-`GODEBUG=netdns=cgo` to switch gitsign's DNS resolver from pure-Go to the
-system NSS resolver:
+If gitsign itself fails (Fulcio cert request errors), check that the contributor's OIDC chain (GitHub login or `gh auth login`) is intact. If gitsign fails with a DNS/UDP timeout (common on systemd-resolved), export `GODEBUG=netdns=cgo` to switch gitsign's DNS resolver from pure-Go to the system NSS resolver:
 
 ```bash
 export GODEBUG=netdns=cgo
 git commit --amend --no-edit  # retry the failing sign
 ```
 
-**Merge commits are skipped.** `signature-verify.yml` calls
-`git rev-list --no-merges` so merge commits don't need a sigstore
-signature. Their content is determined by their (signed) parents,
-which the workflow does verify. In practice this matters when an
-operator clicks GitHub's "Update branch" button — the UI-created
-merge commit carries GitHub's X.509 signature (not Fulcio), which
-gitsign would otherwise reject. To bring a stale PR branch up to
-date without producing a merge commit, prefer `git rebase` or
-`gh pr update-branch --rebase`.
+**Merge commits are skipped.** `signature-verify.yml` called `git rev-list --no-merges` so merge commits did not need a sigstore signature; "Update branch" UI clicks were therefore safe.
+
+</details>
 
 ### image-sign verification failed
 

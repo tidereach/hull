@@ -3,13 +3,16 @@
 # Copy this file to `<layer-repo>/.github/workflows/ci.yml` at repo bootstrap.
 # Uncomment per-layer test jobs as the layer's source tree lands.
 #
-# This template wires the five universal reusable workflows that every layer
+# This template wires the three universal reusable workflows that every layer
 # repo must call (per MAIN.md § 11 Stage 1 deliverables):
 #
 #   1. legacy-name-guard  — MAIN.md § 8 Constraint 6
-#   2. gitleaks           — MAIN.md § 7 Decision 18(a)
+#   2. betterleaks        — MAIN.md § 7 Decision 18(a) (amended 2026-06-30 from gitleaks)
 #   3. pr-title-lint      — MAIN.md § 7 Decision 18(b)
-#   4. signature-verify   — MAIN.md § 7 Decision 10
+#
+# Was four universal workflows; `signature-verify` (Decision 10) was retired
+# 2026-06-30 per ROADMAP item 8 (commit signing deferred to v2). When item 8
+# re-opens, re-add the signature-verify job below.
 #
 # Image signing (Decision 17) is airlock-specific and lives in airlock's
 # `release.yml`, not in this generic ci.yml.
@@ -38,15 +41,12 @@ jobs:
   legacy-name-guard:
     uses: tidereach/hull/.github/workflows/legacy-name-guard.yml@main
 
-  gitleaks:
-    uses: tidereach/hull/.github/workflows/gitleaks.yml@main
+  betterleaks:
+    uses: tidereach/hull/.github/workflows/betterleaks.yml@main
     secrets: inherit
 
   pr-title-lint:
     uses: tidereach/hull/.github/workflows/pr-title-lint.yml@main
-
-  signature-verify:
-    uses: tidereach/hull/.github/workflows/signature-verify.yml@main
 
   # ---------------------------------------------------------------------------
   # Layer-specific jobs follow. Uncomment per the layer's source tree.

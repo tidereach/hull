@@ -42,6 +42,7 @@ Tests & auxiliary:
 
 ## Recent events
 
+- 2026-06-30: **Commit signing deferred to v2** (`ROADMAP.md` item 8 added). `migration/MAIN.md § 7 Decision 10` amended; `signature-verify.yml` retired from hull; `signature-verify / verify` removed from required status checks on hull + interlock branch protection; `ci-template.yml` updated so future layer-repo bootstraps (sieve / arbiter / airlock / drydock) inherit the no-signing default. Re-enable triggers in ROADMAP item 8.
 - 2026-06-30: `audit-envelope/v1.0.0` authored on feature branch in `tidereach/interlock` (contract 3 of 7 in Stage 2 substance)
 - 2026-06-30: B5 smoke test PR #1 included follow-up fix `0b4fc0d` (`pull-requests: read` permission for reusable-workflow callers) — key CI inheritance lesson for cascading workflows
 - 2026-06-30: B5 PR #1 (`chore(ci): B5 smoke test — validate hull reusable-workflow inheritance`) squash-merged `8eed140`; all five status checks pass
