@@ -37,6 +37,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -46,9 +47,8 @@ jobs:
   legacy-name-guard:
     uses: ./.github/workflows/legacy-name-guard.yml
 
-  gitleaks:
-    uses: ./.github/workflows/gitleaks.yml
-    secrets: inherit
+  betterleaks:
+    uses: ./.github/workflows/betterleaks.yml
 
   pr-title-lint:
     uses: ./.github/workflows/pr-title-lint.yml

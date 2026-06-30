@@ -1,0 +1,116 @@
+# Reusable workflow: betterleaks
+#
+# Enforces MAIN.md § 7 Decision 18(a), as amended 2026-06-30: the secrets
+# scanner is betterleaks (the original gitleaks author's successor; drop-in
+# compatible with gitleaks rules, config, and CLI flags; MIT). Replaced
+# gitleaks-action because the latter requires a free-but-required
+# org-license signup whose friction contradicted the spec's claim that the
+# license was optional for orgs.
+#
+# Scan scope:
+#   - On pull_request: scan only the PR commit range (base..head).
+#   - On push to main: scan only the just-pushed range (before..after).
+#
+# Both scopes exclude unreachable / sibling-branch history (e.g.,
+# tidereach/hull's archive/pre-migration) by design — the gate runs against
+# what lands on main and what new contributors propose, not the historical
+# archive that was intentionally kept and accepted under MAIN.md § 11
+# Stage 1.
+#
+# Consumer usage (from a layer repo `.github/workflows/ci.yml`):
+#
+#   jobs:
+#     betterleaks:
+#       uses: tidereach/hull/.github/workflows/betterleaks.yml@main
+#
+# Hull invokes via local path (`./.github/workflows/betterleaks.yml`) from
+# its own `ci.yml`; see `docs/CI.md § 1` for the inheritance model.
+
+name: betterleaks
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: betterleaks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    env:
+      BL_VERSION: v1.6.0
+      BL_TAG_SHA: 6475f3fe49bf893d7713cd501131176a051f8d10
+      BL_ASSET: betterleaks_1.6.0_linux_x64.tar.gz
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2 — see docs/CI.md "Pinning"
+        with:
+          fetch-depth: 0
+
+      - name: Install betterleaks (pinned tag + checksum-verified)
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd /tmp
+
+          # 1. Verify the published tag still points at the pinned commit
+          #    SHA. Protects against a tag force-push between release and
+          #    install.
+          ACTUAL_TAG_SHA=$(curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            "https://api.github.com/repos/betterleaks/betterleaks/commits/${BL_VERSION}" \
+            | jq -r '.sha')
+          if [[ "${ACTUAL_TAG_SHA}" != "${BL_TAG_SHA}" ]]; then
+            echo "::error::betterleaks ${BL_VERSION} tag points at ${ACTUAL_TAG_SHA}, expected ${BL_TAG_SHA}. Tag may have been force-pushed; abort."
+            exit 1
+          fi
+
+          # 2. Download asset + checksums.txt; verify the asset's SHA-256.
+          curl -fsSL -O "https://github.com/betterleaks/betterleaks/releases/download/${BL_VERSION}/${BL_ASSET}"
+          curl -fsSL -O "https://github.com/betterleaks/betterleaks/releases/download/${BL_VERSION}/checksums.txt"
+          grep " ${BL_ASSET}\$" checksums.txt | sha256sum -c -
+
+          # 3. Install.
+          tar xzf "${BL_ASSET}" betterleaks
+          chmod +x betterleaks
+          sudo mv betterleaks /usr/local/bin/
+          betterleaks version
+
+      - name: Determine commit range
+        id: range
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+            RANGE="${BASE}..${HEAD}"
+          else
+            # push: scan the just-pushed range. On force-push or new branch
+            # the `before` field is all-zeros; scan from the new HEAD alone.
+            BEFORE="${{ github.event.before }}"
+            AFTER="${{ github.event.after }}"
+            if [[ "${BEFORE}" == "0000000000000000000000000000000000000000" ]]; then
+              RANGE="${AFTER}"
+            else
+              RANGE="${BEFORE}..${AFTER}"
+            fi
+          fi
+          echo "range=${RANGE}" >> "$GITHUB_OUTPUT"
+          echo "Scanning range: ${RANGE}"
+
+      - name: Run betterleaks
+        shell: bash
+        env:
+          RANGE: ${{ steps.range.outputs.range }}
+        run: |
+          set -euo pipefail
+          betterleaks git . --log-opts="${RANGE}" --redact --no-banner

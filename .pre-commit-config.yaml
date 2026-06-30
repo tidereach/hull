@@ -1,7 +1,7 @@
 # Canonical pre-commit baseline for all tidereach/* repos.
 #
 # Mirrors the CI assertions per MAIN.md § 7 Decision 18:
-#   - gitleaks    — secrets scanner, also the CI gate (Decision 18(a))
+#   - betterleaks — secrets scanner, also the CI gate (Decision 18(a), amended 2026-06-30 to switch from gitleaks)
 #   - hygiene set — trailing whitespace, EOF newline, YAML/TOML syntax, large files
 #   - uv-lock     — lockfile-freshness check for Python layer repos
 #   - mypy        — per-layer type check (each layer pins its own mypy via pyproject)
@@ -24,11 +24,14 @@
 repos:
   # -------------------------------------------------------------------------
   # Decision 18(a) — secrets scanner; same tool as CI for parity.
+  # Amended 2026-06-30: switched from gitleaks to betterleaks (the original
+  # gitleaks author's successor; drop-in compatible; MIT; no org-license
+  # signup). See ROADMAP.md item 7 for the abandonment-risk tracker.
   # -------------------------------------------------------------------------
-  - repo: https://github.com/gitleaks/gitleaks
-    rev: 83d9cd684c87d95d656c1458ef04895a7f1cbd8e  # v8.30.1 — see docs/CI.md "Pinning"
+  - repo: https://github.com/betterleaks/betterleaks
+    rev: 6475f3fe49bf893d7713cd501131176a051f8d10  # v1.6.0 — see docs/CI.md "Pinning"
     hooks:
-      - id: gitleaks
+      - id: betterleaks
 
   # -------------------------------------------------------------------------
   # Hygiene baseline — keeps diffs clean and catches malformed configs early.

@@ -16,7 +16,7 @@ per-PR CI assertions documented here.
 ```
 tidereach/hull/.github/workflows/
 ├── legacy-name-guard.yml   ─┐
-├── gitleaks.yml             │   reusable; called from every layer repo
+├── betterleaks.yml          │   reusable; called from every layer repo
 ├── pr-title-lint.yml        │
 ├── signature-verify.yml    ─┘
 ├── image-sign.yml           ←  airlock-only (consumed from release.yml)
@@ -51,7 +51,7 @@ future image-publishing layer) from its own `release.yml`, not from `ci.yml`.
 | **(2)** gitsign signed-commit verification (per-PR pass/fail signal complementing branch protection's "require signed commits") | § 7 Decision 10 | [`signature-verify.yml`](../.github/workflows/signature-verify.yml) + REPO_SETTINGS.md § 1 |
 | **(3)** Squash-and-merge enforcement | § 7 Decision 11 | **Not a workflow** — [REPO_SETTINGS.md § 2](./REPO_SETTINGS.md) |
 | **(4)** cosign keyless image signing + multi-arch + SBOM/provenance attestations (airlock) | § 7 Decision 17 | [`image-sign.yml`](../.github/workflows/image-sign.yml) |
-| **(5)** gitleaks pre-commit + CI secrets scanner | § 7 Decision 18(a) | [`gitleaks.yml`](../.github/workflows/gitleaks.yml) + [`../.pre-commit-config.yaml`](../.pre-commit-config.yaml) |
+| **(5)** betterleaks pre-commit + CI secrets scanner (gitleaks successor by the original author; drop-in compatible) | § 7 Decision 18(a), amended 2026-06-30 | [`betterleaks.yml`](../.github/workflows/betterleaks.yml) + [`../.pre-commit-config.yaml`](../.pre-commit-config.yaml); see `ROADMAP.md` item 7 |
 | **(6)** PR-title-lint enforcing Conventional Commits (required because Decision 11 squash-merges the PR title onto `main`) | § 7 Decision 18(b) | [`pr-title-lint.yml`](../.github/workflows/pr-title-lint.yml) |
 
 ---
@@ -68,7 +68,7 @@ pre-commit install
 
 The baseline hooks include:
 
-- `gitleaks` — same scanner as the CI job, runs locally before commit
+- `betterleaks` — same scanner as the CI job, runs locally before commit (amended 2026-06-30 from `gitleaks`; the betterleaks pre-commit hook ID is `betterleaks`, drop-in for the old `gitleaks` hook)
 - `pre-commit-hooks` hygiene set — trailing whitespace, EOF newline, YAML/TOML/JSON validity, large-file check, merge-conflict marker, line-ending normalization
 - `astral-sh/uv-pre-commit` — `uv-lock` checks that `uv.lock` is in sync with `pyproject.toml`
 - `mirrors-mypy` — commented in the canonical baseline; uncommented per layer once `src/` lands. Each layer pins its own mypy version via its `pyproject.toml`.
@@ -317,13 +317,15 @@ greenfield with no legacy references. The workflow file itself also
 self-skips (`.github/workflows/legacy-name-guard.yml` is excluded from its
 own scan) because its documentation contains the pattern by necessity.
 
-### gitleaks flagged a false positive
+### betterleaks flagged a false positive
 
 Two options:
 
-1. Add a `gitleaks:allow` comment on the offending line (the action respects it).
-2. Add a `[allowlist]` entry in `.gitleaks.toml` at repo root. Keep the
-   allowlist short and reviewed.
+1. Add a `betterleaks:allow` (or the legacy `gitleaks:allow`) comment on
+   the offending line; betterleaks honors both.
+2. Add a `[[rules.allowlists]]` entry in `.betterleaks.toml` (or the
+   legacy `.gitleaks.toml`, which betterleaks also accepts) at repo root.
+   Keep the allowlist short and reviewed.
 
 ### signature-verify reports a commit without a valid signature
 
@@ -479,7 +481,7 @@ for the full allowed-prefix list.
 | Bump pinned action SHAs | Monthly or after upstream security advisory | `pre-commit autoupdate` + per-action SHA resolve; open a PR per repo |
 | Promote hull's reusable workflows to a tagged release | When hull's workflow surface changes shape (input/output bumps) | Tag hull `v1.x.0`; open consumer PRs bumping `@main` to `@v1.x.0` |
 | Audit branch protection rules for drift | Quarterly | See `REPO_SETTINGS.md § 5` (drift detection script) |
-| Review gitleaks allowlist for staleness | Every release | Walk `.gitleaks.toml` allowlist entries; remove obsolete ones |
+| Review betterleaks allowlist for staleness | Every release | Walk `.betterleaks.toml` (or legacy `.gitleaks.toml`) allowlist entries; remove obsolete ones |
 
 ---
 

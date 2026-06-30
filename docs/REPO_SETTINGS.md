@@ -27,7 +27,7 @@ exact `job-id` strings under [`../.github/workflows/ci-template.yml`](../.github
 | Require signed commits | **Off** — GitHub's native verifier rejects sigstore Fulcio certs (`reason: bad_cert`); the `signature-verify / verify` required-status-check is the canonical Decision 10 gate, running `gitsign verify` against Rekor. See `ROADMAP.md` item 6. | **Decision 10** (gitsign / sigstore via OIDC) |
 | Require status checks to pass before merging | **On** | Decision 11 |
 | Require branches to be up to date before merging | **On** | Avoids merge-state divergence under squash-only |
-| Required status checks (every repo) | `legacy-name-guard / grep-gate`, `gitleaks / scan`, `pr-title-lint / lint`, `signature-verify / verify` | Decisions 18(a), 18(b), 10, and Constraint 6 |
+| Required status checks (every repo) | `legacy-name-guard / grep-gate`, `betterleaks / scan`, `pr-title-lint / lint`, `signature-verify / verify` | Decisions 18(a), 18(b), 10, and Constraint 6 |
 | Required status checks (airlock only, release.yml) | `image-sign / build-sign-attest` | Decision 17 |
 | Required status checks (layer pytest, when present) | `ci / pytest`, `ci / type-check`, `ci / sbom` | Layer-specific |
 | Require linear history | **On** | Decision 11 (squash-only ⇒ history is linear) |
@@ -104,7 +104,7 @@ gh api -X PUT "repos/${ORG}/${REPO}/branches/main/protection" \
     "strict": true,
     "contexts": [
       "legacy-name-guard / grep-gate",
-      "gitleaks / scan",
+      "betterleaks / scan",
       "pr-title-lint / lint",
       "signature-verify / verify"
     ]
