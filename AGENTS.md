@@ -2,7 +2,7 @@
 
 Main branch contains only migration planning specs. The migration is a greenfield rebuild per `migration/MAIN.md § 8` Constraint 1 — no source is copied forward from any prior implementation.
 
-**Status (2026-06-30):** Stage 1 complete. Repo lives at `tidereach/hull` (public). Branch protection applied per `docs/REPO_SETTINGS.md § 1` (amended — see `ROADMAP.md` items 5 + 6). Remaining Stage 1 gate items: `docs/BLUEPAPER.md`, `docs/JETTISON.md`.
+**Status (2026-06-30):** Stage 1 complete. Repo lives at `tidereach/hull` (public). Branch protection applied per `docs/REPO_SETTINGS.md § 1` (amended — see `ROADMAP.md` items 5 + 6). BLUEPAPER and JETTISON ship as templates (`docs/BLUEPAPER_TEMPLATE.md`, `docs/JETTISON_TEMPLATE.md`) per the **template-first acceptance** rule added to `migration/MAIN.md § 11 Stage 1`; each scaffold names its graduation condition (interlock Stage 2 minimum for JETTISON; Stage 2+ architecture stabilization for BLUEPAPER). The full docs replace the templates when each named condition is met.
 
 ## Files
 
@@ -33,6 +33,8 @@ Main branch contains only migration planning specs. The migration is a greenfiel
 - `docs/INSTALL.md` — system-level install guide for the assembled five-repo stack. Skeleton; content fills as each layer's Stage release lands.
 - `docs/TROUBLESHOOT.md` — symptoms-to-diagnosis index for the assembled stack. Skeleton; populated as live incidents surface failure modes.
 - `docs/TRANSFER.md` — Stage 1 org-transfer runbook with pre-transfer audit findings inline. Historical reference now that the transfer is done; useful as a template if any layer repo migrates from another origin.
+- `docs/BLUEPAPER_TEMPLATE.md` — scaffold for the eventual `docs/BLUEPAPER.md` (5–10 page architectural distillation per Decision 12). Graduates when Stage 2+ implementation stabilizes; see the template's "When to graduate" header.
+- `docs/JETTISON_TEMPLATE.md` — scaffold for the eventual `docs/JETTISON.md` (policy-module rule-authoring + baseline guide). Graduates when interlock Stage 2 ships the policy module + baseline rules.
 
 ## Commands
 
