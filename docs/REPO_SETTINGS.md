@@ -156,9 +156,109 @@ Diff the output against this doc when changing operator handoff.
 
 ---
 
-## 6. Cross-references
+## 6. Merge queue
+
+Enabled on `tidereach/hull` and `tidereach/interlock` 2026-06-30 as the backstop for the "main moved while my PR was waiting" race. The primary fix for parallel-PR merge conflicts is per-PR-dir discipline (`interlock/contracts/AGENTS.md`) and the dedicated-chore-PR rule for `STATE.md` (`AGENTS.md § STATE.md update mechanics`); the queue catches what slips through (rebase-onto-new-main race; pending non-required checks; CI flake re-test).
+
+### What the queue does
+
+1. PR opens; CI runs against the PR head against the PR base (current behaviour, unchanged).
+2. When the operator clicks **Merge when ready**, the PR enters the queue rather than merging immediately.
+3. GitHub creates a temporary `gh-readonly-queue/main/pr-<N>-<sha>` branch that rebases the PR onto current main.
+4. The three required status checks (`legacy-name-guard / grep-gate`, `betterleaks / scan`, `pr-title-lint / lint`) re-run against the rebased commit.
+5. If green, the squash-merge lands on main automatically. Next PR in queue advances and re-runs.
+6. If the rebase produces a conflict OR a check fails, the PR is removed from the queue with a notification; the author rebases the branch and re-adds.
+
+This does NOT auto-resolve adjacent-line conflicts — it surfaces them at queue time instead of at the PR's merge button. The per-PR-dir + chore-PR discipline upstream of this catches those before the queue ever sees them.
+
+### Enable via the GitHub UI (operator action, easiest path)
+
+Per repo (`hull`, `interlock`, and any future `sieve` / `arbiter` / `airlock` / `drydock`):
+
+1. Repo Settings → **Branches** → next to `main`, click **Edit**
+2. Scroll to **Require merge queue** → check the box
+3. Set **Merge method**: **Squash** (matches Decision 11; the queue must match the repo's general merge mode or PRs will fail to enter)
+4. Set **Build concurrency**: **1** (the queue builds and merges one PR at a time; raise later if PR volume grows)
+5. **Maximum entries to merge**: **5** (cap on a single merge group's size; conservative for v1's low PR rate)
+6. **Maximum entries to merge wait time**: **5 minutes** (how long to wait collecting entries before merging the group)
+7. **Required checks for merge queue**: leave defaulted to the existing required status checks; the queue re-runs them against the rebased commit
+8. **Save changes**
+
+The first time you click **Merge when ready** on a PR, the queue spins up and processes it within a minute on the low-volume v1 cadence.
+
+### Enable via `gh` CLI / API
+
+GitHub's merge queue is configured via the Rulesets API rather than the classic branch-protection PATCH endpoint. The minimal POST body:
+
+```bash
+ENABLE_MERGE_QUEUE() {
+  local REPO="$1"  # e.g., hull
+  gh api -X POST "repos/tidereach/${REPO}/rulesets" \
+    -H "Accept: application/vnd.github+json" \
+    --input - <<'JSON'
+{
+  "name": "merge-queue-main",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] }
+  },
+  "rules": [
+    {
+      "type": "merge_queue",
+      "parameters": {
+        "check_response_timeout_minutes": 60,
+        "grouping_strategy": "ALLGREEN",
+        "max_entries_to_build": 5,
+        "max_entries_to_merge": 5,
+        "merge_method": "SQUASH",
+        "min_entries_to_merge": 1,
+        "min_entries_to_merge_wait_minutes": 5
+      }
+    }
+  ]
+}
+JSON
+}
+
+ENABLE_MERGE_QUEUE hull
+ENABLE_MERGE_QUEUE interlock
+```
+
+After enabling, verify with:
+
+```bash
+gh api repos/tidereach/hull/rulesets --jq '.[] | select(.name=="merge-queue-main") | {name, enforcement, target}'
+gh api repos/tidereach/interlock/rulesets --jq '.[] | select(.name=="merge-queue-main") | {name, enforcement, target}'
+```
+
+### Disable / amend
+
+Remove the ruleset entirely:
+
+```bash
+gh api repos/tidereach/${REPO}/rulesets --jq '.[] | select(.name=="merge-queue-main") | .id' \
+  | xargs -I {} gh api -X DELETE "repos/tidereach/${REPO}/rulesets/{}"
+```
+
+Or amend a single parameter by PUTting the updated ruleset to its existing ID:
+
+```bash
+RULESET_ID=$(gh api repos/tidereach/${REPO}/rulesets --jq '.[] | select(.name=="merge-queue-main") | .id')
+gh api -X PUT "repos/tidereach/${REPO}/rulesets/${RULESET_ID}" --input <new-body.json>
+```
+
+### Why a Ruleset and not classic branch protection
+
+Classic branch protection's `merge_queue` field is poorly documented and varies across the REST API surface. The Rulesets API is GitHub's stated direction for branch-level rules and exposes merge queue as a first-class rule type with a complete parameter schema. The classic branch protection rules on `main` (the three required status checks; linear history; no force-pushes) stay in place via `§ 4`'s apply script and are not affected by the ruleset.
+
+---
+
+## 7. Cross-references
 
 - [`../migration/MAIN.md` § 7 Decision 10](../migration/MAIN.md) — commit signing (deferred to v2 per `ROADMAP.md` item 8, 2026-06-30)
+- [`../AGENTS.md § STATE.md update mechanics`](../AGENTS.md) — the dedicated-chore-PR rule for STATE.md (2026-06-30)
+- [`../AGENTS.md § Merge queue`](../AGENTS.md) — operator path for merging a PR through the queue
 - [`../migration/MAIN.md` § 7 Decision 11](../migration/MAIN.md) — squash-and-merge
 - [`../migration/MAIN.md` § 7 Decision 17](../migration/MAIN.md) — cosign image signing
 - [`../migration/MAIN.md` § 7 Decision 18](../migration/MAIN.md) — gitleaks + PR-title-lint
