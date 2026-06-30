@@ -4,7 +4,7 @@ Operator docs under `docs/`. All are human-authored; no generated content.
 
 ## Files
 
-- `docs/CI.md` — operator overview of the CI infrastructure (inheritance model, the six assertions, pinning, troubleshooting, maintenance). Canonical home for pre-commit install (`§ 3`), gitsign setup (`§ 4b → "Prerequisite: gitsign configured locally"`), and troubleshooting runbooks (`§ 5`).
+- `docs/CI.md` — operator overview of the CI infrastructure (inheritance model, the five assertions (amended 2026-06-30 from six; signature-verify retired per `ROADMAP.md` item 8), pinning, troubleshooting, maintenance). Canonical home for pre-commit install (`§ 3`), tag-only gitsign setup for release artifacts (`§ 4b → "Prerequisite: gitsign configured locally"`; tag-only because commit signing is deferred), and troubleshooting runbooks (`§ 5`; the `signature-verify` runbook is parked as v2 reference).
 - `docs/REPO_SETTINGS.md` — operator cookbook for GitHub repo-side rules (branch protection, merge strategy, OIDC) per `migration/MAIN.md § 7` Decisions 10, 11, 17, 18, 19. `§ 4` has the canonical `gh api` apply script.
 - `docs/GOVERNANCE.md` — v1 single-operator posture, CODEOWNERS convention, re-open trigger; cites Decision 19.
 - `docs/INSTALL.md` — system-level install guide for the assembled five-repo stack. Skeleton; content fills as each layer's Stage release lands.

@@ -2,12 +2,15 @@
 #
 # Distinct from `ci-template.yml`, which is the consumer-side template that
 # layer repos copy at bootstrap. This file wires hull's `main` branch up to
-# the same four assertions every layer repo runs, so the required status
+# the same three assertions every layer repo runs, so the required status
 # checks declared in `docs/REPO_SETTINGS.md § 1` have real producers on
 # `tidereach/hull` (without it, branch protection's required contexts pend
 # forever — that's the second half of the ROADMAP item #5 resolution).
 #
-# Hull invokes the four reusable workflows via the local-path notation
+# Was four assertions; `signature-verify` was retired 2026-06-30 per
+# `ROADMAP.md` item 8 (commit signing deferred to v2).
+#
+# Hull invokes the three reusable workflows via the local-path notation
 # (`./.github/workflows/<name>.yml`) rather than the
 # `tidereach/hull/.github/workflows/<name>.yml@main` URL that layer repos
 # use. Two reasons:
@@ -19,7 +22,7 @@
 #   2. Avoids a chicken-and-egg dependency on hull being reachable from
 #      GitHub Actions at every CI run.
 #
-# Layer repos see no difference; they continue to consume the four
+# Layer repos see no difference; they continue to consume the three
 # reusable workflows via the `tidereach/hull/...@main` URL per
 # `docs/CI.md § 1`.
 #
@@ -52,6 +55,3 @@ jobs:
 
   pr-title-lint:
     uses: ./.github/workflows/pr-title-lint.yml
-
-  signature-verify:
-    uses: ./.github/workflows/signature-verify.yml
