@@ -1,0 +1,57 @@
+# hull's own ci.yml
+#
+# Distinct from `ci-template.yml`, which is the consumer-side template that
+# layer repos copy at bootstrap. This file wires hull's `main` branch up to
+# the same four assertions every layer repo runs, so the required status
+# checks declared in `docs/REPO_SETTINGS.md § 1` have real producers on
+# `tidereach/hull` (without it, branch protection's required contexts pend
+# forever — that's the second half of the ROADMAP item #5 resolution).
+#
+# Hull invokes the four reusable workflows via the local-path notation
+# (`./.github/workflows/<name>.yml`) rather than the
+# `tidereach/hull/.github/workflows/<name>.yml@main` URL that layer repos
+# use. Two reasons:
+#
+#   1. A PR that modifies a reusable workflow is tested by that PR's own
+#      run — the workflow change is visible to its own CI in the same
+#      commit. The URL form would always test the `@main` version, which
+#      defeats the test.
+#   2. Avoids a chicken-and-egg dependency on hull being reachable from
+#      GitHub Actions at every CI run.
+#
+# Layer repos see no difference; they continue to consume the four
+# reusable workflows via the `tidereach/hull/...@main` URL per
+# `docs/CI.md § 1`.
+#
+# Hull is docs-only; there is no pytest / mypy / sbom job here. When that
+# changes, append per the patterns in `ci-template.yml`.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  legacy-name-guard:
+    uses: ./.github/workflows/legacy-name-guard.yml
+
+  gitleaks:
+    uses: ./.github/workflows/gitleaks.yml
+    secrets: inherit
+
+  pr-title-lint:
+    uses: ./.github/workflows/pr-title-lint.yml
+
+  signature-verify:
+    uses: ./.github/workflows/signature-verify.yml
