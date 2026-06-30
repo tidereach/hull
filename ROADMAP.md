@@ -46,6 +46,16 @@ v1 specifies per-hook p95 latency budgets for sieve (500ms PreToolUse, 300ms Pos
 
 **Linked:** sieve latency budgets live in `migration/layer1_sieve.md`; resolved-as-deferred 2026-06-29.
 
+### 5. Single-operator + `required_approving_review_count: 1` merge deadlock
+
+v1 ships `required_approving_review_count: 1` in `docs/REPO_SETTINGS.md § 1` and single-operator governance in `docs/GOVERNANCE.md § 1`. GitHub forbids a PR author from counting toward their own required-approval count, so a single operator cannot merge their own PRs against `main` once the spec is applied. The Stage 1 transfer landed branch protection per spec and surfaced the deadlock immediately — the docs/REPO_SETTINGS.md line-35 post-transfer wording fix (TRANSFER.md § 4.6) is the first PR that hit it.
+
+**Why deferred:** the contradiction is in the spec, not the implementation; resolving it requires picking one of three v1 paths and amending the spec — drop the required-review count to 0 (keep signed commits, linear history, and required status checks as the meaningful gates); operate under two accounts so the secondary can self-approve; or relax `enforce_admins` so the single operator can bypass the rule deliberately when needed. Each tradeoff changes what "single-operator governance" actually means in practice; the choice is post-Stage-1 work.
+
+**Re-open trigger:** the first PR that needs to merge against `main` of any `tidereach/*` repo under the applied branch protection — already structurally true as of 2026-06-30; the trigger fires the moment that fact becomes blocking.
+
+**Linked:** `docs/REPO_SETTINGS.md § 1` (the 1-approval row); `docs/GOVERNANCE.md § 1` (single-operator posture); `docs/TRANSFER.md § 4.4` (the apply step that surfaced this); resolved-as-deferred 2026-06-30.
+
 ---
 
 ## Entry format for new items
