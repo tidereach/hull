@@ -336,6 +336,7 @@ The contributor's commits were not signed with gitsign. Fix:
 git config --global commit.gpgsign true
 git config --global gpg.x509.program gitsign
 git config --global gpg.format x509
+git config --global tag.gpgsign true
 
 # Re-sign the existing branch:
 git rebase --exec 'git commit --amend --no-edit -S' main
@@ -344,6 +345,16 @@ git push --force-with-lease
 
 If gitsign itself fails (Fulcio cert request errors), check that the
 contributor's OIDC chain (GitHub login or `gh auth login`) is intact.
+
+**Merge commits are skipped.** `signature-verify.yml` calls
+`git rev-list --no-merges` so merge commits don't need a sigstore
+signature. Their content is determined by their (signed) parents,
+which the workflow does verify. In practice this matters when an
+operator clicks GitHub's "Update branch" button — the UI-created
+merge commit carries GitHub's X.509 signature (not Fulcio), which
+gitsign would otherwise reject. To bring a stale PR branch up to
+date without producing a merge commit, prefer `git rebase` or
+`gh pr update-branch --rebase`.
 
 ### image-sign verification failed
 
