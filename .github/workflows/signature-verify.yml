@@ -7,8 +7,14 @@
 # carry a valid Fulcio cert chain in the Rekor transparency log.
 #
 # Behavior:
-#   - On pull_request: verify every commit in the PR's range.
-#   - On push to main: verify HEAD (the just-merged squash commit per Decision 11).
+#   - PR-time only: verifies every non-merge commit in the PR's base..head range.
+#
+# Why not push-to-main: per Decision 11, main only receives squash-merge
+# commits authored by GitHub itself; those carry GitHub's X.509 signature
+# (not Fulcio/sigstore) and would always fail gitsign verification. The
+# `verify` job below gates itself with `if: github.event_name == 'pull_request'`
+# so consumers can wire this workflow unconditionally. Branch protection's
+# "require signed commits" rule is the primary enforcement on main.
 #
 # Failure prints the offending commit SHA + cert subject so the operator can
 # either re-sign and force-push the branch, or audit the chain.
@@ -54,6 +60,11 @@ concurrency:
 
 jobs:
   verify:
+    # No-op on non-PR events (e.g. push to main); the workflow exists so
+    # consumers can wire it unconditionally without `if:` plumbing. Mirrors
+    # the pr-title-lint pattern. See header for why push-time verification
+    # is not run.
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     env:
       # Accept the two OIDC issuers that Decision 10 covers:
@@ -82,14 +93,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            BASE="${{ github.event.pull_request.base.sha }}"
-            HEAD="${{ github.event.pull_request.head.sha }}"
-            echo "range=${BASE}..${HEAD}" >> "$GITHUB_OUTPUT"
-          else
-            # push to main: verify just the new commit.
-            echo "range=HEAD~1..HEAD" >> "$GITHUB_OUTPUT"
+          # Defense in depth: the job-level `if:` above already skips this
+          # on non-PR events, but if a future maintainer removes that gate
+          # we still want to fail loudly rather than silently verify the
+          # wrong range — push-to-main HEAD is a GitHub-signed squash
+          # commit and would never satisfy gitsign verification.
+          if [[ "${GITHUB_EVENT_NAME}" != "pull_request" ]]; then
+            echo "::error::signature-verify must be invoked on pull_request events only (got: ${GITHUB_EVENT_NAME})."
+            exit 1
           fi
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+          echo "range=${BASE}..${HEAD}" >> "$GITHUB_OUTPUT"
 
       - name: Verify gitsign signatures across range (non-merge commits only)
         shell: bash
