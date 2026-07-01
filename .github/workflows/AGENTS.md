@@ -25,3 +25,8 @@ These three job ids must match what `docs/REPO_SETTINGS.md § 4`'s apply script 
 | ~~`signature-verify.yml`~~ | ~~`verify`~~ (retired 2026-06-30 per `ROADMAP.md` item 8) |
 
 If you rename a job id in a workflow, update `REPO_SETTINGS.md § 4` and re-run the apply script; GitHub's branch protection won't auto-update.
+
+## Authoring patterns
+
+- **PR-only gates go at the job level inside the reusable workflow**, not on the consumer's `jobs.<name>:` block. Use `if: github.event_name == 'pull_request'` on the job in the reusable `.yml`; consumers (`ci.yml` / `ci-template.yml`) wire it unconditionally. Established by `pr-title-lint.yml`.
+- **Secrets scanner is `betterleaks`, not `gitleaks`.** PR #149 switched after `gitleaks-action` v2 required a free-but-required org-license signup. Drop-in compatible at the rule + config level (`.gitleaks.toml` still accepted as fallback). Abandonment risk: `ROADMAP.md` item 7; fallback path is the `gitleaks` binary directly.
