@@ -76,69 +76,27 @@ fires; when it does, the gitsign row above is restored and the
 
 ## 4. Apply script (`gh` CLI)
 
-Run once per repo at bootstrap. Replace `<repo>` with each of
-`hull`, `interlock`, `sieve`, `arbiter`, `airlock`, `drydock`.
+Run once per repo at bootstrap. The canonical implementation lives in
+[`../scripts/apply-branch-protection.sh`](../scripts/apply-branch-protection.sh)
+(also the source the `/apply-branch-protection` command and the
+`cross-repo-consistency-auditor` subagent's drift check run against, via
+`--dry-run` — single source of truth, no separate copy to keep in sync).
 
 > **v1 inheritance note (2026-06-30).** This script is the canonical source for new layer-repo branch protection. It deliberately does NOT include `signature-verify / verify` in `required_status_checks.contexts`, and `required_signatures: false`. Commit signing is deferred to v2 per `ROADMAP.md` item 8. Do not add the signature-verify context when standing up a new repo; the re-add touchpoints are enumerated in ROADMAP item 8 and fire only when its re-enable trigger is met.
 
 ```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-ORG="tidereach"
-REPO="$1"  # e.g. interlock
-
-# --- General settings ----------------------------------------------------
-gh api -X PATCH "repos/${ORG}/${REPO}" \
-  -F default_branch=main \
-  -F allow_merge_commit=false \
-  -F allow_squash_merge=true \
-  -F allow_rebase_merge=false \
-  -F squash_merge_commit_title=PR_TITLE \
-  -F squash_merge_commit_message=PR_BODY \
-  -F delete_branch_on_merge=true \
-  -F has_wiki=false \
-  -F has_issues=true \
-  -F has_discussions=false
-
-# --- Branch protection on main ------------------------------------------
-# Required status checks must match the job-ids in .github/workflows/ci.yml.
-# v1 contexts: legacy-name-guard, betterleaks, pr-title-lint.
-# signature-verify is intentionally absent (Decision 10 deferred; ROADMAP item 8).
-gh api -X PUT "repos/${ORG}/${REPO}/branches/main/protection" \
-  --input - <<'JSON'
-{
-  "required_status_checks": {
-    "strict": true,
-    "contexts": [
-      "legacy-name-guard / grep-gate",
-      "betterleaks / scan",
-      "pr-title-lint / lint"
-    ]
-  },
-  "enforce_admins": true,
-  "required_pull_request_reviews": {
-    "required_approving_review_count": 0,
-    "dismiss_stale_reviews": true,
-    "require_code_owner_reviews": false
-  },
-  "required_signatures": false,
-  "required_linear_history": true,
-  "required_conversation_resolution": true,
-  "allow_force_pushes": false,
-  "allow_deletions": false,
-  "restrictions": null
-}
-JSON
-
-echo "Applied settings to ${ORG}/${REPO}."
+./scripts/apply-branch-protection.sh <repo>              # e.g. interlock
+./scripts/apply-branch-protection.sh <repo> --dry-run     # print the branch-protection JSON without applying it
+./scripts/apply-branch-protection.sh airlock --sign-repo   # airlock and future image-publishing layers: appends the image-sign required check
 ```
 
-For **airlock**, append `"image-sign / build-sign-attest"` to the `contexts`
-array (the image-sign workflow only runs on `airlock`).
+Replace `<repo>` with each of `hull`, `interlock`, `sieve`, `arbiter`,
+`airlock`, `drydock`. v1 required-status-check contexts: `legacy-name-guard`,
+`betterleaks`, `pr-title-lint` (`signature-verify` is intentionally absent —
+Decision 10 deferred; ROADMAP item 8).
 
 For layer repos with `pytest`/`mypy`/`sbom` jobs, append those job-ids to the
-`contexts` array as the source tree lands.
+`contexts` array in the script as the source tree lands.
 
 ---
 

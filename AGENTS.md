@@ -27,16 +27,6 @@ See `STATE.md` for current stage progress and point-in-time status.
 **Signing setup** — commit signing is **deferred to v2** per `ROADMAP.md` item 8 (2026-06-30). Day-to-day commits don't require gitsign; `git commit` works without `-S`. The `signature-verify.yml` workflow is retired. **Tag signing for release artifacts (Decision 17 image-sign chain) is not affected** — see `docs/CI.md § 4b "Prerequisite: gitsign configured locally"` for the tag-only gitsign config when cutting a release. When ROADMAP item 8 re-opens, the original commit-signing setup is restored via the steps listed in that item's "Re-enable touches" line.
 
 
-## Project code standards
-
-Layer names (`interlock`, `sieve`, `arbiter`, `airlock`, `jettison`, `hull`, `drydock`) may be rejected by stakeholders. Keep code resilient to a layer rename — the doc-level name is one search-and-replace away, but a Python identifier or env var carrying a layer name is a breaking change for consumers.
-
-- Use layer names in **documentation** as memorable handles for the layers.
-- Avoid using layer names in **code**. Instead use descriptive, best-practice naming conventions for files, classes, functions, and variables.
-<!-- legacy-name-allowed -->
-- See also `migration/MAIN.md § 8 Constraint 6`: legacy `spektralia` names MUST NEVER propagate into the new repositories; CI grep gate enforces.
-<!-- /legacy-name-allowed -->
-
 ## Live operator gotchas (post-Stage-1)
 
 - **Branch protection's `required_status_checks` lists three contexts** (`legacy-name-guard / grep-gate`, `betterleaks / scan`, `pr-title-lint / lint`). `ci.yml` produces all three on every PR; the gates are in steady state. The `signature-verify / verify` context was removed 2026-06-30 per `ROADMAP.md` item 8 (commit signing deferred to v2). Don't bump `required_approving_review_count` back to 1 without amending governance (re-introduces the single-operator deadlock); don't flip `required_signatures` back to `true` without resolving ROADMAP items 6 and 8 (GitHub UI doesn't accept Fulcio certs; commit signing is parked anyway).

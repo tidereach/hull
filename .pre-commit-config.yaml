@@ -61,6 +61,17 @@ repos:
       - id: uv-lock
 
   # -------------------------------------------------------------------------
+  # Legacy-name grep gate — same script as the legacy-name-guard CI workflow
+  # (MAIN.md § 8 Constraint 6). Published from hull itself via
+  # .pre-commit-hooks.yaml so every tidereach/* repo (including hull) pins
+  # the identical hook definition — no drift between CI and pre-commit.
+  # -------------------------------------------------------------------------
+  - repo: https://github.com/tidereach/hull
+    rev: REPLACE_AFTER_PR1_MERGES  # pin to the merge SHA of this PR — see docs/CI.md "Pinning"
+    hooks:
+      - id: legacy-name-guard
+
+  # -------------------------------------------------------------------------
   # mypy — per-layer pyproject configures the actual mypy version and target.
   # Layer repos UNCOMMENT this block in their copy of the file once a
   # `src/` tree exists. hull (meta) has no Python source; the block stays

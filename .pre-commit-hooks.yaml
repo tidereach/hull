@@ -1,0 +1,17 @@
+# Hooks published from tidereach/hull for consumption by every tidereach/*
+# repo's .pre-commit-config.yaml (same pattern as consuming any third-party
+# pre-commit-hooks repo — see docs/CI.md § 1 "Inheritance model").
+#
+# Consumer usage:
+#
+#   - repo: https://github.com/tidereach/hull
+#     rev: <pinned-sha>  # see docs/CI.md "Pinning"
+#     hooks:
+#       - id: legacy-name-guard
+
+- id: legacy-name-guard
+  name: legacy-name-guard
+  entry: scripts/legacy_name_guard.py
+  language: script
+  types: [text]
+  exclude: '^(CHANGELOG\.md|migration/|\.git/)'
