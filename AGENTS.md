@@ -26,7 +26,6 @@ See `STATE.md` for current stage progress and point-in-time status.
 
 **Signing setup** — commit signing is **deferred to v2** per `ROADMAP.md` item 8 (2026-06-30). Day-to-day commits don't require gitsign; `git commit` works without `-S`. The `signature-verify.yml` workflow is retired. **Tag signing for release artifacts (Decision 17 image-sign chain) is not affected** — see `docs/CI.md § 4b "Prerequisite: gitsign configured locally"` for the tag-only gitsign config when cutting a release. When ROADMAP item 8 re-opens, the original commit-signing setup is restored via the steps listed in that item's "Re-enable touches" line.
 
-**Release-artifact signing (Decision 17 cosign / image-sign chain) is NOT deferred.** Image-publishing repos (currently airlock) still consume `image-sign.yml` from their `release.yml` on `v*` tag push, and the `image-sign / build-sign-attest` required status check is added to airlock's branch protection per `docs/REPO_SETTINGS.md § 1` row "Required status checks (airlock only, release.yml)". Tag-signing setup (the gitsign config) for the operator's local machine remains documented at `docs/CI.md § 4b "Prerequisite: gitsign configured locally"` — but the tag-only variant (only `tag.gpgsign=true`, NOT `commit.gpgsign=true`).
 
 ## Project code standards
 
