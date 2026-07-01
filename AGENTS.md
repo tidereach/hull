@@ -58,3 +58,32 @@ To stand up a new `tidereach/*` layer repo (sieve, arbiter, airlock, drydock, or
 `AGENTS.md` is the north star for stable project decisions: architecture, code standards, file roles, operator gotchas. It changes infrequently and is checked into git.
 
 `STATE.md` is a session bookmark for point-in-time tracking: current stage, recent PR outcomes, in-flight work. The `state-keeper` subagent (`instruction-management` plugin) maintains it. Read `STATE.md` at the start of any session touching stage progress or branch-protection state.
+
+## STATE.md update mechanics (the standing rule)
+
+**`STATE.md` updates ship in dedicated chore-PRs, never bundled with feature work.** Established 2026-06-30 after two adjacent-line merge conflicts in one session (hull #157 vs #158 and the same shape on interlock #3 vs #4). The root cause is the same as the contracts/README.md status-table problem: shared aggregate files that every PR edits hit git's line-based merge limit when two PRs edit nearby content, even when the edits are semantically independent.
+
+What this means in practice:
+
+| Scenario | Do |
+|---|---|
+| Feature PR (new contract, doc rewrite, CI change, etc.) | Touch ONLY the feature-relevant files. Do NOT update STATE.md in the same PR, even if state-keeper offers to. |
+| STATE.md is out of date because feature work landed | Open a dedicated `chore(state): roll <range>` PR. Single file change (STATE.md only). Squash-merges cleanly because nothing else touches the file. |
+| state-keeper agent run | Direct it to write to STATE.md as the only file. If the session has uncommitted feature work, finish that PR first, then run state-keeper. |
+| Several PRs landed in a batch | One state-roll PR covers the batch. State-keeper aggregates the Recent events rather than each feature PR adding its own line. |
+
+This rule is durable for the same reason the per-PR-dir contract discipline (`interlock/contracts/AGENTS.md`) is durable: it eliminates the shared mutable surface that line-based merge can't reconcile. No infra needed — the discipline IS the fix.
+
+**Implication for state-keeper**: invoke the agent with explicit instructions to touch ONLY `STATE.md`, never AGENTS.md or feature files, even when it surfaces "candidate" learnings. Surface those candidates back as a separate recommendation, not as in-line edits.
+
+## Merge queue (the backstop)
+
+Merge queue is enabled on `tidereach/hull` and `tidereach/interlock` (2026-06-30) as the second-line defense for the "main moved out from under my PR" race. It does NOT auto-resolve adjacent-line conflicts (the per-PR-dir + chore-PR discipline above is the primary fix for those), but it does catch the "PR-was-mergeable-when-CI-passed-but-main-moved-since" gap by re-rebasing each PR onto the latest main at queue time and re-running required checks.
+
+Operator path to merge a PR under merge queue:
+1. Click **Merge when ready** (the merge queue's button — replaces "Squash and merge")
+2. GitHub adds the PR to the queue, rebases it onto current main, re-runs `legacy-name-guard / grep-gate`, `betterleaks / scan`, `pr-title-lint / lint` against the rebased commit
+3. If green, the queue performs the squash-merge automatically
+4. If the rebase produces a conflict OR a check fails, the PR is kicked out of the queue with a notification; rebase manually and re-add
+
+See `docs/REPO_SETTINGS.md § 6` for the enablement steps and current configuration parameters.
