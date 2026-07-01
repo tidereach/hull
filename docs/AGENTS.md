@@ -10,6 +10,7 @@ Operator docs under `docs/`. All are human-authored; no generated content.
 - `docs/INSTALL.md` — system-level install guide for the assembled five-repo stack. Skeleton; content fills as each layer's Stage release lands.
 - `docs/TROUBLESHOOT.md` — symptoms-to-diagnosis index for the assembled stack. Skeleton; populated as live incidents surface failure modes.
 - `docs/TRANSFER.md` — Stage 1 org-transfer runbook with pre-transfer audit findings inline. Historical reference; useful as a template if any layer repo migrates from another origin.
+- `docs/BOOTSTRAP.md` — hull-canonical defaults table for bootstrapping new layer repos (sieve, arbiter, airlock, drydock). Branch protection, CI, pre-commit, CODEOWNERS, signing posture.
 - `docs/BLUEPAPER_TEMPLATE.md` — scaffold for the eventual `docs/BLUEPAPER.md` (5–10 page architectural distillation per Decision 12). Graduates when Stage 2+ implementation stabilizes; see the template's "When to graduate" header.
 - `docs/JETTISON_TEMPLATE.md` — scaffold for the eventual `docs/JETTISON.md` (policy-module rule-authoring + baseline guide). Graduates when interlock Stage 2 ships the policy module + baseline rules.
 
