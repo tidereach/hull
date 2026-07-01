@@ -73,6 +73,7 @@ python3 -m venv .venv
 The baseline hooks include:
 
 - `betterleaks` — same scanner as the CI job, runs locally before commit (amended 2026-06-30 from `gitleaks`; the betterleaks pre-commit hook ID is `betterleaks`, drop-in for the old `gitleaks` hook)
+- `legacy-name-guard` — same scanner as the legacy-name-guard CI job (`scripts/legacy_name_guard.py`), published from hull's own `.pre-commit-hooks.yaml` so every consumer (including hull) pins the identical hook — no drift between CI and pre-commit
 - `pre-commit-hooks` hygiene set — trailing whitespace, EOF newline, YAML/TOML/JSON validity, large-file check, merge-conflict marker, line-ending normalization
 - `astral-sh/uv-pre-commit` — `uv-lock` checks that `uv.lock` is in sync with `pyproject.toml`
 - `mirrors-mypy` — commented in the canonical baseline; uncommented per layer once `src/` lands. Each layer pins its own mypy version via its `pyproject.toml`.
